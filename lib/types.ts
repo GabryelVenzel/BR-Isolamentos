@@ -23,7 +23,7 @@ export interface Cliente {
   criado_por: string | null;
 }
 
-export type TipoTrabalho = "quente" | "frio";
+export type TipoTrabalho = "quente" | "frio" | "misto";
 export type Geometria = "plana" | "tubulacao";
 export type StatusOrcamento =
   | "rascunho"
@@ -32,11 +32,15 @@ export type StatusOrcamento =
   | "aceito"
   | "rejeitado";
 
-export interface Orcamento {
+/**
+ * Um "trecho" técnico dentro de um orçamento (ex.: linha de vapor quente + linha de
+ * água gelada no mesmo projeto = 2 itens). Um orçamento sempre tem 1+ itens; quando
+ * todos têm o mesmo tipo_trabalho, o orçamento herda esse tipo — senão é "misto".
+ */
+export interface ItemOrcamento {
   id: number;
-  numero: string;
-  cliente_id: number;
-  data_criacao: string;
+  orcamento_id: number;
+  ordem: number;
   tipo_trabalho: TipoTrabalho;
 
   // Especificações técnicas
@@ -68,6 +72,17 @@ export interface Orcamento {
   vedacao_pu: number | null;
   vedacit_un: number | null;
 
+  // Custo de materiais só deste item
+  valor_materiais: number;
+}
+
+export interface Orcamento {
+  id: number;
+  numero: string;
+  cliente_id: number;
+  data_criacao: string;
+  tipo_trabalho: TipoTrabalho;
+
   // Financeiro
   valor_materiais: number;
   valor_mao_obra: number;
@@ -75,11 +90,11 @@ export interface Orcamento {
   valor_hospedagem: number;
   valor_frete: number;
   subtotal: number;
-  valor_iss: number;
-  valor_inss: number;
+  detalhamento_impostos: ItemDetalhamentoImposto[];
   total_impostos: number;
   margem_lucro: number;
   valor_desconto: number;
+  preco_cheio: number;
   valor_final: number;
 
   // Status
@@ -91,6 +106,7 @@ export interface Orcamento {
 
   // Preenchido via join, opcional
   cliente?: Cliente;
+  itens?: ItemOrcamento[];
 }
 
 export type TipoMaterialPreco =
@@ -112,6 +128,9 @@ export interface PrecoConfig {
   ultima_atualizacao: string;
 }
 
+export type RegimeTributario = "simples_nacional" | "lucro_presumido" | "personalizado";
+export type AnexoSimplesNacional = "III" | "IV";
+
 export interface ConfigEmpresa {
   id: number;
   nome_empresa: string;
@@ -119,8 +138,17 @@ export interface ConfigEmpresa {
   telefone_empresa: string | null;
   cnpj: string | null;
 
-  aliquota_iss_percentual: number;
-  aliquota_inss_percentual: number;
+  // Regime tributário — define como o percentual de impostos "base" é calculado.
+  // Impostos extras (opcionais, variam por contrato) ficam em `impostos_config`.
+  regime_tributario: RegimeTributario;
+  // Usado só quando regime_tributario === "simples_nacional". Anexo IV é o padrão do
+  // sistema (mais próximo de serviço de instalação/engenharia) — CONFIRMAR COM O
+  // CONTADOR, pode variar conforme a atividade exata contratada.
+  simples_nacional_anexo: AnexoSimplesNacional;
+  // Receita bruta dos últimos 12 meses (RBT12), usada na fórmula oficial do Simples
+  // Nacional. Enquanto for 0, o cálculo de orçamento bloqueia com aviso.
+  simples_nacional_rbt12: number;
+
   margem_lucro_padrao: number;
   desconto_competitivo: number;
 
@@ -132,6 +160,16 @@ export interface ConfigEmpresa {
   // Assunção documentada: gramas de Vedacit consumidos por junta de vedação P.U.
   // Não há esse dado nas planilhas originais — validar com a operação real.
   vedacit_gramas_por_junta: number;
+}
+
+/** Imposto/taxa adicional configurável livremente (ex.: INSS retido em cessão de mão
+ * de obra), somado por cima do percentual "base" do regime tributário. */
+export interface ImpostoConfig {
+  id: number;
+  nome: string;
+  percentual: number;
+  ativo: boolean;
+  ordem: number;
 }
 
 export interface MaterialIsolante {
@@ -178,10 +216,13 @@ export interface CalcularTermicoInput {
 }
 
 export type CombustivelTipo =
-  | "oleo_bpf"
+  | "vapor"
+  | "eletricidade"
   | "gas_natural"
-  | "lenha_eucalipto"
-  | "eletricidade";
+  | "glp"
+  | "oleo_diesel"
+  | "oleo_bpf"
+  | "lenha_eucalipto";
 
 export interface CalcularTermicoResultadoQuente {
   temperatura_face_fria: number;
@@ -226,11 +267,18 @@ export interface CalcularOrcamentoInput {
   quantificacao: QuantificarResultado;
   precos: PrecoConfig[];
   config: ConfigEmpresa;
+  impostosExtras: ImpostoConfig[];
   horas_mao_obra: number;
   km_deslocamento: number;
   noites_hospedagem: number;
   toneladas_frete: number;
   desconto_percentual_extra?: number;
+}
+
+export interface ItemDetalhamentoImposto {
+  nome: string;
+  percentual: number;
+  valor: number;
 }
 
 export interface CalcularOrcamentoResultado {
@@ -240,11 +288,13 @@ export interface CalcularOrcamentoResultado {
   valor_hospedagem: number;
   valor_frete: number;
   subtotal: number;
-  valor_iss: number;
-  valor_inss: number;
+  detalhamento_impostos: ItemDetalhamentoImposto[];
   total_impostos: number;
+  percentual_impostos: number;
   margem_lucro: number;
+  percentual_margem: number;
   valor_desconto: number;
+  preco_cheio: number;
   valor_final: number;
   detalhamento_materiais: Array<{
     tipo: TipoMaterialPreco;

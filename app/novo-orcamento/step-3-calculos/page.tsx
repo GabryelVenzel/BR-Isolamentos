@@ -4,7 +4,8 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWizardStore } from "@/lib/store";
 import { calcularPerimetroTubulacao } from "@/lib/quantificador";
-import { formatarNumero } from "@/lib/format";
+import { detalharValorMateriais } from "@/lib/orcamento";
+import { formatarMoeda, formatarNumero } from "@/lib/format";
 import TableMateriais from "@/components/TableMateriais";
 import type {
   Acabamento,
@@ -18,13 +19,16 @@ import type {
 export default function Step3CalculosPage() {
   const router = useRouter();
   const {
-    especificacoes,
-    resultadoTermicoQuente,
-    resultadoTermicoFrio,
-    quantificacao,
-    setResultadoTermicoQuente,
-    setResultadoTermicoFrio,
-    setQuantificacao,
+    itemAtual: especificacoes,
+    resultadoTermicoQuenteAtual: resultadoTermicoQuente,
+    resultadoTermicoFrioAtual: resultadoTermicoFrio,
+    quantificacaoAtual: quantificacao,
+    setResultadoAtualQuente,
+    setResultadoAtualFrio,
+    setQuantificacaoAtual,
+    confirmarItemAtual,
+    itens,
+    removerItem,
   } = useWizardStore();
 
   const [materiais, setMateriais] = useState<MaterialIsolante[]>([]);
@@ -50,6 +54,7 @@ export default function Step3CalculosPage() {
 
   const material = materiais.find((m) => m.id === especificacoes.material_id);
   const acabamento = acabamentos.find((a) => a.id === especificacoes.acabamento_id);
+  const valorMateriaisAtual = quantificacao ? detalharValorMateriais(quantificacao, precos).total : 0;
 
   async function calcular() {
     if (!material || !config) return;
@@ -95,11 +100,11 @@ export default function Step3CalculosPage() {
       let espessuraParaQuantificar = espessuraTotalMm;
 
       if (especificacoes.tipo_trabalho === "quente") {
-        setResultadoTermicoQuente(dadosTermico);
-        setResultadoTermicoFrio(null);
+        setResultadoAtualQuente(dadosTermico);
+        setResultadoAtualFrio(null);
       } else {
-        setResultadoTermicoFrio(dadosTermico);
-        setResultadoTermicoQuente(null);
+        setResultadoAtualFrio(dadosTermico);
+        setResultadoAtualQuente(null);
         espessuraParaQuantificar = dadosTermico.espessura_minima_mm ?? espessuraTotalMm;
       }
 
@@ -131,12 +136,25 @@ export default function Step3CalculosPage() {
         return;
       }
 
-      setQuantificacao(dadosQuant);
+      setQuantificacaoAtual(dadosQuant);
     } catch {
       setErro("Erro de conexão ao calcular.");
     } finally {
       setCalculando(false);
     }
+  }
+
+  function adicionarOutroTrecho() {
+    if (!material || !quantificacao) return;
+    confirmarItemAtual(material.nome, acabamento?.nome ?? null, valorMateriaisAtual);
+    router.push("/novo-orcamento/step-2-especificacoes");
+  }
+
+  function irParaPrecos() {
+    if (material && quantificacao) {
+      confirmarItemAtual(material.nome, acabamento?.nome ?? null, valorMateriaisAtual);
+    }
+    router.push("/novo-orcamento/step-4-precos");
   }
 
   const temResultado = resultadoTermicoQuente || resultadoTermicoFrio;
@@ -149,6 +167,22 @@ export default function Step3CalculosPage() {
           Resolução iterativa conforme ASTM C680 / ISO 12241 / ABNT NBR 16281.
         </p>
       </div>
+
+      {itens.length > 0 && (
+        <div className="card space-y-2">
+          <h2 className="text-sm font-semibold text-gray-600">Trechos já adicionados</h2>
+          {itens.map((item, index) => (
+            <div key={index} className="flex items-center justify-between text-sm">
+              <span>
+                {index + 1}. {item.materialNome} ({item.especificacoes.tipo_trabalho}) — {formatarMoeda(item.valorMateriais)}
+              </span>
+              <button type="button" className="text-xs text-red-500 hover:underline" onClick={() => removerItem(index)}>
+                remover
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
 
       <div className="card">
         <button type="button" className="btn-primary" onClick={calcular} disabled={calculando || !material}>
@@ -207,12 +241,13 @@ export default function Step3CalculosPage() {
 
       {quantificacao && (
         <div className="space-y-3">
-          <h2 className="text-lg font-semibold">Quantificação de materiais</h2>
+          <h2 className="text-lg font-semibold">Quantificação de materiais deste trecho</h2>
           <TableMateriais quantificacao={quantificacao} />
+          <p className="text-sm text-gray-500">Custo de materiais deste trecho: {formatarMoeda(valorMateriaisAtual)}</p>
         </div>
       )}
 
-      <div className="flex justify-between">
+      <div className="flex flex-wrap justify-between gap-3">
         <button
           type="button"
           className="btn-secondary"
@@ -220,14 +255,19 @@ export default function Step3CalculosPage() {
         >
           ← Voltar
         </button>
-        <button
-          type="button"
-          className="btn-primary"
-          disabled={!temResultado || !quantificacao}
-          onClick={() => router.push("/novo-orcamento/step-4-precos")}
-        >
-          Próximo →
-        </button>
+        <div className="flex gap-3">
+          <button type="button" className="btn-secondary" disabled={!temResultado || !quantificacao} onClick={adicionarOutroTrecho}>
+            + Adicionar outro trecho
+          </button>
+          <button
+            type="button"
+            className="btn-primary"
+            disabled={(!temResultado || !quantificacao) && itens.length === 0}
+            onClick={irParaPrecos}
+          >
+            Ir para preços →
+          </button>
+        </div>
       </div>
     </div>
   );

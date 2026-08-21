@@ -6,13 +6,16 @@ import type { Acabamento, CombustivelTipo, MaterialIsolante } from "@/lib/types"
 
 const COMBUSTIVEIS: Array<{ value: CombustivelTipo; label: string }> = [
   { value: "eletricidade", label: "Eletricidade (kWh)" },
-  { value: "oleo_bpf", label: "Óleo BPF (kg)" },
+  { value: "vapor", label: "Vapor (ton)" },
   { value: "gas_natural", label: "Gás Natural (m³)" },
-  { value: "lenha_eucalipto", label: "Lenha Eucalipto 30% umidade (ton)" },
+  { value: "glp", label: "GLP (kg)" },
+  { value: "oleo_diesel", label: "Óleo Diesel (L)" },
+  { value: "oleo_bpf", label: "Óleo Combustível BPF (kg)" },
+  { value: "lenha_eucalipto", label: "Lenha de Eucalipto (ton)" },
 ];
 
 export default function FormEspecificacoes() {
-  const { especificacoes, setEspecificacoes } = useWizardStore();
+  const { itemAtual: especificacoes, setItemAtual: setEspecificacoes } = useWizardStore();
   const [materiais, setMateriais] = useState<MaterialIsolante[]>([]);
   const [acabamentos, setAcabamentos] = useState<Acabamento[]>([]);
 

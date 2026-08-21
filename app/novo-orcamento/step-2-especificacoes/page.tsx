@@ -6,7 +6,7 @@ import { useWizardStore } from "@/lib/store";
 
 export default function Step2EspecificacoesPage() {
   const router = useRouter();
-  const { clienteSelecionado, especificacoes } = useWizardStore();
+  const { clienteSelecionado, itemAtual: especificacoes, itens } = useWizardStore();
 
   const valido =
     especificacoes.material_id !== null &&
@@ -17,14 +17,24 @@ export default function Step2EspecificacoesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold">2. Especificações técnicas</h1>
-        <p className="text-sm text-gray-500">Material, temperaturas, geometria e camadas de isolante.</p>
+        <h1 className="text-xl font-bold">2. Especificações técnicas {itens.length > 0 && `— trecho ${itens.length + 1}`}</h1>
+        <p className="text-sm text-gray-500">
+          Material, temperaturas, geometria e camadas de isolante deste trecho.
+          {itens.length > 0 &&
+            " Um orçamento pode ter vários trechos (ex.: quente + frio no mesmo projeto = orçamento misto)."}
+        </p>
       </div>
 
       {!clienteSelecionado && (
         <p className="rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-700">
           Selecione um cliente no passo anterior antes de continuar.
         </p>
+      )}
+
+      {itens.length > 0 && (
+        <div className="rounded-lg bg-accent-light px-4 py-2 text-sm text-accent-dark">
+          {itens.length} trecho(s) já adicionado(s) a este orçamento.
+        </div>
       )}
 
       <FormEspecificacoes />

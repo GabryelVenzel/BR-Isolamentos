@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { calcularOrcamento } from "@/lib/orcamento";
+import { calcularOrcamento, OrcamentoConfigError } from "@/lib/orcamento";
 import type { CalcularOrcamentoInput } from "@/lib/types";
 
 export async function POST(request: Request) {
@@ -12,6 +12,13 @@ export async function POST(request: Request) {
     );
   }
 
-  const resultado = calcularOrcamento(input);
-  return NextResponse.json(resultado);
+  try {
+    const resultado = calcularOrcamento(input);
+    return NextResponse.json(resultado);
+  } catch (error) {
+    if (error instanceof OrcamentoConfigError) {
+      return NextResponse.json({ error: error.message }, { status: 422 });
+    }
+    return NextResponse.json({ error: "Erro ao calcular orçamento." }, { status: 500 });
+  }
 }

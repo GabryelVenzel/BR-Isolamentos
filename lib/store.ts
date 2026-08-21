@@ -1,6 +1,12 @@
 // Estado do wizard "Novo Orçamento", compartilhado entre as rotas
 // step-1-cliente .. step-5-revisao (cada step é uma rota real do App
 // Router; o Zustand é o que preserva os dados ao navegar entre elas).
+//
+// Um orçamento pode ter vários "itens" (trechos técnicos independentes — ex.: linha de
+// vapor quente + linha de água gelada no mesmo projeto = orçamento "misto"). O usuário
+// preenche especificações + calcula um item por vez (`itemAtual`); ao confirmar, o item
+// vai para a lista `itens` e o formulário limpa para o próximo trecho (ou segue pro
+// próximo step, se só houver um).
 
 "use client";
 
@@ -37,6 +43,16 @@ export interface WizardEspecificacoes {
   dias_operacao_semana: number;
 }
 
+export interface WizardItem {
+  especificacoes: WizardEspecificacoes;
+  materialNome: string;
+  acabamentoNome: string | null;
+  resultadoTermicoQuente: CalcularTermicoResultadoQuente | null;
+  resultadoTermicoFrio: CalcularTermicoResultadoFrio | null;
+  quantificacao: QuantificarResultado;
+  valorMateriais: number;
+}
+
 export interface WizardCustosOperacionais {
   horas_mao_obra: number;
   km_deslocamento: number;
@@ -47,24 +63,30 @@ export interface WizardCustosOperacionais {
 
 interface WizardState {
   clienteSelecionado: Cliente | null;
-  especificacoes: WizardEspecificacoes;
+  itens: WizardItem[];
+
+  // Rascunho do item em edição (step-2/step-3)
+  itemAtual: WizardEspecificacoes;
+  resultadoTermicoQuenteAtual: CalcularTermicoResultadoQuente | null;
+  resultadoTermicoFrioAtual: CalcularTermicoResultadoFrio | null;
+  quantificacaoAtual: QuantificarResultado | null;
+
   custosOperacionais: WizardCustosOperacionais;
-  resultadoTermicoQuente: CalcularTermicoResultadoQuente | null;
-  resultadoTermicoFrio: CalcularTermicoResultadoFrio | null;
-  quantificacao: QuantificarResultado | null;
   resultadoOrcamento: CalcularOrcamentoResultado | null;
 
   setCliente: (cliente: Cliente | null) => void;
-  setEspecificacoes: (dados: Partial<WizardEspecificacoes>) => void;
+  setItemAtual: (dados: Partial<WizardEspecificacoes>) => void;
+  setResultadoAtualQuente: (resultado: CalcularTermicoResultadoQuente | null) => void;
+  setResultadoAtualFrio: (resultado: CalcularTermicoResultadoFrio | null) => void;
+  setQuantificacaoAtual: (resultado: QuantificarResultado | null) => void;
+  confirmarItemAtual: (materialNome: string, acabamentoNome: string | null, valorMateriais: number) => void;
+  removerItem: (index: number) => void;
   setCustosOperacionais: (dados: Partial<WizardCustosOperacionais>) => void;
-  setResultadoTermicoQuente: (resultado: CalcularTermicoResultadoQuente | null) => void;
-  setResultadoTermicoFrio: (resultado: CalcularTermicoResultadoFrio | null) => void;
-  setQuantificacao: (resultado: QuantificarResultado | null) => void;
   setResultadoOrcamento: (resultado: CalcularOrcamentoResultado | null) => void;
   reset: () => void;
 }
 
-const especificacoesIniciais: WizardEspecificacoes = {
+const itemAtualInicial: WizardEspecificacoes = {
   tipo_trabalho: "quente",
   material_id: null,
   acabamento_id: null,
@@ -96,33 +118,69 @@ export const useWizardStore = create<WizardState>()(
   persist(
     (set) => ({
       clienteSelecionado: null,
-      especificacoes: especificacoesIniciais,
+      itens: [],
+
+      itemAtual: itemAtualInicial,
+      resultadoTermicoQuenteAtual: null,
+      resultadoTermicoFrioAtual: null,
+      quantificacaoAtual: null,
+
       custosOperacionais: custosOperacionaisIniciais,
-      resultadoTermicoQuente: null,
-      resultadoTermicoFrio: null,
-      quantificacao: null,
       resultadoOrcamento: null,
 
       setCliente: (cliente) => set({ clienteSelecionado: cliente }),
-      setEspecificacoes: (dados) =>
-        set((state) => ({ especificacoes: { ...state.especificacoes, ...dados } })),
+      setItemAtual: (dados) => set((state) => ({ itemAtual: { ...state.itemAtual, ...dados } })),
+      setResultadoAtualQuente: (resultado) => set({ resultadoTermicoQuenteAtual: resultado }),
+      setResultadoAtualFrio: (resultado) => set({ resultadoTermicoFrioAtual: resultado }),
+      setQuantificacaoAtual: (resultado) => set({ quantificacaoAtual: resultado }),
+
+      confirmarItemAtual: (materialNome, acabamentoNome, valorMateriais) =>
+        set((state) => {
+          if (!state.quantificacaoAtual) return state;
+          const novoItem: WizardItem = {
+            especificacoes: state.itemAtual,
+            materialNome,
+            acabamentoNome,
+            resultadoTermicoQuente: state.resultadoTermicoQuenteAtual,
+            resultadoTermicoFrio: state.resultadoTermicoFrioAtual,
+            quantificacao: state.quantificacaoAtual,
+            valorMateriais,
+          };
+          return {
+            itens: [...state.itens, novoItem],
+            itemAtual: itemAtualInicial,
+            resultadoTermicoQuenteAtual: null,
+            resultadoTermicoFrioAtual: null,
+            quantificacaoAtual: null,
+          };
+        }),
+
+      removerItem: (index) => set((state) => ({ itens: state.itens.filter((_, i) => i !== index) })),
+
       setCustosOperacionais: (dados) =>
         set((state) => ({ custosOperacionais: { ...state.custosOperacionais, ...dados } })),
-      setResultadoTermicoQuente: (resultado) => set({ resultadoTermicoQuente: resultado }),
-      setResultadoTermicoFrio: (resultado) => set({ resultadoTermicoFrio: resultado }),
-      setQuantificacao: (resultado) => set({ quantificacao: resultado }),
       setResultadoOrcamento: (resultado) => set({ resultadoOrcamento: resultado }),
+
       reset: () =>
         set({
           clienteSelecionado: null,
-          especificacoes: especificacoesIniciais,
+          itens: [],
+          itemAtual: itemAtualInicial,
+          resultadoTermicoQuenteAtual: null,
+          resultadoTermicoFrioAtual: null,
+          quantificacaoAtual: null,
           custosOperacionais: custosOperacionaisIniciais,
-          resultadoTermicoQuente: null,
-          resultadoTermicoFrio: null,
-          quantificacao: null,
           resultadoOrcamento: null,
         }),
     }),
     { name: "br-isolamentos-wizard" }
   )
 );
+
+/** Tipo de trabalho do orçamento inteiro, derivado dos itens: todos iguais → esse tipo,
+ * senão "misto". */
+export function tipoTrabalhoAgregado(itens: WizardItem[]): TipoTrabalho {
+  const tipos = new Set(itens.map((i) => i.especificacoes.tipo_trabalho));
+  if (tipos.size === 1) return itens[0].especificacoes.tipo_trabalho;
+  return "misto";
+}

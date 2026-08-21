@@ -59,16 +59,17 @@ function LoginForm() {
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label className="label-field" htmlFor="email">
-              Email
+              Usuário
             </label>
             <input
               id="email"
-              type="email"
+              type="text"
               required
               className="input-field"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
+              autoComplete="username"
+              placeholder="BR-ISOLAMENTO"
             />
           </div>
 

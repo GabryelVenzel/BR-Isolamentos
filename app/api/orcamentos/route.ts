@@ -12,7 +12,7 @@ export async function GET(request: Request) {
 
   let query = supabase
     .from("orcamentos")
-    .select("*, cliente:clientes(*)")
+    .select("*, cliente:clientes(*), itens:itens_orcamento(*)")
     .order("criado_em", { ascending: false });
 
   if (status) query = query.eq("status", status);
@@ -35,6 +35,9 @@ export async function POST(request: Request) {
   if (!body?.cliente_id) {
     return NextResponse.json({ error: "Orçamento sem cliente vinculado." }, { status: 400 });
   }
+  if (!Array.isArray(body.itens) || body.itens.length === 0) {
+    return NextResponse.json({ error: "Orçamento precisa de ao menos um item/trecho." }, { status: 400 });
+  }
 
   const {
     data: { user },
@@ -43,15 +46,33 @@ export async function POST(request: Request) {
   const { count } = await supabase.from("orcamentos").select("id", { count: "exact", head: true });
   const numero = `ORC-${new Date().getFullYear()}-${String((count ?? 0) + 1).padStart(4, "0")}`;
 
-  const { data, error } = await supabase
+  const { itens, ...cabecalho } = body;
+
+  const { data: orcamento, error: erroOrcamento } = await supabase
     .from("orcamentos")
-    .insert({ ...body, numero, criado_por: user?.email ?? null })
-    .select("*, cliente:clientes(*)")
+    .insert({ ...cabecalho, numero, criado_por: user?.email ?? null })
+    .select()
     .single();
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (erroOrcamento) {
+    return NextResponse.json({ error: erroOrcamento.message }, { status: 500 });
   }
 
-  return NextResponse.json(data, { status: 201 });
+  const { error: erroItens } = await supabase
+    .from("itens_orcamento")
+    .insert(itens.map((item: Record<string, unknown>) => ({ ...item, orcamento_id: orcamento.id })));
+
+  if (erroItens) {
+    // evita orçamento órfão sem itens
+    await supabase.from("orcamentos").delete().eq("id", orcamento.id);
+    return NextResponse.json({ error: erroItens.message }, { status: 500 });
+  }
+
+  const { data: completo } = await supabase
+    .from("orcamentos")
+    .select("*, cliente:clientes(*), itens:itens_orcamento(*)")
+    .eq("id", orcamento.id)
+    .single();
+
+  return NextResponse.json(completo ?? orcamento, { status: 201 });
 }

@@ -1,77 +1,70 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useWizardStore } from "@/lib/store";
+import { tipoTrabalhoAgregado, useWizardStore } from "@/lib/store";
 import { formatarMoeda } from "@/lib/format";
 import TableMateriais from "@/components/TableMateriais";
-import type { Acabamento, MaterialIsolante, Orcamento } from "@/lib/types";
+import type { ItemOrcamento, Orcamento } from "@/lib/types";
 
 export default function Step5RevisaoPage() {
   const router = useRouter();
-  const {
-    clienteSelecionado,
-    especificacoes,
-    resultadoTermicoQuente,
-    resultadoTermicoFrio,
-    quantificacao,
-    resultadoOrcamento,
-    reset,
-  } = useWizardStore();
+  const { clienteSelecionado, itens, resultadoOrcamento, reset } = useWizardStore();
 
-  const [materiais, setMateriais] = useState<MaterialIsolante[]>([]);
-  const [acabamentos, setAcabamentos] = useState<Acabamento[]>([]);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch("/api/materiais").then((r) => r.json()).then(setMateriais);
-    fetch("/api/acabamentos").then((r) => r.json()).then(setAcabamentos);
-  }, []);
-
-  const material = materiais.find((m) => m.id === especificacoes.material_id);
-  const acabamento = acabamentos.find((a) => a.id === especificacoes.acabamento_id);
-  const espessuraNecessaria =
-    especificacoes.tipo_trabalho === "quente"
-      ? especificacoes.espessuras_mm.reduce((a, b) => a + b, 0)
-      : resultadoTermicoFrio?.espessura_minima_mm ?? 0;
-
-  const completo = clienteSelecionado && material && quantificacao && resultadoOrcamento;
+  const tipoTrabalho = itens.length > 0 ? tipoTrabalhoAgregado(itens) : null;
+  const completo = clienteSelecionado && itens.length > 0 && resultadoOrcamento;
 
   async function salvar(status: Orcamento["status"]) {
-    if (!completo) return;
+    if (!completo || !tipoTrabalho) return;
     setErro(null);
     setSalvando(true);
 
     try {
-      const payload: Partial<Orcamento> = {
+      const itensPayload: Array<Omit<ItemOrcamento, "id" | "orcamento_id">> = itens.map((item, index) => {
+        const espessuraNecessaria =
+          item.especificacoes.tipo_trabalho === "quente"
+            ? item.especificacoes.espessuras_mm.reduce((a, b) => a + b, 0)
+            : item.resultadoTermicoFrio?.espessura_minima_mm ?? 0;
+
+        return {
+          ordem: index,
+          tipo_trabalho: item.especificacoes.tipo_trabalho,
+          material: item.materialNome,
+          acabamento: item.acabamentoNome,
+          temperatura_quente: item.especificacoes.temperatura_quente,
+          temperatura_ambiente: item.especificacoes.temperatura_ambiente,
+          umidade_relativa: item.especificacoes.umidade_relativa,
+          velocidade_vento: item.especificacoes.velocidade_vento_ms,
+          geometria: item.especificacoes.geometria,
+          diametro_mm: item.especificacoes.diametro_mm,
+          area_m2: item.especificacoes.area_m2,
+          perimetro_m: item.especificacoes.perimetro_m,
+
+          espessura_necessaria_mm: espessuraNecessaria,
+          temperatura_face_fria: item.resultadoTermicoQuente?.temperatura_face_fria ?? null,
+          perda_com_isolante: item.resultadoTermicoQuente?.perda_com_isolante_kw_m2 ?? 0,
+          perda_sem_isolante: item.resultadoTermicoQuente?.perda_sem_isolante_kw_m2 ?? 0,
+          economia_anual: item.resultadoTermicoQuente?.financeiro?.economia_anual ?? null,
+          co2_ton_ano: item.resultadoTermicoQuente?.financeiro?.co2_ton_ano ?? null,
+
+          manta_kg: item.quantificacao.manta_kg,
+          chapa_kg: item.quantificacao.chapa_kg,
+          rebites: item.quantificacao.rebites,
+          parafusos: item.quantificacao.parafusos,
+          arame_kg: item.quantificacao.arame_kg,
+          vedacao_pu: item.quantificacao.vedacao_pu,
+          vedacit_un: item.quantificacao.vedacit_un,
+
+          valor_materiais: item.valorMateriais,
+        };
+      });
+
+      const payload = {
         cliente_id: clienteSelecionado!.id,
-        tipo_trabalho: especificacoes.tipo_trabalho,
-        material: material!.nome,
-        acabamento: acabamento?.nome ?? null,
-        temperatura_quente: especificacoes.temperatura_quente,
-        temperatura_ambiente: especificacoes.temperatura_ambiente,
-        umidade_relativa: especificacoes.umidade_relativa,
-        velocidade_vento: especificacoes.velocidade_vento_ms,
-        geometria: especificacoes.geometria,
-        diametro_mm: especificacoes.diametro_mm,
-        area_m2: especificacoes.area_m2,
-        perimetro_m: especificacoes.perimetro_m,
-
-        espessura_necessaria_mm: espessuraNecessaria,
-        temperatura_face_fria: resultadoTermicoQuente?.temperatura_face_fria ?? null,
-        perda_com_isolante: resultadoTermicoQuente?.perda_com_isolante_kw_m2 ?? 0,
-        perda_sem_isolante: resultadoTermicoQuente?.perda_sem_isolante_kw_m2 ?? 0,
-        economia_anual: resultadoTermicoQuente?.financeiro?.economia_anual ?? null,
-        co2_ton_ano: resultadoTermicoQuente?.financeiro?.co2_ton_ano ?? null,
-
-        manta_kg: quantificacao!.manta_kg,
-        chapa_kg: quantificacao!.chapa_kg,
-        rebites: quantificacao!.rebites,
-        parafusos: quantificacao!.parafusos,
-        arame_kg: quantificacao!.arame_kg,
-        vedacao_pu: quantificacao!.vedacao_pu,
-        vedacit_un: quantificacao!.vedacit_un,
+        tipo_trabalho: tipoTrabalho,
 
         valor_materiais: resultadoOrcamento!.valor_materiais,
         valor_mao_obra: resultadoOrcamento!.valor_mao_obra,
@@ -79,14 +72,15 @@ export default function Step5RevisaoPage() {
         valor_hospedagem: resultadoOrcamento!.valor_hospedagem,
         valor_frete: resultadoOrcamento!.valor_frete,
         subtotal: resultadoOrcamento!.subtotal,
-        valor_iss: resultadoOrcamento!.valor_iss,
-        valor_inss: resultadoOrcamento!.valor_inss,
+        detalhamento_impostos: resultadoOrcamento!.detalhamento_impostos,
         total_impostos: resultadoOrcamento!.total_impostos,
         margem_lucro: resultadoOrcamento!.margem_lucro,
         valor_desconto: resultadoOrcamento!.valor_desconto,
+        preco_cheio: resultadoOrcamento!.preco_cheio,
         valor_final: resultadoOrcamento!.valor_final,
 
         status,
+        itens: itensPayload,
       };
 
       const response = await fetch("/api/orcamentos", {
@@ -120,22 +114,35 @@ export default function Step5RevisaoPage() {
         <p>{clienteSelecionado?.nome ?? "—"}</p>
       </div>
 
-      <div className="card space-y-1 text-sm">
-        <h2 className="mb-2 text-lg font-semibold">Especificações</h2>
-        <p>Tipo: {especificacoes.tipo_trabalho === "quente" ? "Quente" : "Frio"}</p>
-        <p>Material: {material?.nome ?? "—"}</p>
-        {acabamento && <p>Acabamento: {acabamento.nome}</p>}
-        <p>Geometria: {especificacoes.geometria === "tubulacao" ? "Tubulação" : "Superfície plana"}</p>
-        <p>Área: {especificacoes.area_m2} m²</p>
-        <p>Espessura necessária: {espessuraNecessaria.toFixed(1)} mm</p>
-      </div>
-
-      {quantificacao && (
-        <div className="space-y-2">
-          <h2 className="text-lg font-semibold">Materiais</h2>
-          <TableMateriais quantificacao={quantificacao} />
+      {tipoTrabalho && (
+        <div className="rounded-lg bg-brand-light px-4 py-2 text-sm text-brand">
+          Tipo de orçamento: <strong>{tipoTrabalho === "misto" ? "Misto (quente + frio)" : tipoTrabalho === "quente" ? "Quente" : "Frio"}</strong>
         </div>
       )}
+
+      {itens.map((item, index) => {
+        const espessuraNecessaria =
+          item.especificacoes.tipo_trabalho === "quente"
+            ? item.especificacoes.espessuras_mm.reduce((a, b) => a + b, 0)
+            : item.resultadoTermicoFrio?.espessura_minima_mm ?? 0;
+
+        return (
+          <div key={index} className="card space-y-3">
+            <h2 className="text-lg font-semibold">
+              Trecho {index + 1} — {item.especificacoes.tipo_trabalho === "quente" ? "Quente" : "Frio"}
+            </h2>
+            <div className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
+              <p>Material: {item.materialNome}</p>
+              {item.acabamentoNome && <p>Acabamento: {item.acabamentoNome}</p>}
+              <p>Geometria: {item.especificacoes.geometria === "tubulacao" ? "Tubulação" : "Superfície plana"}</p>
+              <p>Área: {item.especificacoes.area_m2} m²</p>
+              <p>Espessura necessária: {espessuraNecessaria.toFixed(1)} mm</p>
+              <p>Custo de materiais: {formatarMoeda(item.valorMateriais)}</p>
+            </div>
+            <TableMateriais quantificacao={item.quantificacao} />
+          </div>
+        );
+      })}
 
       {resultadoOrcamento && (
         <div className="card">

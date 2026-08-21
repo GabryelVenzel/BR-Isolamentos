@@ -1,10 +1,24 @@
-// Cálculo financeiro final do orçamento — segue o fluxo do prompt original:
-// materiais -> custos operacionais -> subtotal -> impostos (ISS + INSS)
-// -> margem de lucro -> desconto -> valor final.
+// Cálculo financeiro final do orçamento.
+//
+// Método de precificação: markup divisor (margem e impostos como % do PREÇO DE
+// VENDA, não do custo). É o método padrão de precificação de serviços no Brasil —
+// garante que `margem_lucro_padrao%` seja de fato a margem sobre o valor cobrado do
+// cliente, e não uma margem "inflada" sobre o custo que produz uma margem real menor
+// depois que os impostos (também um % do preço de venda) são descontados:
+//
+//   custoTotal = materiais + mão de obra + deslocamento + hospedagem + frete
+//   percentual = percentualImpostos + percentualMargem   (ambos % do preço de venda)
+//   precoCheio = custoTotal / (1 - percentual/100)
+//   valorImpostos = precoCheio * percentualImpostos/100
+//   margemLucro   = precoCheio * percentualMargem/100
+//   valorDesconto = precoCheio * descontoPercentual/100
+//   valorFinal    = precoCheio - valorDesconto
 
+import { calcularAliquotaSimplesNacional } from "./tributos";
 import type {
   CalcularOrcamentoInput,
   CalcularOrcamentoResultado,
+  ItemDetalhamentoImposto,
   TipoMaterialPreco,
 } from "./types";
 
@@ -13,10 +27,20 @@ function precoPorTipo(precos: CalcularOrcamentoInput["precos"], tipo: TipoMateri
   return preco?.preco_unitario ?? 0;
 }
 
-export function calcularOrcamento(input: CalcularOrcamentoInput): CalcularOrcamentoResultado {
-  const { quantificacao, precos, config, horas_mao_obra, km_deslocamento, noites_hospedagem, toneladas_frete } =
-    input;
+/** Erro esperado (não um bug) — mensagem pronta para mostrar ao usuário. */
+export class OrcamentoConfigError extends Error {}
 
+export interface DetalhamentoMateriais {
+  detalhamento: CalcularOrcamentoResultado["detalhamento_materiais"];
+  total: number;
+}
+
+/** Preço dos materiais para uma quantificação — reutilizado tanto no cálculo do
+ * orçamento completo quanto para estimar o custo de um único item/trecho no wizard. */
+export function detalharValorMateriais(
+  quantificacao: CalcularOrcamentoInput["quantificacao"],
+  precos: CalcularOrcamentoInput["precos"]
+): DetalhamentoMateriais {
   const itens: Array<{ tipo: TipoMaterialPreco; quantidade: number }> = [
     { tipo: "manta", quantidade: quantificacao.manta_kg },
     { tipo: "chapa", quantidade: quantificacao.chapa_kg },
@@ -27,7 +51,7 @@ export function calcularOrcamento(input: CalcularOrcamentoInput): CalcularOrcame
     { tipo: "vedacit", quantidade: quantificacao.vedacit_un },
   ];
 
-  const detalhamentoMateriais = itens.map(({ tipo, quantidade }) => {
+  const detalhamento = itens.map(({ tipo, quantidade }) => {
     const precoUnitario = precoPorTipo(precos, tipo);
     return {
       tipo,
@@ -37,29 +61,75 @@ export function calcularOrcamento(input: CalcularOrcamentoInput): CalcularOrcame
     };
   });
 
-  const valorMateriais = detalhamentoMateriais.reduce((acc, item) => acc + item.total, 0);
+  return { detalhamento, total: detalhamento.reduce((acc, item) => acc + item.total, 0) };
+}
 
-  const valorMaoObra = horas_mao_obra * config.valor_hora_mao_obra;
-  const valorDeslocamento = km_deslocamento * config.valor_km_deslocamento;
-  const valorHospedagem = noites_hospedagem * config.valor_noite_hospedagem;
-  const valorFrete = toneladas_frete * config.valor_frete_por_tonelada;
+export function calcularOrcamento(input: CalcularOrcamentoInput): CalcularOrcamentoResultado {
+  const { quantificacao, precos, config, impostosExtras } = input;
 
-  const subtotal = valorMateriais + valorMaoObra + valorDeslocamento + valorHospedagem + valorFrete;
+  const { detalhamento: detalhamentoMateriais, total: valorMateriais } = detalharValorMateriais(
+    quantificacao,
+    precos
+  );
+  const valorMaoObra = input.horas_mao_obra * config.valor_hora_mao_obra;
+  const valorDeslocamento = input.km_deslocamento * config.valor_km_deslocamento;
+  const valorHospedagem = input.noites_hospedagem * config.valor_noite_hospedagem;
+  const valorFrete = input.toneladas_frete * config.valor_frete_por_tonelada;
 
-  const valorIss = subtotal * (config.aliquota_iss_percentual / 100);
-  const valorInss = subtotal * (config.aliquota_inss_percentual / 100);
-  const totalImpostos = valorIss + valorInss;
+  const custoTotal = valorMateriais + valorMaoObra + valorDeslocamento + valorHospedagem + valorFrete;
 
-  const baseComImpostos = subtotal + totalImpostos;
-  const margemLucro = baseComImpostos * (config.margem_lucro_padrao / 100);
+  // --- Percentual de impostos "base", conforme o regime tributário ---
+  const detalhamentoImpostosBase: Array<{ nome: string; percentual: number }> = [];
 
-  const baseComMargem = baseComImpostos + margemLucro;
+  if (config.regime_tributario === "simples_nacional") {
+    const aliquota = calcularAliquotaSimplesNacional(
+      config.simples_nacional_rbt12,
+      config.simples_nacional_anexo
+    );
+    if (!aliquota) {
+      throw new OrcamentoConfigError(
+        "Configure o RBT12 (receita bruta dos últimos 12 meses) em Configurar Preços antes de gerar orçamentos — o Simples Nacional precisa desse valor para calcular a alíquota correta."
+      );
+    }
+    detalhamentoImpostosBase.push({
+      nome: `Simples Nacional (DAS, Anexo ${config.simples_nacional_anexo})`,
+      percentual: aliquota.aliquotaEfetivaPercentual,
+    });
+  }
+  // Lucro Presumido e Personalizado não têm imposto "base" fixo — tudo vem de
+  // `impostosExtras` (para Lucro Presumido, a tela de configuração já pré-popula PIS/
+  // COFINS/ISS/IRPJ/CSLL como itens editáveis dessa lista).
+
+  for (const imposto of impostosExtras) {
+    if (!imposto.ativo) continue;
+    detalhamentoImpostosBase.push({ nome: imposto.nome, percentual: imposto.percentual });
+  }
+
+  const percentualImpostos = detalhamentoImpostosBase.reduce((acc, i) => acc + i.percentual, 0);
+  const percentualMargem = config.margem_lucro_padrao;
   const descontoPercentual = input.desconto_percentual_extra ?? config.desconto_competitivo;
-  const valorDesconto = baseComMargem * (descontoPercentual / 100);
 
-  const valorFinal = baseComMargem - valorDesconto;
+  const percentualTotal = percentualImpostos + percentualMargem;
+  if (percentualTotal >= 100) {
+    throw new OrcamentoConfigError(
+      `A soma de impostos (${percentualImpostos.toFixed(1)}%) e margem de lucro (${percentualMargem.toFixed(1)}%) atingiu ${percentualTotal.toFixed(1)}% — isso tornaria o preço de venda infinito ou negativo. Ajuste os percentuais em Configurar Preços.`
+    );
+  }
+
+  const precoCheio = custoTotal / (1 - percentualTotal / 100);
 
   const round2 = (n: number) => Number(n.toFixed(2));
+
+  const detalhamentoImpostos: ItemDetalhamentoImposto[] = detalhamentoImpostosBase.map((i) => ({
+    nome: i.nome,
+    percentual: i.percentual,
+    valor: round2(precoCheio * (i.percentual / 100)),
+  }));
+
+  const totalImpostos = detalhamentoImpostos.reduce((acc, i) => acc + i.valor, 0);
+  const margemLucro = round2(precoCheio * (percentualMargem / 100));
+  const valorDesconto = round2(precoCheio * (descontoPercentual / 100));
+  const valorFinal = round2(precoCheio - valorDesconto);
 
   return {
     valor_materiais: round2(valorMateriais),
@@ -67,13 +137,15 @@ export function calcularOrcamento(input: CalcularOrcamentoInput): CalcularOrcame
     valor_deslocamento: round2(valorDeslocamento),
     valor_hospedagem: round2(valorHospedagem),
     valor_frete: round2(valorFrete),
-    subtotal: round2(subtotal),
-    valor_iss: round2(valorIss),
-    valor_inss: round2(valorInss),
+    subtotal: round2(custoTotal),
+    detalhamento_impostos: detalhamentoImpostos,
     total_impostos: round2(totalImpostos),
-    margem_lucro: round2(margemLucro),
-    valor_desconto: round2(valorDesconto),
-    valor_final: round2(valorFinal),
+    percentual_impostos: round2(percentualImpostos),
+    margem_lucro: margemLucro,
+    percentual_margem: round2(percentualMargem),
+    valor_desconto: valorDesconto,
+    preco_cheio: round2(precoCheio),
+    valor_final: valorFinal,
     detalhamento_materiais: detalhamentoMateriais,
   };
 }

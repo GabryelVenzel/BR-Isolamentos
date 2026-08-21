@@ -5,24 +5,33 @@ const PUBLIC_PATHS = ["/login"];
 
 export async function middleware(request: NextRequest) {
   const response = NextResponse.next({ request: { headers: request.headers } });
-  const supabase = createSupabaseMiddlewareClient(request, response);
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // A checagem de sessão aqui é "best effort": se o Supabase (ou as env vars)
+  // estiverem indisponíveis, deixamos a requisição passar em vez de derrubar
+  // o site inteiro com um 500 (MIDDLEWARE_INVOCATION_FAILED). A página em si
+  // (Server Component) é quem decide de fato o que renderizar sem sessão.
+  try {
+    const supabase = createSupabaseMiddlewareClient(request, response);
 
-  const { pathname } = request.nextUrl;
-  const isPublic = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
-  const isApi = pathname.startsWith("/api");
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  if (!user && !isPublic && !isApi) {
-    const loginUrl = new URL("/login", request.url);
-    loginUrl.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(loginUrl);
-  }
+    const { pathname } = request.nextUrl;
+    const isPublic = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
+    const isApi = pathname.startsWith("/api");
 
-  if (user && pathname === "/login") {
-    return NextResponse.redirect(new URL("/", request.url));
+    if (!user && !isPublic && !isApi) {
+      const loginUrl = new URL("/login", request.url);
+      loginUrl.searchParams.set("redirect", pathname);
+      return NextResponse.redirect(loginUrl);
+    }
+
+    if (user && pathname === "/login") {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+  } catch (error) {
+    console.error("[middleware] falha ao verificar sessão Supabase:", error);
   }
 
   return response;

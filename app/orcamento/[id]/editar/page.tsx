@@ -27,10 +27,9 @@ export default function EditarOrcamentoPage() {
   }
 
   function recalcularValorFinal(atual: Orcamento): Orcamento {
-    const baseComImpostos = atual.subtotal + atual.total_impostos;
-    const baseComMargem = baseComImpostos + atual.margem_lucro;
-    const valor_final = Number((baseComMargem - atual.valor_desconto).toFixed(2));
-    return { ...atual, valor_final };
+    const preco_cheio = Number((atual.subtotal + atual.total_impostos + atual.margem_lucro).toFixed(2));
+    const valor_final = Number((preco_cheio - atual.valor_desconto).toFixed(2));
+    return { ...atual, preco_cheio, valor_final };
   }
 
   async function salvar() {

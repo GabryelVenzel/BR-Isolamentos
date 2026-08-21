@@ -17,17 +17,26 @@ export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const [email, setEmail] = useState<string | null>(null);
+  const [nomeExibicao, setNomeExibicao] = useState<string | null>(null);
   const [saindo, setSaindo] = useState(false);
 
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
 
-    supabase.auth.getUser().then(({ data }) => {
-      setEmail(data.user?.email ?? null);
-    });
+    async function carregarUsuario(userEmail: string | null) {
+      setEmail(userEmail);
+      if (!userEmail) {
+        setNomeExibicao(null);
+        return;
+      }
+      const { data } = await supabase.from("usuarios").select("nome").eq("email", userEmail).maybeSingle();
+      setNomeExibicao(data?.nome ?? null);
+    }
+
+    supabase.auth.getUser().then(({ data }) => carregarUsuario(data.user?.email ?? null));
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-      setEmail(session?.user?.email ?? null);
+      carregarUsuario(session?.user?.email ?? null);
     });
 
     return () => subscription.subscription.unsubscribe();
@@ -69,7 +78,7 @@ export default function Navbar() {
         </nav>
 
         <div className="flex items-center gap-3">
-          {email && <span className="hidden text-sm text-gray-500 sm:inline">{email}</span>}
+          {email && <span className="hidden text-sm text-gray-500 sm:inline">{nomeExibicao ?? email}</span>}
           <button
             type="button"
             onClick={handleLogout}

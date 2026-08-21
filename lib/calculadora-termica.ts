@@ -230,18 +230,34 @@ interface CombustivelInfo {
   label: string;
 }
 
+// Fonte: 2-DocumentaçãoTecnica/materials_internal.py (COMBUSTIVEIS) — pesquisado e
+// validado pelo usuário. Nota: o fator de emissão da lenha de eucalipto (0,05 kg
+// CO2/ton) é bem menor que o valor antigo (1260, um provável erro de unidade no
+// CALCULADORA-TERMICA.py original) — reflete a convenção de neutralidade de carbono
+// da biomassa e reduz bastante o "CO2 evitado" reportado para clientes com caldeira a
+// lenha. Adotado por pedido explícito do usuário.
 export const COMBUSTIVEIS: Record<CombustivelTipo, CombustivelInfo> = {
-  oleo_bpf: { v: 3.5, pc: 11.34, ef: 0.8, fatorEmissao: 3.15, unidade: "kg", label: "Óleo BPF" },
+  vapor: { v: 150.0, pc: 628.0, ef: 1.0, fatorEmissao: 134.0, unidade: "ton", label: "Vapor" },
+  eletricidade: { v: 0.75, pc: 1.0, ef: 1.0, fatorEmissao: 0.0358, unidade: "kWh", label: "Eletricidade" },
   gas_natural: { v: 3.6, pc: 9.65, ef: 0.75, fatorEmissao: 2.0, unidade: "m³", label: "Gás Natural" },
+  glp: {
+    v: 6.8,
+    pc: 12.78,
+    ef: 0.78,
+    fatorEmissao: 3.0,
+    unidade: "kg",
+    label: "GLP (Gás Liquefeito de Petróleo)",
+  },
+  oleo_diesel: { v: 6.1, pc: 10.11, ef: 0.82, fatorEmissao: 2.63, unidade: "L", label: "Óleo Diesel" },
+  oleo_bpf: { v: 3.5, pc: 11.34, ef: 0.8, fatorEmissao: 3.15, unidade: "kg", label: "Óleo Combustível BPF" },
   lenha_eucalipto: {
     v: 200.0,
     pc: 3500.0,
     ef: 0.7,
-    fatorEmissao: 1260,
+    fatorEmissao: 0.05,
     unidade: "ton",
-    label: "Lenha Eucalipto (30% umidade)",
+    label: "Lenha de Eucalipto",
   },
-  eletricidade: { v: 0.75, pc: 1.0, ef: 1.0, fatorEmissao: 0.0358, unidade: "kWh", label: "Eletricidade" },
 };
 
 export interface EconomiaECO2Resultado {

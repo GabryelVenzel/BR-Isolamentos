@@ -3,34 +3,40 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useWizardStore } from "@/lib/store";
+import { somarQuantificacoes } from "@/lib/quantificador";
 import { formatarMoeda } from "@/lib/format";
-import type { CalcularOrcamentoInput, ConfigEmpresa, PrecoConfig } from "@/lib/types";
+import type { CalcularOrcamentoInput, ConfigEmpresa, ImpostoConfig, PrecoConfig } from "@/lib/types";
 
 export default function Step4PrecosPage() {
   const router = useRouter();
-  const { quantificacao, custosOperacionais, setCustosOperacionais, resultadoOrcamento, setResultadoOrcamento } =
+  const { itens, custosOperacionais, setCustosOperacionais, resultadoOrcamento, setResultadoOrcamento } =
     useWizardStore();
 
   const [precos, setPrecos] = useState<PrecoConfig[]>([]);
   const [config, setConfig] = useState<ConfigEmpresa | null>(null);
+  const [impostosExtras, setImpostosExtras] = useState<ImpostoConfig[]>([]);
   const [calculando, setCalculando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/precos-config").then((r) => r.json()).then(setPrecos);
     fetch("/api/config-empresa").then((r) => r.json()).then(setConfig);
+    fetch("/api/impostos-config").then((r) => r.json()).then(setImpostosExtras);
   }, []);
 
+  const quantificacaoTotal = somarQuantificacoes(itens.map((i) => i.quantificacao));
+
   async function calcular() {
-    if (!quantificacao || !config) return;
+    if (itens.length === 0 || !config) return;
     setErro(null);
     setCalculando(true);
 
     try {
       const payload: CalcularOrcamentoInput = {
-        quantificacao,
+        quantificacao: quantificacaoTotal,
         precos,
         config,
+        impostosExtras,
         horas_mao_obra: custosOperacionais.horas_mao_obra,
         km_deslocamento: custosOperacionais.km_deslocamento,
         noites_hospedagem: custosOperacionais.noites_hospedagem,
@@ -65,9 +71,15 @@ export default function Step4PrecosPage() {
           <a href="/config-precos" className="text-brand hover:underline">
             Configuração de Preços
           </a>
-          .
+          . Custos operacionais valem para o orçamento inteiro (todos os trechos juntos).
         </p>
       </div>
+
+      {itens.length === 0 && (
+        <p className="rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-700">
+          Nenhum trecho foi adicionado ainda. Volte ao passo 3 e calcule ao menos um trecho.
+        </p>
+      )}
 
       <div className="card grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div>
@@ -121,7 +133,7 @@ export default function Step4PrecosPage() {
       </div>
 
       <div className="card">
-        <button type="button" className="btn-primary" onClick={calcular} disabled={calculando || !quantificacao}>
+        <button type="button" className="btn-primary" onClick={calcular} disabled={calculando || itens.length === 0}>
           {calculando ? "Calculando..." : "Calcular orçamento"}
         </button>
         {erro && <p className="mt-3 text-sm text-red-600">{erro}</p>}
@@ -135,10 +147,12 @@ export default function Step4PrecosPage() {
           <Linha label="Deslocamento" valor={resultadoOrcamento.valor_deslocamento} />
           <Linha label="Hospedagem" valor={resultadoOrcamento.valor_hospedagem} />
           <Linha label="Frete" valor={resultadoOrcamento.valor_frete} />
-          <Linha label="Subtotal" valor={resultadoOrcamento.subtotal} destaque />
-          <Linha label="ISS" valor={resultadoOrcamento.valor_iss} />
-          <Linha label="INSS" valor={resultadoOrcamento.valor_inss} />
-          <Linha label="Margem de lucro" valor={resultadoOrcamento.margem_lucro} />
+          <Linha label="Custo total" valor={resultadoOrcamento.subtotal} destaque />
+          {resultadoOrcamento.detalhamento_impostos.map((imposto) => (
+            <Linha key={imposto.nome} label={`${imposto.nome} (${formatarPercentual(imposto.percentual)})`} valor={imposto.valor} />
+          ))}
+          <Linha label={`Margem de lucro (${formatarPercentual(resultadoOrcamento.percentual_margem)})`} valor={resultadoOrcamento.margem_lucro} />
+          <Linha label="Preço cheio" valor={resultadoOrcamento.preco_cheio} destaque />
           <Linha label="Desconto" valor={-resultadoOrcamento.valor_desconto} />
           <Linha label="Valor final" valor={resultadoOrcamento.valor_final} destaque />
         </div>
@@ -159,6 +173,10 @@ export default function Step4PrecosPage() {
       </div>
     </div>
   );
+}
+
+function formatarPercentual(valor: number): string {
+  return `${valor.toFixed(2)}%`;
 }
 
 function Linha({ label, valor, destaque }: { label: string; valor: number; destaque?: boolean }) {

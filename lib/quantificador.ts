@@ -18,6 +18,23 @@ const ARAME_KG_POR_M2 = 0.5; // 500 g/m²
 const METROS_POR_VEDACAO_PU = 1.5;
 const GRAMAS_POR_LATA_VEDACIT = 360;
 
+/** Soma a quantificação de vários itens/trechos de um mesmo orçamento (misto), para
+ * calcular o custo de materiais do orçamento inteiro num único passo. */
+export function somarQuantificacoes(itens: QuantificarResultado[]): QuantificarResultado {
+  return itens.reduce(
+    (acc, item) => ({
+      manta_kg: Number((acc.manta_kg + item.manta_kg).toFixed(2)),
+      chapa_kg: Number((acc.chapa_kg + item.chapa_kg).toFixed(2)),
+      rebites: acc.rebites + item.rebites,
+      parafusos: acc.parafusos + item.parafusos,
+      arame_kg: Number((acc.arame_kg + item.arame_kg).toFixed(2)),
+      vedacao_pu: acc.vedacao_pu + item.vedacao_pu,
+      vedacit_un: acc.vedacit_un + item.vedacit_un,
+    }),
+    { manta_kg: 0, chapa_kg: 0, rebites: 0, parafusos: 0, arame_kg: 0, vedacao_pu: 0, vedacit_un: 0 }
+  );
+}
+
 /** Perímetro externo (m) do conjunto tubo + isolante, para geometria "tubulacao". */
 export function calcularPerimetroTubulacao(diametroTuboMm: number, espessuraMm: number): number {
   const diametroExternoM = diametroTuboMm / 1000 + (2 * espessuraMm) / 1000;

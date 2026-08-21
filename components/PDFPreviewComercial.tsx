@@ -5,12 +5,16 @@ interface Props {
   orcamento: Orcamento;
 }
 
+const LABEL_TIPO: Record<string, string> = { quente: "Quente", frio: "Frio", misto: "Misto (quente + frio)" };
+
 /**
- * Layout da proposta em HTML, capturado via html2canvas em lib/pdf-generator.ts.
- * Mantido como componente de servidor puro (sem interatividade) para que o
+ * Proposta comercial (com valores) — layout em HTML capturado via html2canvas em
+ * lib/pdf-generator.ts. Mantido como componente puro (sem interatividade) para que o
  * snapshot fique estável.
  */
-export default function PDFPreview({ orcamento }: Props) {
+export default function PDFPreviewComercial({ orcamento }: Props) {
+  const itens = [...(orcamento.itens ?? [])].sort((a, b) => a.ordem - b.ordem);
+
   return (
     <div className="mx-auto w-[210mm] bg-white p-10 text-gray-900" style={{ fontFamily: "Arial, sans-serif" }}>
       <header className="mb-8 flex items-center justify-between border-b-2 border-brand pb-4">
@@ -21,6 +25,7 @@ export default function PDFPreview({ orcamento }: Props) {
         <div className="text-right text-sm text-gray-500">
           <p>Nº {orcamento.numero}</p>
           <p>{formatarData(orcamento.data_criacao)}</p>
+          <p>{LABEL_TIPO[orcamento.tipo_trabalho] ?? orcamento.tipo_trabalho}</p>
         </div>
       </header>
 
@@ -31,34 +36,28 @@ export default function PDFPreview({ orcamento }: Props) {
         {orcamento.cliente?.endereco && <p className="text-sm text-gray-500">{orcamento.cliente.endereco}</p>}
       </section>
 
-      <section className="mb-6">
-        <h2 className="mb-2 text-sm font-bold uppercase text-brand">Especificações técnicas</h2>
-        <table className="w-full text-sm">
-          <tbody>
-            <Row label="Tipo de trabalho" valor={orcamento.tipo_trabalho === "quente" ? "Quente" : "Frio"} />
-            <Row label="Material" valor={orcamento.material} />
-            {orcamento.acabamento && <Row label="Acabamento" valor={orcamento.acabamento} />}
-            <Row label="Geometria" valor={orcamento.geometria === "tubulacao" ? "Tubulação" : "Superfície plana"} />
-            <Row label="Área" valor={`${formatarNumero(orcamento.area_m2)} m²`} />
-            <Row label="Espessura necessária" valor={`${formatarNumero(orcamento.espessura_necessaria_mm, 1)} mm`} />
-          </tbody>
-        </table>
-      </section>
-
-      <section className="mb-6">
-        <h2 className="mb-2 text-sm font-bold uppercase text-brand">Materiais</h2>
-        <table className="w-full text-sm">
-          <tbody>
-            <Row label="Manta isolante" valor={`${formatarNumero(orcamento.manta_kg ?? 0)} kg`} />
-            <Row label="Chapa de acabamento" valor={`${formatarNumero(orcamento.chapa_kg ?? 0)} kg`} />
-            <Row label="Rebites" valor={`${orcamento.rebites ?? 0} un`} />
-            <Row label="Parafusos" valor={`${orcamento.parafusos ?? 0} un`} />
-            <Row label="Arame" valor={`${formatarNumero(orcamento.arame_kg ?? 0)} kg`} />
-            <Row label="Vedação P.U." valor={`${orcamento.vedacao_pu ?? 0} un`} />
-            <Row label="Vedacit" valor={`${orcamento.vedacit_un ?? 0} un`} />
-          </tbody>
-        </table>
-      </section>
+      {itens.map((item, index) => (
+        <section key={item.id} className="mb-6 break-inside-avoid">
+          <h2 className="mb-2 text-sm font-bold uppercase text-brand">
+            Trecho {index + 1} — {LABEL_TIPO[item.tipo_trabalho] ?? item.tipo_trabalho}
+          </h2>
+          <table className="w-full text-sm">
+            <tbody>
+              <Row label="Material" valor={item.material} />
+              {item.acabamento && <Row label="Acabamento" valor={item.acabamento} />}
+              <Row label="Geometria" valor={item.geometria === "tubulacao" ? "Tubulação" : "Superfície plana"} />
+              <Row label="Área" valor={`${formatarNumero(item.area_m2)} m²`} />
+              <Row label="Espessura necessária" valor={`${formatarNumero(item.espessura_necessaria_mm, 1)} mm`} />
+              <Row label="Manta isolante" valor={`${formatarNumero(item.manta_kg ?? 0)} kg`} />
+              <Row label="Chapa de acabamento" valor={`${formatarNumero(item.chapa_kg ?? 0)} kg`} />
+              <Row label="Rebites / Parafusos" valor={`${item.rebites ?? 0} / ${item.parafusos ?? 0} un`} />
+              <Row label="Arame" valor={`${formatarNumero(item.arame_kg ?? 0)} kg`} />
+              <Row label="Vedação P.U. / Vedacit" valor={`${item.vedacao_pu ?? 0} un / ${item.vedacit_un ?? 0} un`} />
+              <Row label="Custo de materiais" valor={formatarMoeda(item.valor_materiais)} />
+            </tbody>
+          </table>
+        </section>
+      ))}
 
       <section className="mb-6">
         <h2 className="mb-2 text-sm font-bold uppercase text-brand">Investimento</h2>
@@ -69,7 +68,12 @@ export default function PDFPreview({ orcamento }: Props) {
             <Row label="Deslocamento" valor={formatarMoeda(orcamento.valor_deslocamento)} />
             <Row label="Hospedagem" valor={formatarMoeda(orcamento.valor_hospedagem)} />
             <Row label="Frete" valor={formatarMoeda(orcamento.valor_frete)} />
-            <Row label="Impostos (ISS + INSS)" valor={formatarMoeda(orcamento.total_impostos)} />
+            {(orcamento.detalhamento_impostos ?? []).map((imposto) => (
+              <Row key={imposto.nome} label={`${imposto.nome} (${imposto.percentual.toFixed(2)}%)`} valor={formatarMoeda(imposto.valor)} />
+            ))}
+            {orcamento.valor_desconto > 0 && (
+              <Row label="Desconto" valor={`- ${formatarMoeda(orcamento.valor_desconto)}`} />
+            )}
           </tbody>
         </table>
         <div className="mt-4 rounded-lg bg-brand-light p-4 text-right">
@@ -77,20 +81,6 @@ export default function PDFPreview({ orcamento }: Props) {
           <p className="text-2xl font-bold text-brand">{formatarMoeda(orcamento.valor_final)}</p>
         </div>
       </section>
-
-      {orcamento.economia_anual != null && (
-        <section className="mb-6">
-          <h2 className="mb-2 text-sm font-bold uppercase text-brand">Retorno ambiental e financeiro</h2>
-          <table className="w-full text-sm">
-            <tbody>
-              <Row label="Economia anual estimada" valor={formatarMoeda(orcamento.economia_anual)} />
-              {orcamento.co2_ton_ano != null && (
-                <Row label="CO₂ evitado por ano" valor={`${formatarNumero(orcamento.co2_ton_ano, 2)} t`} />
-              )}
-            </tbody>
-          </table>
-        </section>
-      )}
 
       <footer className="mt-10 border-t border-gray-200 pt-4 text-xs text-gray-400">
         Cálculos realizados conforme ASTM C680 / ISO 12241, em conformidade com a ABNT NBR 16281.

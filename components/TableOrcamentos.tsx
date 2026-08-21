@@ -14,11 +14,12 @@ export default function TableOrcamentos({ orcamentos, onExcluir }: Props) {
   const router = useRouter();
 
   async function duplicar(orcamento: Orcamento) {
-    const { id, criado_em, atualizado_em, numero, cliente, ...resto } = orcamento;
+    const { id, criado_em, atualizado_em, numero, cliente, itens, ...resto } = orcamento;
+    const itensSemId = (itens ?? []).map(({ id: _id, orcamento_id: _orcamentoId, ...item }) => item);
     const response = await fetch("/api/orcamentos", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...resto, status: "rascunho" }),
+      body: JSON.stringify({ ...resto, status: "rascunho", itens: itensSemId }),
     });
     if (response.ok) {
       const novo = await response.json();
