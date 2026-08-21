@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg id="Camada_1" data-name="Camada 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1080 1080">
+  <defs>
+    <style>
+      .cls-1 {
+        letter-spacing: -.01em;
+      }
+
+      .cls-2 {
+        letter-spacing: -.01em;
+      }
+
+      .cls-3 {
+        letter-spacing: 0em;
+      }
+
+      .cls-4, .cls-5, .cls-6 {
+        fill: #fff;
+      }
+
+      .cls-7 {
+        letter-spacing: 0em;
+      }
+
+      .cls-8 {
+        fill: #078b41;
+      }
+
+      .cls-9 {
+        letter-spacing: 0em;
+      }
+
+      .cls-5 {
+        font-family: Montserrat-Regular, Montserrat;
+        font-size: 30.31px;
+      }
+
+      .cls-10 {
+        letter-spacing: 0em;
+      }
+
+      .cls-6 {
+        font-family: Montserrat-Bold, Montserrat;
+        font-size: 82.16px;
+        font-weight: 700;
+      }
+
+      .cls-11 {
+        letter-spacing: 0em;
+      }
+
+      .cls-12 {
+        letter-spacing: -.01em;
+      }
+
+      .cls-13 {
+        letter-spacing: 0em;
+      }
+
+      .cls-14 {
+        fill: #fbc819;
+      }
+    </style>
+  </defs>
+  <polygon class="cls-8" points="859.65 673.96 213.49 673.96 220.35 678.07 214.21 681.76 860.37 681.76 866.51 678.07 859.65 673.96"/>
+  <text class="cls-6" transform="translate(223.27 640.9)"><tspan x="0" y="0">ISO</tspan><tspan class="cls-3" x="148.71" y="0">L</tspan><tspan x="198.83" y="0">AMEN</tspan><tspan class="cls-10" x="461.75" y="0">T</tspan><tspan x="511.7" y="0">OS</tspan></text>
+  <text class="cls-5" transform="translate(222.34 742.44)"><tspan x="0" y="0">SO</tspan><tspan class="cls-12" x="44.07" y="0">L</tspan><tspan x="61.53" y="0">U</tspan><tspan class="cls-1" x="85.54" y="0">Ç</tspan><tspan x="106.88" y="0">ÕES EM ISO</tspan><tspan class="cls-13" x="289.58" y="0">L</tspan><tspan class="cls-11" x="307.49" y="0">AMEN</tspan><tspan class="cls-9" x="403.1" y="0">T</tspan><tspan class="cls-7" x="420.19" y="0">OS TÉRMI</tspan><tspan class="cls-2" x="569.91" y="0">C</tspan><tspan class="cls-7" x="591.25" y="0">OS</tspan></text>
+  <g>
+    <polygon class="cls-8" points="808.53 330.25 709.52 330.25 771.53 437.64 715.96 533.9 814.96 533.9 870.53 437.64 808.53 330.25"/>
+    <path class="cls-14" d="M709.52,330.25h-84.96c41.39.1,62.23,24.09,55.02,64.98-4.8,27.22-26.82,49.18-52.82,58.84l34.34,79.83h54.85l55.57-96.25-62.01-107.4Z"/>
+    <path class="cls-4" d="M615.08,394.6c7.11-40.98-13.49-64.98-54.37-64.98H245l-35.53,204.9c36.75-1.83,73.52-2.7,110.31-3.32,8.83-.14,18.69-.27,27.58-.37,8.98.05,17.78-.42,26.47-2.6,30.74-7.33,49.13-31.29,54.85-61.64,2.16-11.85,1.25-24.18-3.5-35.39,2.56,3.88,4.52,8.17,5.89,12.62,3.3,10.55,3.16,21.97.92,32.75-5.47,27.99-23.76,49.71-50.68,57.96h68.75l13.15-75.81h31.67l29.46,75.81h73.12l-34.3-81.08c25.57-9.66,47.23-31.61,51.95-58.84ZM365.83,469.54c-1.22,7.03-6.59,11.42-12.92,11.42h-66.79l3.91-22.54h66.79c6.33,0,10.23,4.1,9.01,11.12ZM378.93,394.02c-1.22,7.03-6.59,11.42-12.92,11.42h-66.79l3.86-22.25h66.79c6.33,0,10.28,3.81,9.06,10.83ZM547.81,394.02c-1.17,6.73-6.54,11.12-12.87,11.12h-94.13c1.24-3.52,2.2-7.15,2.84-10.83.67-3.86,1.09-7.57,1.27-11.12h38.89v.29h54.89c6.33,0,10.38,3.22,9.11,10.54Z"/>
+  </g>
+</svg>

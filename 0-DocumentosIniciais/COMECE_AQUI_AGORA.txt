@@ -1,0 +1,234 @@
+═══════════════════════════════════════════════════════════════════════════════
+🚀 COMECE AQUI AGORA - Isolamento Térmico + Vercel + Supabase
+═══════════════════════════════════════════════════════════════════════════════
+
+VOCÊ TEM 3 ARQUIVOS:
+1️⃣ PROMPT_CLAUDE_CODE_INICIAL.md     ← COLE NO CLAUDE CODE
+2️⃣ CHECKLIST_EXECUCAO.md              ← SIGA PASSO A PASSO
+3️⃣ COMECE_AQUI_AGORA.txt              ← ESTE ARQUIVO
+
+═══════════════════════════════════════════════════════════════════════════════
+O QUE FAZER AGORA (PRÓXIMAS 2 HORAS)
+═══════════════════════════════════════════════════════════════════════════════
+
+TEMPO: 2 HORAS
+RESULTADO: App online em Vercel + Código no GitHub + Dados no Supabase
+
+═══════════════════════════════════════════════════════════════════════════════
+FASE 1: SETUP (30 MINUTOS)
+═══════════════════════════════════════════════════════════════════════════════
+
+⏱️ 5 MIN - GitHub
+└─ Vá para: https://github.com/new
+└─ Nome: isolamento-termico-web
+└─ DEIXE VAZIO (não marque "Initialize with README")
+└─ Click "Create repository"
+└─ COPIE a URL (você vai precisar)
+
+⏱️ 5 MIN - GitHub Token
+└─ Vá para: https://github.com/settings/tokens
+└─ Click "Generate new token (classic)"
+└─ Selecione: repo + workflow
+└─ Click "Generate token"
+└─ COPIE o token (aparece uma única vez!)
+
+⏱️ 10 MIN - Supabase
+└─ Vá para: https://supabase.com
+└─ Click "Start for free"
+└─ Login com GitHub
+└─ Novo projeto:
+   ├─ Nome: isolamento-termico
+   ├─ Region: São Paulo
+   ├─ Password: algo forte
+   └─ Create
+└─ Aguarde 1 minuto
+└─ Dashboard → Settings → API
+└─ COPIE:
+   ├─ Project URL
+   └─ Anon Key
+
+⏱️ 5 MIN - Vercel
+└─ Vá para: https://vercel.com
+└─ Click "Sign in with GitHub"
+└─ Autorize
+└─ Pronto! (não faz nada mais por enquanto)
+
+⏱️ 5 MIN - Git Configuração (Terminal)
+```
+git config --global user.email "seu@email.com"
+git config --global user.name "Seu Nome"
+```
+
+═══════════════════════════════════════════════════════════════════════════════
+FASE 2: GERAR CÓDIGO COM CLAUDE (5-10 MINUTOS)
+═══════════════════════════════════════════════════════════════════════════════
+
+1. ABRA Claude Code Desktop
+2. ABRA a pasta onde quer o projeto (sua pasta de trabalho)
+3. ABRA arquivo: PROMPT_CLAUDE_CODE_INICIAL.md (este que você baixou)
+4. COPIE TUDO o que está entre os ``` (backticks)
+   - Comece do "Você é um desenvolvedor..." 
+   - Até "... passe o prompt acima no Claude Code"
+5. COLE no Claude Code
+6. ENVIE (enter)
+7. AGUARDE Claude trabalhar (vai criar tudo automaticamente)
+
+═══════════════════════════════════════════════════════════════════════════════
+FASE 3: SUPABASE SQL (5 MINUTOS)
+═══════════════════════════════════════════════════════════════════════════════
+
+Após Claude terminar:
+
+1. Vá para: https://supabase.com/dashboard
+2. Projeto: isolamento-termico
+3. SQL Editor (sidebar esquerdo)
+4. New Query
+5. ABRA arquivo: sql-schema.sql (que Claude criou)
+6. COPIE tudo
+7. COLE no SQL Editor do Supabase
+8. Click RUN (ou Ctrl+Enter)
+9. Aguarde terminar (deve mostrar "Success")
+
+═══════════════════════════════════════════════════════════════════════════════
+FASE 4: .ENV.LOCAL (3 MINUTOS)
+═══════════════════════════════════════════════════════════════════════════════
+
+Na pasta do projeto (onde Claude criou tudo):
+
+1. ABRA arquivo: .env.example (ou .env.local se já existir)
+2. PREENCHA:
+   NEXT_PUBLIC_SUPABASE_URL=cole-a-url-do-supabase-aqui
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=cole-a-chave-do-supabase-aqui
+
+   (Você copiou esses valores no Supabase na Fase 1)
+
+3. SALVE arquivo
+
+═══════════════════════════════════════════════════════════════════════════════
+FASE 5: TESTAR LOCALMENTE (5 MINUTOS)
+═══════════════════════════════════════════════════════════════════════════════
+
+Terminal (na pasta do projeto):
+
+```
+npm install
+npm run dev
+```
+
+Depois:
+1. Abra: http://localhost:3000
+2. Você deve ver a app rodando
+3. Se não houver erro = tudo ok! ✅
+
+PARAR SERVIDOR:
+Ctrl+C no terminal
+
+═══════════════════════════════════════════════════════════════════════════════
+FASE 6: PUSH GITHUB (5 MINUTOS)
+═══════════════════════════════════════════════════════════════════════════════
+
+Terminal (na pasta do projeto):
+
+```
+git add .
+git commit -m "Initial project - Isolamento Termico"
+
+git remote add origin https://github.com/seu-user/isolamento-termico-web.git
+git push origin main
+```
+
+Quando pedir credentials:
+- Username: seu-usuario-github
+- Password: Cole o TOKEN que você copiou (não a senha do GitHub!)
+
+Se der erro, tente:
+```
+git pull origin main
+git push origin main
+```
+
+═══════════════════════════════════════════════════════════════════════════════
+FASE 7: DEPLOY VERCEL (10 MINUTOS)
+═══════════════════════════════════════════════════════════════════════════════
+
+1. Vá para: https://vercel.com/dashboard
+2. Click "Add New..." → "Project"
+3. Click "Import Git Repository"
+4. Selecione: isolamento-termico-web
+5. Click "Import"
+
+6. Vercel vai abrir formulário. Preencha:
+   Environment Variables:
+   
+   NEXT_PUBLIC_SUPABASE_URL = cole-a-url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY = cole-a-chave
+
+7. Click "Deploy"
+8. Aguarde 1-2 minutos
+9. Quando terminar, Vercel te dá URL:
+   https://seu-projeto-xxx.vercel.app
+10. Clique para testar
+
+═══════════════════════════════════════════════════════════════════════════════
+✅ PRONTO! RESUMO DO QUE VOCÊ CONSEGUIU
+═══════════════════════════════════════════════════════════════════════════════
+
+✅ GitHub: Código versionado e seguro
+✅ Supabase: Banco de dados PostgreSQL rodando
+✅ Vercel: App online com URL pública
+✅ Next.js: Frontend profissional
+✅ TypeScript: Código robusto e tipado
+✅ Tailwind: Design responsivo
+✅ APIs: Backend para cálculos
+✅ Autenticação: Login dos 3 sócios
+
+════════════════════════════════════════════════════════════════════════════════
+🎯 PRÓXIMOS PASSOS (DEPOIS DE TUDO ONLINE)
+════════════════════════════════════════════════════════════════════════════════
+
+Depois que tudo está rodando:
+
+1. COMPARTILHE A URL com seus 3 sócios
+2. FAÇA TESTE com dados reais de um cliente
+3. AJUSTE preços na config (admin panel)
+4. GERE primeira proposta em PDF
+5. VALIDE cálculos térmicos
+
+════════════════════════════════════════════════════════════════════════════════
+📚 DOCUMENTOS DE REFERÊNCIA
+════════════════════════════════════════════════════════════════════════════════
+
+Se algo não funcionar:
+1. Abra: CHECKLIST_EXECUCAO.md
+2. Procure a seção de erro
+3. Siga as instruções
+
+Se precisar debugar:
+1. Volte ao Claude Code
+2. Descreva o erro
+3. Claude vai corrigir
+
+════════════════════════════════════════════════════════════════════════════════
+⏰ TIMELINE TOTAL
+════════════════════════════════════════════════════════════════════════════════
+
+Phase 1 Setup:        30 min ✅
+Phase 2 Claude Code:  10 min ✅
+Phase 3 Supabase:      5 min ✅
+Phase 4 .env:          3 min ✅
+Phase 5 Local Test:    5 min ✅
+Phase 6 GitHub:        5 min ✅
+Phase 7 Vercel:       10 min ✅
+                    ────────────
+                    1h 13 min TOTAL
+
+Depois que online: você trabalha normalmente
+Claude Code faz code → git push → Vercel deploy automático
+
+════════════════════════════════════════════════════════════════════════════════
+
+🚀 COMECE AGORA! Você consegue fazer tudo em 2 horas no máximo.
+
+Qualquer dúvida: volta ao Claude Code e pede ajuda!
+
+════════════════════════════════════════════════════════════════════════════════
