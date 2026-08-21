@@ -21,7 +21,16 @@ export default function Navbar() {
   const [saindo, setSaindo] = useState(false);
 
   useEffect(() => {
-    const supabase = createSupabaseBrowserClient();
+    // A Navbar fica no layout raiz, ao lado de `{children}` — fora do alcance do
+    // Error Boundary de app/error.tsx. Se o Supabase não estiver configurado (env
+    // vars ausentes), falha silenciosamente aqui em vez de derrubar a página toda.
+    let supabase: ReturnType<typeof createSupabaseBrowserClient>;
+    try {
+      supabase = createSupabaseBrowserClient();
+    } catch (erro) {
+      console.error("[Navbar] Supabase indisponível:", erro);
+      return;
+    }
 
     async function carregarUsuario(userEmail: string | null) {
       setEmail(userEmail);
@@ -33,7 +42,10 @@ export default function Navbar() {
       setNomeExibicao(data?.nome ?? null);
     }
 
-    supabase.auth.getUser().then(({ data }) => carregarUsuario(data.user?.email ?? null));
+    supabase.auth
+      .getUser()
+      .then(({ data }) => carregarUsuario(data.user?.email ?? null))
+      .catch((erro) => console.error("[Navbar] falha ao obter usuário:", erro));
 
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
       carregarUsuario(session?.user?.email ?? null);
