@@ -67,4 +67,29 @@ export class OrcamentoRepository extends BaseRepository<Orcamento> {
 
     return this.findByIdOrThrow(orcamento.id);
   }
+
+  /** Orçamentos aceitos num intervalo (por `data_criacao`), só as colunas
+   * usadas pra "Distribuição de Receita por Tipo" do dashboard (Resumo) —
+   * soma `valor_final` agrupado por `tipo_trabalho` no use case chamador.
+   * Usa o valor de venda do orçamento (não o que já foi efetivamente
+   * recebido em `lancamentos_financeiros`) porque nem todo orçamento aceito
+   * necessariamente tem um lançamento financeiro vinculado ainda — como
+   * indicador de "mix de vendas por tipo de trabalho" isso é mais confiável
+   * que depender dessa vinculação manual. */
+  async listarAceitosPorPeriodo(
+    dataInicio: string,
+    dataFim: string,
+    responsavel?: string
+  ): Promise<Array<{ tipo_trabalho: string; valor_final: number }>> {
+    let query = this.queryBuilder()
+      .select("tipo_trabalho, valor_final")
+      .eq("status", "aceito")
+      .gte("data_criacao", dataInicio)
+      .lte("data_criacao", dataFim);
+    if (responsavel) query = query.eq("atribuido_a", responsavel);
+
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data ?? []) as Array<{ tipo_trabalho: string; valor_final: number }>;
+  }
 }

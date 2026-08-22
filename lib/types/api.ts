@@ -3,6 +3,30 @@
 // genéricos (ApiResponse, PageResult) em `lib/types/common.ts`.
 
 import type { ListOptions } from "./common";
+import type { FiltrosResumo, Periodo, TipoTrabalhoFiltro } from "./resumo";
+
+const PERIODOS_VALIDOS: Periodo[] = ["7d", "30d", "90d", "mes", "ano", "tudo", "custom"];
+const TIPOS_VALIDOS: TipoTrabalhoFiltro[] = ["quente", "frio", "misto"];
+
+/** Parseia os filtros da FilterBar do dashboard (módulo Resumo) a partir da
+ * query string — usado por todas as rotas de app/api/resumo/*. */
+export function parseFiltrosResumo(searchParams: URLSearchParams): FiltrosResumo {
+  const periodoParam = searchParams.get("periodo");
+  const periodo = PERIODOS_VALIDOS.includes(periodoParam as Periodo) ? (periodoParam as Periodo) : "mes";
+
+  const tipoParam = searchParams.get("tipo");
+  const tipoTrabalho = TIPOS_VALIDOS.includes(tipoParam as TipoTrabalhoFiltro)
+    ? (tipoParam as TipoTrabalhoFiltro)
+    : undefined;
+
+  return {
+    periodo,
+    dataInicioCustom: searchParams.get("dataInicio") ?? undefined,
+    dataFimCustom: searchParams.get("dataFim") ?? undefined,
+    tipoTrabalho,
+    responsavel: searchParams.get("responsavel") ?? undefined,
+  };
+}
 
 /** Query string comum a listagens: paginação + busca textual livre. */
 export interface ListQueryParams extends ListOptions {

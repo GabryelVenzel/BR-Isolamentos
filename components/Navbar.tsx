@@ -11,7 +11,7 @@ import Logo from "./Logo";
 // prefixo de URL comum; por isso usa `match` para ficar "ativo" em qualquer
 // uma delas, mesmo apontando (`href`) só para o histórico.
 const LINKS: Array<{ href: string; label: string; match?: string[] }> = [
-  { href: "/", label: "Resumo" },
+  { href: "/resumo", label: "Resumo", match: ["/resumo", "/"] },
   { href: "/engenharia", label: "Engenharia" },
   { href: "/comercial", label: "Comercial" },
   { href: "/operacional", label: "Operacional" },
@@ -19,11 +19,10 @@ const LINKS: Array<{ href: string; label: string; match?: string[] }> = [
   { href: "/financeiro", label: "Financeiro" },
 ];
 
-/** "/" só fica ativo na home exata; os demais ficam ativos também em
- * sub-rotas (ex.: "/comercial" ativo em "/comercial/abc123") e, quando
- * declarado, em qualquer prefixo de `match` (ver "Orçamento" acima). */
+/** Um link fica ativo na rota exata, em sub-rotas (ex.: "/comercial" ativo
+ * em "/comercial/abc123") e, quando declarado, em qualquer prefixo de
+ * `match` (ver "Resumo" e "Orçamento" acima). */
 function ehAtivo(pathname: string, link: (typeof LINKS)[number]): boolean {
-  if (link.href === "/") return pathname === "/";
   const prefixos = link.match ?? [link.href];
   return prefixos.some((prefixo) => pathname === prefixo || pathname.startsWith(`${prefixo}/`));
 }
@@ -85,7 +84,7 @@ export default function Navbar() {
   return (
     <header className="bg-brand">
       <div className="mx-auto flex h-[60px] max-w-6xl items-center justify-between px-4">
-        <Link href="/" className="flex items-center">
+        <Link href="/resumo" className="flex items-center">
           <Logo variant="white" height={34} />
         </Link>
 

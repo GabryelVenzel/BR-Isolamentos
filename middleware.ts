@@ -28,7 +28,7 @@ export async function middleware(request: NextRequest) {
     }
 
     if (user && pathname === "/login") {
-      return NextResponse.redirect(new URL("/", request.url));
+      return NextResponse.redirect(new URL("/resumo", request.url));
     }
   } catch (error) {
     console.error("[middleware] falha ao verificar sessão Supabase:", error);

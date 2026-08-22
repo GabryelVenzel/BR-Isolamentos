@@ -103,6 +103,10 @@ export interface Orcamento {
   criado_por: string | null;
   criado_em: string;
   atualizado_em: string;
+  // Responsável pela venda (email de `usuarios`) — coluna adicionada em
+  // sql-migration-004-6modulos-completo.sql, usada pelo filtro "Responsável"
+  // do dashboard executivo (módulo Resumo).
+  atribuido_a: string | null;
 
   // Preenchido via join, opcional
   cliente?: Cliente;

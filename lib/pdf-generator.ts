@@ -53,6 +53,10 @@ export function nomeArquivoPdfTecnica(orcamento: Orcamento): string {
   return `Proposta_Tecnica_${orcamento.numero}.pdf`;
 }
 
+/** Dispara o download de qualquer `Blob` (PDF, CSV, ...) — o nome "baixarPdf"
+ * ficou de quando só gerava proposta em PDF; a implementação em si já é
+ * genérica. `baixarArquivo` é o mesmo helper com um nome que não mente sobre
+ * o tipo de arquivo (ex.: export CSV do dashboard — ver app/resumo/page.tsx). */
 export function baixarPdf(blob: Blob, nomeArquivo: string): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -63,3 +67,5 @@ export function baixarPdf(blob: Blob, nomeArquivo: string): void {
   document.body.removeChild(link);
   URL.revokeObjectURL(url);
 }
+
+export const baixarArquivo = baixarPdf;

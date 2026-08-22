@@ -39,7 +39,7 @@ function LoginForm() {
         return;
       }
 
-      const redirectTo = searchParams.get("redirect") ?? "/";
+      const redirectTo = searchParams.get("redirect") ?? "/resumo";
       router.push(redirectTo);
       router.refresh();
     } catch {
