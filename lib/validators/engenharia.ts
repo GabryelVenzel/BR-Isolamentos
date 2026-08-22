@@ -79,14 +79,25 @@ const CombustivelSchema = z.enum([
   "lenha_eucalipto",
 ]);
 
+// Eficiência do equipamento NÃO é campo de entrada — já vem embutida em
+// COMBUSTIVEIS[combustivel].ef (lib/calculadora-termica.ts), uma média por
+// tipo de combustível. O usuário só escolhe o combustível; a eficiência
+// considerada é mostrada na tela como referência, não editável (ver
+// components/modules/engenharia/EconomiaSection.tsx).
+//
+// Horas de operação seguem o mesmo padrão do wizard de orçamento
+// (lib/store.ts / FormEspecificacoes.tsx): horas/dia + dias/semana, não um
+// campo único de "horas/ano" — a média mensal/anual fica implícita no
+// cálculo (ver calcularEconomiaECO2 em lib/calculadora-termica.ts, que já
+// espera esses dois parâmetros).
 export const CalcularEconomiaSchema = z.object({
   perda_com_isolante_kw_m2: z.number(),
   perda_sem_isolante_kw_m2: z.number(),
   area_m2: z.number().positive("Área é obrigatória para calcular a economia."),
   combustivel: CombustivelSchema,
   custo_combustivel: z.number().positive("Preço do combustível deve ser maior que zero."),
-  eficiencia_percentual: z.number().gt(0, "Eficiência deve estar entre 0 e 100%.").max(100, "Eficiência deve estar entre 0 e 100%."),
-  horas_operacao_ano: z.number().gt(0).max(8760, "Não pode passar de 8760h (24h × 365 dias)."),
+  horas_operacao_dia: z.number().gt(0, "Horas por dia deve estar entre 0 e 24.").max(24, "Horas por dia deve estar entre 0 e 24."),
+  dias_operacao_semana: z.number().gt(0, "Dias por semana deve estar entre 0 e 7.").max(7, "Dias por semana deve estar entre 0 e 7."),
   valor_investimento: z.number().positive().optional(),
 });
 

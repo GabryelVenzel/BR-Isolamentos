@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import NumberField from "./NumberField";
 import { formatarMoeda, formatarNumero } from "@/lib/format";
 import { COMBUSTIVEIS } from "@/lib/calculadora-termica";
@@ -10,8 +10,11 @@ import type { ResultadoEconomia } from "@/lib/usecases/engenharia";
 export interface EconomiaFormState {
   combustivel: CombustivelTipo;
   custoCombustivel: number | undefined;
-  eficienciaPercentual: number | undefined;
-  horasOperacaoAno: number | undefined;
+  /** Horas/dia + dias/semana (não "horas/ano" direto) — mesmo padrão do
+   * wizard de orçamento, a média mensal/anual fica implícita no cálculo
+   * (ver lib/calculadora-termica.ts#calcularEconomiaECO2). */
+  horasOperacaoDia: number | undefined;
+  diasOperacaoSemana: number | undefined;
   valorInvestimento: number | undefined;
   /** A perda térmica que o cálculo devolve é por m² (kW/m²) — sem a área
    * real da superfície isolada, a "economia" viraria só um valor por metro
@@ -42,19 +45,36 @@ const COMBUSTIVEL_OPCOES: CombustivelTipo[] = [
 
 /** Seção de economia de energia — só existe no painel Quente (ver
  * checklist do pedido: FRIO não tem essa seção). Começa colapsada; ao
- * marcar o checkbox, expande os campos (combustível, preço, eficiência,
- * horas/ano). O botão "Calcular" da página é quem dispara o cálculo — esta
- * seção só coleta os inputs e, depois de calculado, mostra o resultado. */
+ * marcar o checkbox, expande os campos (combustível, preço, horas/dia,
+ * dias/semana). O botão "Calcular" da página é quem dispara o cálculo —
+ * esta seção só coleta os inputs e, depois de calculado, mostra o
+ * resultado.
+ *
+ * Eficiência do equipamento NÃO é um campo editável — já é uma média por
+ * tipo de combustível embutida em `COMBUSTIVEIS[combustivel].ef`
+ * (lib/calculadora-termica.ts, dado pesquisado e validado). Só é mostrada
+ * como referência (read-only), pra deixar claro qual valor está sendo
+ * considerado no cálculo. */
 export default function EconomiaSection({ ativo, onToggle, form, onChange, resultado, onCopiar }: Props) {
   const [copiado, setCopiado] = useState(false);
   const combustivelInfo = COMBUSTIVEIS[form.combustivel];
 
+  // Pré-preenche o preço de referência assim que a seção é ativada (não só
+  // quando o usuário troca manualmente de combustível no select) — sem
+  // isso, o combustível padrão ("eletricidade") ficava com o campo de
+  // preço vazio até o usuário mexer no select, mesmo já tendo um valor de
+  // referência disponível.
+  useEffect(() => {
+    if (ativo && form.custoCombustivel === undefined) {
+      onChange({ custoCombustivel: COMBUSTIVEIS[form.combustivel].v });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ativo]);
+
   function selecionarCombustivel(combustivel: CombustivelTipo) {
-    // Pré-preenche preço e eficiência com os valores de referência já
-    // validados (lib/calculadora-termica.ts) — o usuário pode ajustar em
-    // seguida pra refletir o contrato/equipamento real.
-    const info = COMBUSTIVEIS[combustivel];
-    onChange({ combustivel, custoCombustivel: info.v, eficienciaPercentual: Math.round(info.ef * 100) });
+    // Pré-preenche o preço com o valor de referência já validado — o
+    // usuário pode ajustar em seguida pra refletir o contrato real.
+    onChange({ combustivel, custoCombustivel: COMBUSTIVEIS[combustivel].v });
   }
 
   async function copiar() {
@@ -79,6 +99,7 @@ export default function EconomiaSection({ ativo, onToggle, form, onChange, resul
             onChange={(v) => onChange({ areaM2: v })}
             helperText="A perda térmica do cálculo é por m² — a economia total depende da área real do projeto."
           />
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div>
               <label className="label-field">
@@ -101,22 +122,30 @@ export default function EconomiaSection({ ativo, onToggle, form, onChange, resul
               required
               value={form.custoCombustivel}
               onChange={(v) => onChange({ custoCombustivel: v })}
-              helperText="Pré-preenchido com valor de referência — ajuste conforme o contrato real."
+              helperText={`Referência: ${formatarMoeda(combustivelInfo.v)}/${combustivelInfo.unidade} — ajuste conforme o contrato real.`}
             />
             <NumberField
-              label="Eficiência do equipamento (%)"
+              label="Horas de operação/dia"
               required
-              value={form.eficienciaPercentual}
-              onChange={(v) => onChange({ eficienciaPercentual: v })}
+              value={form.horasOperacaoDia}
+              onChange={(v) => onChange({ horasOperacaoDia: v })}
             />
             <NumberField
-              label="Horas de operação/ano"
+              label="Dias de operação/semana"
               required
-              value={form.horasOperacaoAno}
-              onChange={(v) => onChange({ horasOperacaoAno: v })}
-              helperText="Máx. 8760h (24h × 365 dias)."
+              value={form.diasOperacaoSemana}
+              onChange={(v) => onChange({ diasOperacaoSemana: v })}
             />
           </div>
+
+          {/* Eficiência: só leitura — não é um dado que o usuário preenche
+              (ver comentário no topo do arquivo). */}
+          <p className="rounded-input bg-brand-light px-3 py-2 text-xs text-brand">
+            Eficiência considerada para {combustivelInfo.label}:{" "}
+            <strong>{formatarNumero(combustivelInfo.ef * 100, 0)}%</strong> (valor de referência do sistema, não
+            editável).
+          </p>
+
           <NumberField
             label="Valor do investimento (R$) — opcional, só para estimar o ROI"
             value={form.valorInvestimento}

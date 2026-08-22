@@ -109,19 +109,22 @@ describe("calcularFrio", () => {
 });
 
 describe("calcularEconomia", () => {
+  // horas/dia + dias/semana (não "horas/ano" direto) — mesmo padrão do
+  // wizard de orçamento. calcularEconomiaECO2 converte pra mensal via
+  // ×4.33 (semanas/mês médias) e depois ×12 pro anual.
   const inputBase = {
     perda_com_isolante_kw_m2: 0.5,
     perda_sem_isolante_kw_m2: 2.0,
     area_m2: 10,
     combustivel: "eletricidade" as const,
     custo_combustivel: 0.75,
-    eficiencia_percentual: 100,
-    horas_operacao_ano: 8760,
+    horas_operacao_dia: 24,
+    dias_operacao_semana: 7,
   };
 
-  it("economia de energia é a diferença de perda × área × horas", () => {
+  it("economia de energia é a diferença de perda × área × horas/dia × dias/semana × 4.33 × 12", () => {
     const resultado = calcularEconomia(inputBase);
-    const esperadoKwh = (2.0 - 0.5) * 10 * 8760;
+    const esperadoKwh = (2.0 - 0.5) * 10 * 24 * 7 * 4.33 * 12;
     expect(resultado.economia_anual_kwh).toBeCloseTo(esperadoKwh, 0);
   });
 
@@ -136,11 +139,11 @@ describe("calcularEconomia", () => {
     expect(resultado.roi_meses).toBeGreaterThan(0);
   });
 
-  it("rejeita horas de operação acima de 8760h/ano", () => {
-    expect(() => calcularEconomia({ ...inputBase, horas_operacao_ano: 9000 })).toThrow();
+  it("rejeita horas de operação acima de 24h/dia", () => {
+    expect(() => calcularEconomia({ ...inputBase, horas_operacao_dia: 25 })).toThrow();
   });
 
-  it("rejeita eficiência acima de 100%", () => {
-    expect(() => calcularEconomia({ ...inputBase, eficiencia_percentual: 150 })).toThrow();
+  it("rejeita dias de operação acima de 7 dias/semana", () => {
+    expect(() => calcularEconomia({ ...inputBase, dias_operacao_semana: 8 })).toThrow();
   });
 });

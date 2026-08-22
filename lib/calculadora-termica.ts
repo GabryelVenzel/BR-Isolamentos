@@ -265,6 +265,11 @@ export interface EconomiaECO2Resultado {
   economiaAnual: number;
   reducaoPercentual: number;
   co2TonAno: number;
+  /** Energia efetivamente poupada por ano, em kWh — já era calculada
+   * internamente (base do cálculo de CO2 evitado) mas não era devolvida;
+   * exposta porque o módulo Engenharia (lib/usecases/engenharia/calcularEconomia.ts)
+   * mostra esse número diretamente ao usuário ("Economia: XXX kWh/ano"). */
+  energiaEfetivaAnualKwh: number;
 }
 
 /**
@@ -299,6 +304,7 @@ export function calcularEconomiaECO2(
     economiaAnual,
     reducaoPercentual,
     co2TonAno: co2EvitadoAnualKg / 1000,
+    energiaEfetivaAnualKwh,
   };
 }
 

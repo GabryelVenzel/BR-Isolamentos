@@ -24,8 +24,8 @@ const FORM_INICIAL: EngenhariaFormState = {
 const ECONOMIA_INICIAL: EconomiaFormState = {
   combustivel: "eletricidade",
   custoCombustivel: undefined,
-  eficienciaPercentual: undefined,
-  horasOperacaoAno: undefined,
+  horasOperacaoDia: undefined,
+  diasOperacaoSemana: undefined,
   valorInvestimento: undefined,
   areaM2: undefined,
 };
@@ -116,8 +116,8 @@ export default function EngenhariaPage() {
             area_m2: economiaForm.areaM2,
             combustivel: economiaForm.combustivel,
             custo_combustivel: economiaForm.custoCombustivel,
-            eficiencia_percentual: economiaForm.eficienciaPercentual,
-            horas_operacao_ano: economiaForm.horasOperacaoAno,
+            horas_operacao_dia: economiaForm.horasOperacaoDia,
+            dias_operacao_semana: economiaForm.diasOperacaoSemana,
             valor_investimento: economiaForm.valorInvestimento,
           };
 
