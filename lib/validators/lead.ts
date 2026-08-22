@@ -50,6 +50,17 @@ export const AtualizarConfigReativacaoSchema = z.object({
   dias_negociacao: z.number().int().positive("Deve ser maior que zero."),
 });
 
+// Mesmo shape de AtualizarConfigReativacaoSchema, schema separado porque são
+// duas configurações conceitualmente diferentes (ver ConfigPrazoEtapas em
+// lib/types/domain.ts) — não reaproveitar o mesmo schema só porque os campos
+// batem seria acoplar duas regras de negócio que podem divergir no futuro.
+export const AtualizarConfigPrazoEtapasSchema = z.object({
+  dias_prospeccao: z.number().int().positive("Deve ser maior que zero."),
+  dias_contato: z.number().int().positive("Deve ser maior que zero."),
+  dias_proposta: z.number().int().positive("Deve ser maior que zero."),
+  dias_negociacao: z.number().int().positive("Deve ser maior que zero."),
+});
+
 export const CreateInteracaoLeadSchema = z.object({
   lead_id: z.string().min(1),
   tipo: z.enum(["nota", "email", "chamada", "reuniao", "proposta_enviada"]),
@@ -64,4 +75,5 @@ export type MoverLeadInput = z.infer<typeof MoverLeadSchema>;
 export type MudarTemperaturaInput = z.infer<typeof MudarTemperaturaSchema>;
 export type CancelarAgendamentoFrioInput = z.infer<typeof CancelarAgendamentoFrioSchema>;
 export type AtualizarConfigReativacaoInput = z.infer<typeof AtualizarConfigReativacaoSchema>;
+export type AtualizarConfigPrazoEtapasInput = z.infer<typeof AtualizarConfigPrazoEtapasSchema>;
 export type CreateInteracaoLeadInput = z.infer<typeof CreateInteracaoLeadSchema>;

@@ -18,6 +18,8 @@ interface Props {
  * precisão é o dropdown de etapa dentro do LeadDetailModal — clicar no card
  * sempre funciona e abre o mesmo controle. */
 export default function LeadCardKanban({ lead, onAbrir, onIniciarArraste, onTerminarArraste, arrastando }: Props) {
+  const atrasado = lead.etapa_atrasada === true;
+
   return (
     <div
       draggable
@@ -28,9 +30,9 @@ export default function LeadCardKanban({ lead, onAbrir, onIniciarArraste, onTerm
       }}
       onDragEnd={onTerminarArraste}
       onClick={() => onAbrir(lead)}
-      className={`cursor-grab rounded-card border border-gray-200 bg-white p-3 shadow-card transition-shadow hover:shadow-card-hover active:cursor-grabbing ${
-        arrastando ? "opacity-40" : ""
-      }`}
+      className={`cursor-grab rounded-card border bg-white p-3 shadow-card transition-shadow hover:shadow-card-hover active:cursor-grabbing ${
+        atrasado ? "border-status-error" : "border-gray-200"
+      } ${arrastando ? "opacity-40" : ""}`}
     >
       <div className="mb-1 flex items-start justify-between gap-2">
         <p className="font-montserrat text-sm font-semibold text-brand">{lead.cliente?.nome ?? "—"}</p>
@@ -43,7 +45,15 @@ export default function LeadCardKanban({ lead, onAbrir, onIniciarArraste, onTerm
       )}
       {lead.origem && <p className="mt-1 truncate text-xs text-gray-500">📍 {lead.origem}</p>}
       {lead.atribuido_a && <p className="truncate text-xs text-gray-500">👤 {lead.atribuido_a}</p>}
-      <p className="mt-1 text-xs text-gray-400">📅 {formatarData(lead.created_at)}</p>
+      <div className="mt-1 flex items-center justify-between gap-2">
+        <p className="text-xs text-gray-400">📅 {formatarData(lead.created_at)}</p>
+        {lead.dias_na_etapa_atual !== undefined && (
+          <p className={`text-xs font-medium ${atrasado ? "text-status-error" : "text-gray-400"}`}>
+            {atrasado ? "⚠️ " : "⏱ "}
+            {Math.floor(lead.dias_na_etapa_atual)}d nesta etapa
+          </p>
+        )}
+      </div>
     </div>
   );
 }

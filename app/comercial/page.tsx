@@ -49,6 +49,8 @@ function ComercialPageConteudo() {
   const [leadsFrios, setLeadsFrios] = useState<AgendamentoLeadFrio[]>([]);
   const [carregandoFrios, setCarregandoFrios] = useState(false);
 
+  const [soAtrasados, setSoAtrasados] = useState(false);
+
   const [leadSelecionadoId, setLeadSelecionadoId] = useState<string | null>(null);
   const [mostrarNovoLead, setMostrarNovoLead] = useState(false);
 
@@ -184,6 +186,9 @@ function ComercialPageConteudo() {
     .filter((l) => l.etapa !== "fechado" && l.etapa !== "perdido")
     .reduce((acc, l) => acc + l.valor_estimado, 0);
 
+  const totalLeadsAtrasados = leads.filter((l) => l.etapa_atrasada).length;
+  const leadsExibidos = soAtrasados ? leads.filter((l) => l.etapa_atrasada) : leads;
+
   return (
     <div className="space-y-6">
       <ToastContainer />
@@ -195,7 +200,7 @@ function ComercialPageConteudo() {
             {aba === "crm" && `${leads.length} lead${leads.length === 1 ? "" : "s"}, ${formatarMoeda(valorTotalAtivo)} em negociação ativa.`}
             {aba === "clientes" && "Cadastro de clientes e histórico de leads."}
             {aba === "relatorios" && "Insights e indicadores comerciais."}
-            {aba === "configuracoes" && "Prazos de reativação de leads frios."}
+            {aba === "configuracoes" && "Prazos de reativação de leads frios e prazo máximo por etapa."}
           </p>
         </div>
         {aba === "crm" && (
@@ -230,6 +235,9 @@ function ComercialPageConteudo() {
             mostrarFrios={mostrarFrios}
             onToggleFrios={setMostrarFrios}
             totalLeadsFrios={leadsFrios.length}
+            soAtrasados={soAtrasados}
+            onToggleAtrasados={setSoAtrasados}
+            totalLeadsAtrasados={totalLeadsAtrasados}
           />
 
           {mostrarFrios ? (
@@ -242,7 +250,7 @@ function ComercialPageConteudo() {
           ) : carregandoLeads ? (
             <p className="text-sm text-gray-500">Carregando...</p>
           ) : (
-            <KanbanBoard leads={leads} onAbrirLead={(lead) => setLeadSelecionadoId(lead.id)} onMoverLead={moverLead} />
+            <KanbanBoard leads={leadsExibidos} onAbrirLead={(lead) => setLeadSelecionadoId(lead.id)} onMoverLead={moverLead} />
           )}
         </div>
       )}

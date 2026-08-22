@@ -73,6 +73,12 @@ export interface Lead {
   updated_at: string;
   // Preenchido via join, opcional (ver LeadRepository.select).
   cliente?: Cliente;
+  // Campos CALCULADOS, não persistidos — anexados por
+  // lib/usecases/comercial/prazoEtapa.ts a partir de historico_mudancas_leads
+  // + ConfigPrazoEtapas (ver createComercialContext#listarLeads). Ausentes
+  // em qualquer outro caminho que não passe por lá (ex.: buscarLead).
+  dias_na_etapa_atual?: number;
+  etapa_atrasada?: boolean;
 }
 
 export type TipoInteracaoLead = "nota" | "email" | "chamada" | "reuniao" | "proposta_enviada";
@@ -136,6 +142,21 @@ export interface AgendamentoLeadFrio {
 /** Prazos de reativação por etapa em que o lead "esfriou" — linha única (id
  * fixo = 1), editável na aba Configurações do CRM. */
 export interface ConfigReativacaoLeadsFrios {
+  id: number;
+  dias_prospeccao: number;
+  dias_contato: number;
+  dias_proposta: number;
+  dias_negociacao: number;
+  updated_at: string;
+}
+
+/** Prazo máximo (em dias) que um lead pode ficar em cada etapa antes de ser
+ * considerado "atrasado" — linha única (id fixo = 1), editável na aba
+ * Configurações. NÃO confundir com `ConfigReativacaoLeadsFrios`: aquele é o
+ * prazo de RETORNO de um lead frio; este é o prazo de PERMANÊNCIA aceitável
+ * em cada etapa, para qualquer lead (independente de temperatura). Etapas
+ * terminais (fechado/perdido) não têm prazo. */
+export interface ConfigPrazoEtapas {
   id: number;
   dias_prospeccao: number;
   dias_contato: number;

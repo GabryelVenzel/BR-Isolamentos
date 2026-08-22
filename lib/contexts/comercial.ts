@@ -10,6 +10,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   AgendamentoLeadFrioRepository,
   ClienteRepository,
+  ConfigPrazoEtapasRepository,
   ConfigReativacaoLeadsFriosRepository,
   HistoricoMudancaLeadRepository,
   InteracaoLeadRepository,
@@ -19,6 +20,7 @@ import {
 import type {
   AgendamentoLeadFrio,
   ClienteResumo,
+  ConfigPrazoEtapas,
   ConfigReativacaoLeadsFrios,
   EtapaFunil,
   HistoricoMudancaLead,
@@ -27,6 +29,7 @@ import type {
   TemperaturaLead,
 } from "../types/domain";
 import {
+  anexarPrazoEtapa,
   atualizarLead,
   cancelarAgendamentoFrio,
   criarLead,
@@ -45,6 +48,7 @@ export function createComercialContext(supabase: SupabaseClient) {
   const historicoRepo = new HistoricoMudancaLeadRepository(supabase);
   const agendamentoFrioRepo = new AgendamentoLeadFrioRepository(supabase);
   const configReativacaoRepo = new ConfigReativacaoLeadsFriosRepository(supabase);
+  const configPrazoEtapasRepo = new ConfigPrazoEtapasRepository(supabase);
   const clienteRepo = new ClienteRepository(supabase);
 
   const reposMudancaEtapa = { leadRepo, historicoRepo };
@@ -57,12 +61,26 @@ export function createComercialContext(supabase: SupabaseClient) {
     historicoRepo,
     agendamentoFrioRepo,
     configReativacaoRepo,
+    configPrazoEtapasRepo,
     clienteRepo,
 
     // --- Leads / Kanban ---
 
-    listarLeads(filtros?: FiltrosLead): Promise<Lead[]> {
-      return leadRepo.listar(filtros);
+    /** Anexa `dias_na_etapa_atual`/`etapa_atrasada` em cada lead antes de
+     * devolver — ver lib/usecases/comercial/prazoEtapa.ts. Se
+     * config_prazo_etapas ainda não existir (migração 006 não aplicada), o
+     * `.catch` degrada pra "sem prazo configurado": os leads continuam
+     * listados normalmente, só sem nenhum marcado como atrasado. */
+    async listarLeads(filtros?: FiltrosLead): Promise<Lead[]> {
+      const leads = await leadRepo.listar(filtros);
+      if (leads.length === 0) return leads;
+
+      const [historico, config] = await Promise.all([
+        historicoRepo.listarPorLeads(leads.map((l) => l.id)),
+        configPrazoEtapasRepo.obter().catch(() => null),
+      ]);
+
+      return anexarPrazoEtapa(leads, historico, config);
     },
 
     listarOrigens(): Promise<string[]> {
@@ -143,6 +161,16 @@ export function createComercialContext(supabase: SupabaseClient) {
 
     atualizarConfigReativacao(dados: Partial<ConfigReativacaoLeadsFrios>): Promise<ConfigReativacaoLeadsFrios> {
       return configReativacaoRepo.atualizar(dados);
+    },
+
+    // --- Configuração de prazo máximo por etapa (leads "atrasados") ---
+
+    obterConfigPrazoEtapas(): Promise<ConfigPrazoEtapas> {
+      return configPrazoEtapasRepo.obter();
+    },
+
+    atualizarConfigPrazoEtapas(dados: Partial<ConfigPrazoEtapas>): Promise<ConfigPrazoEtapas> {
+      return configPrazoEtapasRepo.atualizar(dados);
     },
 
     // --- Clientes ---

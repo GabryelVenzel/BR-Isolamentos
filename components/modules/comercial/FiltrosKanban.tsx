@@ -23,11 +23,25 @@ interface Props {
   mostrarFrios: boolean;
   onToggleFrios: (valor: boolean) => void;
   totalLeadsFrios: number;
+  soAtrasados: boolean;
+  onToggleAtrasados: (valor: boolean) => void;
+  totalLeadsAtrasados: number;
 }
 
 const TEMPERATURAS: TemperaturaLead[] = ["quente", "morno", "frio"];
 
-export default function FiltrosKanban({ filtros, onChange, origens, usuarios, mostrarFrios, onToggleFrios, totalLeadsFrios }: Props) {
+export default function FiltrosKanban({
+  filtros,
+  onChange,
+  origens,
+  usuarios,
+  mostrarFrios,
+  onToggleFrios,
+  totalLeadsFrios,
+  soAtrasados,
+  onToggleAtrasados,
+  totalLeadsAtrasados,
+}: Props) {
   return (
     <div className="card space-y-3">
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -83,11 +97,18 @@ export default function FiltrosKanban({ filtros, onChange, origens, usuarios, mo
         </div>
       </div>
 
-      <label className="flex items-center gap-2 border-t border-gray-100 pt-3 text-sm text-gray-700">
-        <input type="checkbox" checked={mostrarFrios} onChange={(e) => onToggleFrios(e.target.checked)} />
-        Mostrar leads frios em reativação
-        {totalLeadsFrios > 0 && <span className="badge bg-brand-light text-brand">{totalLeadsFrios}</span>}
-      </label>
+      <div className="flex flex-wrap gap-x-6 gap-y-2 border-t border-gray-100 pt-3">
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" checked={mostrarFrios} onChange={(e) => onToggleFrios(e.target.checked)} />
+          Mostrar leads frios em reativação
+          {totalLeadsFrios > 0 && <span className="badge bg-brand-light text-brand">{totalLeadsFrios}</span>}
+        </label>
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" checked={soAtrasados} onChange={(e) => onToggleAtrasados(e.target.checked)} />
+          Mostrar só leads atrasados
+          {totalLeadsAtrasados > 0 && <span className="badge bg-red-100 text-status-error">{totalLeadsAtrasados}</span>}
+        </label>
+      </div>
     </div>
   );
 }

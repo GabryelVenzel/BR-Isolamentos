@@ -9,6 +9,7 @@ export { InteracaoLeadRepository } from "./interacao-lead.repository";
 export { HistoricoMudancaLeadRepository } from "./historico-mudanca-lead.repository";
 export { AgendamentoLeadFrioRepository } from "./agendamento-lead-frio.repository";
 export { ConfigReativacaoLeadsFriosRepository } from "./config-reativacao-leads-frios.repository";
+export { ConfigPrazoEtapasRepository } from "./config-prazo-etapas.repository";
 export { ParceiroRepository } from "./parceiro.repository";
 export type { FiltrosParceiro } from "./parceiro.repository";
 export { AgendamentoRepository } from "./agendamento.repository";

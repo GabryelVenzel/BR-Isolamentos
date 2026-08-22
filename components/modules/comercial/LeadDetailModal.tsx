@@ -62,10 +62,11 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
   const [carregando, setCarregando] = useState(true);
 
   // Campos de cadastro (Seção 1) — editados localmente, só enviados no
-  // "Salvar" pra não disparar um PATCH a cada tecla.
+  // "Salvar" pra não disparar um PATCH a cada tecla. Sem "Próxima ação" aqui
+  // de propósito — esse acompanhamento passou a ser feito via Interações
+  // (aba ao lado), não mais um campo solto no cadastro do lead.
   const [valorEstimado, setValorEstimado] = useState("");
   const [origem, setOrigem] = useState("");
-  const [proximaAcao, setProximaAcao] = useState("");
   const [notas, setNotas] = useState("");
   const [atribuidoA, setAtribuidoA] = useState("");
   const [salvandoDados, setSalvandoDados] = useState(false);
@@ -100,7 +101,6 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
         setLead(l);
         setValorEstimado(l.valor_estimado ? String(l.valor_estimado) : "");
         setOrigem(l.origem ?? "");
-        setProximaAcao(l.proxima_acao ?? "");
         setNotas(l.notas ?? "");
         setAtribuidoA(l.atribuido_a ?? "");
         setEtapaSelecionada(l.etapa);
@@ -126,7 +126,6 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
         body: JSON.stringify({
           valor_estimado: valorEstimado ? Number(valorEstimado) : 0,
           origem: origem || null,
-          proxima_acao: proximaAcao || null,
           notas: notas || null,
           atribuido_a: atribuidoA || null,
         }),
@@ -297,10 +296,6 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
                       <div>
                         <label className="label-field">Origem</label>
                         <input className="input-field" value={origem} onChange={(e) => setOrigem(e.target.value)} />
-                      </div>
-                      <div>
-                        <label className="label-field">Próxima ação</label>
-                        <input className="input-field" value={proximaAcao} onChange={(e) => setProximaAcao(e.target.value)} />
                       </div>
                       <div>
                         <label className="label-field">Responsável (e-mail)</label>

@@ -7,6 +7,7 @@ export { reativarLeadFrio } from "./reativarLeadFrio";
 export { cancelarAgendamentoFrio } from "./cancelarAgendamentoFrio";
 export { verificarReativacoesPendentes } from "./verificarReativacoesPendentes";
 export { registrarInteracao } from "./registrarInteracao";
+export { anexarPrazoEtapa, calcularDiasNaEtapaAtual } from "./prazoEtapa";
 export {
   calcularFunil,
   calcularKpis,

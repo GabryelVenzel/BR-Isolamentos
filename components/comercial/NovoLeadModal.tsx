@@ -11,15 +11,17 @@ interface Props {
 }
 
 /** Modal de criação de lead — reaproveita o mesmo `FormCliente` do wizard de
- * orçamento (busca cliente existente ou cadastra um novo). */
+ * orçamento (busca cliente existente ou cadastra um novo).
+ *
+ * Sem campos de "Próxima ação"/"Notas" aqui de propósito — o acompanhamento
+ * do lead (o que fazer a seguir, anotações) passou a ser feito via
+ * Interações (LeadDetailModal, aba Interações), registradas depois que o
+ * lead já existe. Criar o lead é só o primeiro passo. */
 export default function NovoLeadModal({ onCriado, onFechar }: Props) {
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [temperatura, setTemperatura] = useState<TemperaturaLead>("morno");
   const [valorEstimado, setValorEstimado] = useState("");
   const [origem, setOrigem] = useState("");
-  const [proximaAcao, setProximaAcao] = useState("");
-  const [dataProximaAcao, setDataProximaAcao] = useState("");
-  const [notas, setNotas] = useState("");
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -41,9 +43,6 @@ export default function NovoLeadModal({ onCriado, onFechar }: Props) {
           temperatura,
           valor_estimado: valorEstimado ? Number(valorEstimado) : 0,
           origem: origem || null,
-          proxima_acao: proximaAcao || null,
-          data_proxima_acao: dataProximaAcao ? new Date(dataProximaAcao).toISOString() : null,
-          notas: notas || null,
         }),
       });
       const payload = await response.json();
@@ -93,7 +92,7 @@ export default function NovoLeadModal({ onCriado, onFechar }: Props) {
                 onChange={(e) => setValorEstimado(e.target.value)}
               />
             </div>
-            <div>
+            <div className="sm:col-span-2">
               <label className="label-field">Origem</label>
               <input
                 className="input-field"
@@ -102,34 +101,6 @@ export default function NovoLeadModal({ onCriado, onFechar }: Props) {
                 onChange={(e) => setOrigem(e.target.value)}
               />
             </div>
-            <div>
-              <label className="label-field">Próxima ação</label>
-              <input
-                className="input-field"
-                placeholder="Ligar, enviar proposta..."
-                value={proximaAcao}
-                onChange={(e) => setProximaAcao(e.target.value)}
-              />
-            </div>
-            <div>
-              <label className="label-field">Data da próxima ação</label>
-              <input
-                type="date"
-                className="input-field"
-                value={dataProximaAcao}
-                onChange={(e) => setDataProximaAcao(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="label-field">Notas</label>
-            <textarea
-              className="input-field"
-              rows={3}
-              value={notas}
-              onChange={(e) => setNotas(e.target.value)}
-            />
           </div>
 
           {erro && <p className="text-sm text-status-error">{erro}</p>}
