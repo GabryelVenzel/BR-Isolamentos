@@ -1,6 +1,8 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import ModuleSubNav from "@/components/ModuleSubNav";
+import { ORCAMENTO_SUBNAV } from "@/lib/module-nav";
 
 const STEPS = [
   { path: "step-1-cliente", label: "Cliente" },
@@ -16,6 +18,8 @@ export default function NovoOrcamentoLayout({ children }: { children: React.Reac
 
   return (
     <div className="space-y-8">
+      <ModuleSubNav items={ORCAMENTO_SUBNAV} />
+
       <ol className="flex flex-wrap items-center gap-2 text-sm">
         {STEPS.map((step, index) => {
           const ativo = index === stepAtual;

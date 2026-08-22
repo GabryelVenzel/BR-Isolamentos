@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { formatarMoeda } from "@/lib/format";
 import type { CustoFixo } from "@/lib/types/domain";
 
@@ -52,10 +51,7 @@ export default function CustosFixosPage() {
   return (
     <div className="space-y-6">
       <div>
-        <Link href="/financeiro" className="text-sm text-brand hover:underline">
-          ← Voltar ao financeiro
-        </Link>
-        <h1 className="mt-1 text-2xl font-bold">Custos Fixos</h1>
+        <h1 className="text-2xl font-bold">Custos Fixos</h1>
         <p className="text-sm text-gray-500">Despesas recorrentes mensais — total ativo: {formatarMoeda(totalAtivo)}</p>
       </div>
 

@@ -6,20 +6,26 @@ import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import Logo from "./Logo";
 
-const LINKS = [
-  { href: "/", label: "Dashboard" },
-  { href: "/novo-orcamento", label: "Novo Orçamento" },
-  { href: "/historico", label: "Histórico" },
+// Os 6 módulos do ERP. "Orçamento" reúne 3 rotas de topo históricas (wizard,
+// histórico, config. de preços — ver lib/module-nav.ts) que não têm um
+// prefixo de URL comum; por isso usa `match` para ficar "ativo" em qualquer
+// uma delas, mesmo apontando (`href`) só para o histórico.
+const LINKS: Array<{ href: string; label: string; match?: string[] }> = [
+  { href: "/", label: "Resumo" },
+  { href: "/engenharia", label: "Engenharia" },
   { href: "/comercial", label: "Comercial" },
   { href: "/operacional", label: "Operacional" },
+  { href: "/historico", label: "Orçamento", match: ["/historico", "/novo-orcamento", "/config-precos", "/orcamento"] },
   { href: "/financeiro", label: "Financeiro" },
-  { href: "/config-precos", label: "Configurar Preços" },
 ];
 
-/** "/" só fica ativo na home exata; os demais links também ficam ativos em
- * suas sub-rotas (ex.: "/comercial" ativo em "/comercial/abc123"). */
-function ehAtivo(pathname: string, href: string): boolean {
-  return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+/** "/" só fica ativo na home exata; os demais ficam ativos também em
+ * sub-rotas (ex.: "/comercial" ativo em "/comercial/abc123") e, quando
+ * declarado, em qualquer prefixo de `match` (ver "Orçamento" acima). */
+function ehAtivo(pathname: string, link: (typeof LINKS)[number]): boolean {
+  if (link.href === "/") return pathname === "/";
+  const prefixos = link.match ?? [link.href];
+  return prefixos.some((prefixo) => pathname === prefixo || pathname.startsWith(`${prefixo}/`));
 }
 
 export default function Navbar() {
@@ -85,7 +91,7 @@ export default function Navbar() {
 
         <nav className="hidden items-center gap-6 md:flex">
           {LINKS.map((link) => {
-            const ativo = ehAtivo(pathname, link.href);
+            const ativo = ehAtivo(pathname, link);
             return (
               <Link
                 key={link.href}
@@ -121,7 +127,7 @@ export default function Navbar() {
 
       <nav className="flex items-center gap-4 overflow-x-auto border-t border-white/10 px-4 py-2 md:hidden">
         {LINKS.map((link) => {
-          const ativo = pathname === link.href;
+          const ativo = ehAtivo(pathname, link);
           return (
             <Link
               key={link.href}

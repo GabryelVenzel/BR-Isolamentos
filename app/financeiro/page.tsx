@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import NovoLancamentoModal from "@/components/financeiro/NovoLancamentoModal";
 import { formatarData, formatarMoeda } from "@/lib/format";
 import type { LancamentoFinanceiro } from "@/lib/types/domain";
@@ -56,14 +55,9 @@ export default function FinanceiroPage() {
           <h1 className="text-2xl font-bold">Financeiro</h1>
           <p className="text-sm text-gray-500">Fluxo de caixa — receitas, despesas e custos fixos.</p>
         </div>
-        <div className="flex gap-3">
-          <Link href="/financeiro/custos-fixos" className="btn-secondary">
-            Custos Fixos
-          </Link>
-          <button type="button" className="btn-primary" onClick={() => setMostrarNovo(true)}>
-            + Novo Lançamento
-          </button>
-        </div>
+        <button type="button" className="btn-primary" onClick={() => setMostrarNovo(true)}>
+          + Novo Lançamento
+        </button>
       </div>
 
       {erro && <p className="text-sm text-status-error">{erro}</p>}

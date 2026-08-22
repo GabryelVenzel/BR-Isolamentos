@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { formatarMoeda } from "@/lib/format";
 import type { Parceiro } from "@/lib/types/domain";
 
@@ -89,10 +88,7 @@ export default function ParceirosPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <Link href="/operacional" className="text-sm text-brand hover:underline">
-            ← Voltar à agenda
-          </Link>
-          <h1 className="mt-1 text-2xl font-bold">Parceiros</h1>
+          <h1 className="text-2xl font-bold">Parceiros</h1>
           <p className="text-sm text-gray-500">Cadastro de mão de obra parceira para instalação.</p>
         </div>
         <button type="button" className="btn-primary" onClick={() => setMostrarForm((v) => !v)}>

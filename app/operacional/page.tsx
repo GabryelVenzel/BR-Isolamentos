@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import NovoAgendamentoModal from "@/components/operacional/NovoAgendamentoModal";
 import { classesStatusAgendamento, formatarData, formatarStatusAgendamento } from "@/lib/format";
 import type { Agendamento, Parceiro, StatusAgendamento } from "@/lib/types/domain";
@@ -75,14 +74,9 @@ export default function OperacionalPage() {
           <h1 className="text-2xl font-bold">Operacional</h1>
           <p className="text-sm text-gray-500">Agenda de execução em campo.</p>
         </div>
-        <div className="flex gap-3">
-          <Link href="/operacional/parceiros" className="btn-secondary">
-            Parceiros
-          </Link>
-          <button type="button" className="btn-primary" onClick={() => setMostrarNovo(true)}>
-            + Novo Agendamento
-          </button>
-        </div>
+        <button type="button" className="btn-primary" onClick={() => setMostrarNovo(true)}>
+          + Novo Agendamento
+        </button>
       </div>
 
       {erro && <p className="text-sm text-status-error">{erro}</p>}

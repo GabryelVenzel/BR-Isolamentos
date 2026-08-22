@@ -43,7 +43,7 @@ export default async function DashboardPage() {
     <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <h1 className="text-2xl font-bold">Resumo</h1>
           <p className="text-sm text-gray-500">Visão geral dos orçamentos de isolamento térmico.</p>
         </div>
         <Link href="/novo-orcamento" className="btn-primary">
