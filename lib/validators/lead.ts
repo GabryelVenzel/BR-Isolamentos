@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ORIGENS_LEAD } from "../types/domain";
 
 // Módulo Comercial (funil de leads) — o SQL já existe em
 // sql-migration-004-6modulos-completo.sql (falta aplicar no Supabase e
@@ -6,12 +7,19 @@ import { z } from "zod";
 
 const EtapaFunilSchema = z.enum(["prospeccao", "contato", "proposta", "negociacao", "fechado", "perdido"]);
 
+// Origem passou de texto livre para uma lista fixa (dropdown, ver
+// ORIGENS_LEAD em lib/types/domain.ts) — evita variação de grafia
+// ("site"/"Site"/"SITE") que antes fragmentava o relatório "Leads por
+// Origem". Continua nullable/opcional: nem toda tela força o usuário a
+// escolher uma origem no momento da criação.
+const OrigemSchema = z.enum(ORIGENS_LEAD);
+
 export const CreateLeadSchema = z.object({
   cliente_id: z.number().int().positive(),
   etapa: EtapaFunilSchema,
   temperatura: z.enum(["frio", "morno", "quente"]),
   valor_estimado: z.number().nonnegative(),
-  origem: z.string().trim().nullable().optional(),
+  origem: OrigemSchema.nullable().optional(),
   proxima_acao: z.string().trim().nullable().optional(),
   data_proxima_acao: z.string().datetime().nullable().optional(),
   notas: z.string().trim().nullable().optional(),
@@ -19,6 +27,11 @@ export const CreateLeadSchema = z.object({
   tags: z.array(z.string().trim().min(1)).optional(),
 });
 
+// `origem` fica no shape (herdado de CreateLeadSchema) mas é ignorada no uso
+// — origem é IMUTÁVEL depois de criado o lead (ver atualizarLead.ts, que
+// remove `etapa`, `temperatura` E `origem` antes de gravar). Mantida aqui
+// só porque `.partial()` deriva o resto do schema automaticamente; não é um
+// campo realmente editável via PATCH.
 export const UpdateLeadSchema = CreateLeadSchema.partial();
 
 export const MoverLeadSchema = z.object({

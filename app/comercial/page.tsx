@@ -42,7 +42,6 @@ function ComercialPageConteudo() {
   const [leads, setLeads] = useState<Lead[]>([]);
   const [carregandoLeads, setCarregandoLeads] = useState(true);
   const [filtros, setFiltros] = useState<FiltrosKanbanState>(FILTROS_INICIAIS);
-  const [origens, setOrigens] = useState<string[]>([]);
   const [usuarios, setUsuarios] = useState<Array<{ email: string; nome: string }>>([]);
 
   const [mostrarFrios, setMostrarFrios] = useState(false);
@@ -123,7 +122,6 @@ function ComercialPageConteudo() {
   }, [aba, carregarLeadsFrios]);
 
   useEffect(() => {
-    fetch("/api/comercial/origens").then((r) => r.json()).then((p) => p.success && setOrigens(p.data));
     fetch("/api/usuarios").then((r) => r.json()).then(setUsuarios).catch(() => setUsuarios([]));
   }, []);
 
@@ -200,7 +198,7 @@ function ComercialPageConteudo() {
             {aba === "crm" && `${leads.length} lead${leads.length === 1 ? "" : "s"}, ${formatarMoeda(valorTotalAtivo)} em negociação ativa.`}
             {aba === "clientes" && "Cadastro de clientes e histórico de leads."}
             {aba === "relatorios" && "Insights e indicadores comerciais."}
-            {aba === "configuracoes" && "Prazos de reativação de leads frios e prazo máximo por etapa."}
+            {aba === "configuracoes" && "Prazos de reativação, prazo máximo por etapa e responsáveis."}
           </p>
         </div>
         {aba === "crm" && (
@@ -230,7 +228,6 @@ function ComercialPageConteudo() {
           <FiltrosKanban
             filtros={filtros}
             onChange={(patch) => setFiltros((prev) => ({ ...prev, ...patch }))}
-            origens={origens}
             usuarios={usuarios}
             mostrarFrios={mostrarFrios}
             onToggleFrios={setMostrarFrios}

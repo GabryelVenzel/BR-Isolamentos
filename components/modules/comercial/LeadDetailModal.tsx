@@ -64,9 +64,10 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
   // Campos de cadastro (Seção 1) — editados localmente, só enviados no
   // "Salvar" pra não disparar um PATCH a cada tecla. Sem "Próxima ação" aqui
   // de propósito — esse acompanhamento passou a ser feito via Interações
-  // (aba ao lado), não mais um campo solto no cadastro do lead.
+  // (aba ao lado), não mais um campo solto no cadastro do lead. Sem estado
+  // pra "origem" — é IMUTÁVEL depois de criado o lead (ver atualizarLead.ts),
+  // exibida direto de `lead.origem`, não editável aqui.
   const [valorEstimado, setValorEstimado] = useState("");
-  const [origem, setOrigem] = useState("");
   const [notas, setNotas] = useState("");
   const [atribuidoA, setAtribuidoA] = useState("");
   const [salvandoDados, setSalvandoDados] = useState(false);
@@ -100,7 +101,6 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
         const l: Lead = payloadLead.data;
         setLead(l);
         setValorEstimado(l.valor_estimado ? String(l.valor_estimado) : "");
-        setOrigem(l.origem ?? "");
         setNotas(l.notas ?? "");
         setAtribuidoA(l.atribuido_a ?? "");
         setEtapaSelecionada(l.etapa);
@@ -125,7 +125,6 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           valor_estimado: valorEstimado ? Number(valorEstimado) : 0,
-          origem: origem || null,
           notas: notas || null,
           atribuido_a: atribuidoA || null,
         }),
@@ -295,7 +294,8 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
                       </div>
                       <div>
                         <label className="label-field">Origem</label>
-                        <input className="input-field" value={origem} onChange={(e) => setOrigem(e.target.value)} />
+                        {/* Imutável depois de criado — sem input, só exibição (ver atualizarLead.ts). */}
+                        <p className="input-field cursor-default bg-gray-50 text-gray-600">{lead.origem ?? "—"}</p>
                       </div>
                       <div>
                         <label className="label-field">Responsável (e-mail)</label>

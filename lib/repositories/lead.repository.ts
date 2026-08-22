@@ -35,15 +35,6 @@ export class LeadRepository extends BaseRepository<Lead> {
     return (data ?? []) as unknown as Lead[];
   }
 
-  /** Origens distintas já cadastradas (para popular o filtro "Origem" sem
-   * hardcodar uma lista fixa — a origem é texto livre, ver CreateLeadSchema). */
-  async listarOrigensDistintas(): Promise<string[]> {
-    const { data, error } = await this.queryBuilder().select("origem").not("origem", "is", null);
-    if (error) throw error;
-    const origens = new Set((data ?? []).map((linha: { origem: string }) => linha.origem).filter(Boolean));
-    return Array.from(origens).sort() as string[];
-  }
-
   // --- Consultas do dashboard executivo (módulo Resumo) ---
 
   /** Leads em qualquer etapa ativa (não terminal — nem fechado nem perdido),
@@ -95,7 +86,13 @@ export class LeadRepository extends BaseRepository<Lead> {
   }
 
   /** Leads ativos cuja próxima ação já venceu (`data_proxima_acao` no
-   * passado) — alimenta o alerta "leads sem contato" do dashboard. */
+   * passado) — alimenta o alerta "leads sem contato" do dashboard Resumo.
+   * NOTA: `proxima_acao`/`data_proxima_acao` deixaram de ser editáveis pela
+   * UI do módulo Comercial (o acompanhamento passou a ser via Interações,
+   * ver NovoLeadModal.tsx/LeadDetailModal.tsx) — leads criados depois dessa
+   * mudança nunca preenchem esse campo, então este alerta tende a esvaziar
+   * com o tempo. Não removido aqui porque a decisão de aposentar o alerta é
+   * do módulo Resumo, fora do escopo deste pedido (que era só do Comercial). */
   async listarComAcaoAtrasada(): Promise<Lead[]> {
     const hoje = new Date().toISOString().slice(0, 10);
     const { data, error } = await this.queryBuilder()

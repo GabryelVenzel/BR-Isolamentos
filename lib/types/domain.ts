@@ -45,6 +45,16 @@ export type {
 export type EtapaFunil = "prospeccao" | "contato" | "proposta" | "negociacao" | "fechado" | "perdido";
 export type TemperaturaLead = "frio" | "morno" | "quente";
 
+/** Lista fixa de origens — escolhida na criação do lead (dropdown, não mais
+ * texto livre) e IMUTÁVEL depois de criado (ver UpdateLeadSchema em
+ * lib/validators/lead.ts, que não aceita `origem` no corpo do PATCH). A
+ * coluna `leads.origem` continua `varchar` livre no banco — a restrição é só
+ * no app (CreateLeadSchema), não uma constraint de banco; leads antigos
+ * criados antes desta lista existir podem ter valores fora dela, e não são
+ * migrados retroativamente. */
+export const ORIGENS_LEAD = ["Site", "LinkedIn", "Indicação", "Evento", "Cold Call"] as const;
+export type OrigemLead = (typeof ORIGENS_LEAD)[number];
+
 export interface Lead {
   id: string;
   cliente_id: number;

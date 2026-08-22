@@ -1,7 +1,7 @@
 "use client";
 
 import { formatarTemperatura } from "@/lib/format";
-import type { TemperaturaLead } from "@/lib/types/domain";
+import { ORIGENS_LEAD, type TemperaturaLead } from "@/lib/types/domain";
 
 export interface FiltrosKanbanState {
   temperatura: TemperaturaLead | "";
@@ -18,7 +18,6 @@ interface Usuario {
 interface Props {
   filtros: FiltrosKanbanState;
   onChange: (patch: Partial<FiltrosKanbanState>) => void;
-  origens: string[];
   usuarios: Usuario[];
   mostrarFrios: boolean;
   onToggleFrios: (valor: boolean) => void;
@@ -33,7 +32,6 @@ const TEMPERATURAS: TemperaturaLead[] = ["quente", "morno", "frio"];
 export default function FiltrosKanban({
   filtros,
   onChange,
-  origens,
   usuarios,
   mostrarFrios,
   onToggleFrios,
@@ -64,7 +62,7 @@ export default function FiltrosKanban({
           <label className="label-field">Origem</label>
           <select className="input-field" value={filtros.origem} onChange={(e) => onChange({ origem: e.target.value })}>
             <option value="">Todas as origens</option>
-            {origens.map((o) => (
+            {ORIGENS_LEAD.map((o) => (
               <option key={o} value={o}>
                 {o}
               </option>

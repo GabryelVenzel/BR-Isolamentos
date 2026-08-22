@@ -5,6 +5,7 @@ export * from "./financeiro";
 export * from "./lead";
 export * from "./orcamento";
 export * from "./parceiro";
+export * from "./usuario";
 
 // --- Helper comum de uso em API routes ---
 

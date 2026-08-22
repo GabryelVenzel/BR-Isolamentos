@@ -7,6 +7,7 @@ export interface Usuario {
   id: string;
   email: string;
   nome: string;
+  telefone: string | null;
   role: Role;
   ativo: boolean;
   criado_em: string;

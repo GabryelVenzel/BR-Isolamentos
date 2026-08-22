@@ -83,10 +83,6 @@ export function createComercialContext(supabase: SupabaseClient) {
       return anexarPrazoEtapa(leads, historico, config);
     },
 
-    listarOrigens(): Promise<string[]> {
-      return leadRepo.listarOrigensDistintas();
-    },
-
     buscarLead(id: string): Promise<Lead> {
       return leadRepo.findByIdOrThrow(id);
     },

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import FormCliente from "@/components/FormCliente";
 import type { Cliente } from "@/lib/types";
-import type { TemperaturaLead } from "@/lib/types/domain";
+import { ORIGENS_LEAD, type OrigemLead, type TemperaturaLead } from "@/lib/types/domain";
 
 interface Props {
   onCriado: () => void;
@@ -16,12 +16,15 @@ interface Props {
  * Sem campos de "Próxima ação"/"Notas" aqui de propósito — o acompanhamento
  * do lead (o que fazer a seguir, anotações) passou a ser feito via
  * Interações (LeadDetailModal, aba Interações), registradas depois que o
- * lead já existe. Criar o lead é só o primeiro passo. */
+ * lead já existe. Criar o lead é só o primeiro passo.
+ *
+ * Origem é um dropdown de lista fixa (ORIGENS_LEAD), não texto livre — e
+ * fica IMUTÁVEL depois que o lead é criado (ver atualizarLead.ts). */
 export default function NovoLeadModal({ onCriado, onFechar }: Props) {
   const [cliente, setCliente] = useState<Cliente | null>(null);
   const [temperatura, setTemperatura] = useState<TemperaturaLead>("morno");
   const [valorEstimado, setValorEstimado] = useState("");
-  const [origem, setOrigem] = useState("");
+  const [origem, setOrigem] = useState<OrigemLead | "">("");
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -94,12 +97,19 @@ export default function NovoLeadModal({ onCriado, onFechar }: Props) {
             </div>
             <div className="sm:col-span-2">
               <label className="label-field">Origem</label>
-              <input
+              <select
                 className="input-field"
-                placeholder="Indicação, site, feira..."
                 value={origem}
-                onChange={(e) => setOrigem(e.target.value)}
-              />
+                onChange={(e) => setOrigem(e.target.value as OrigemLead | "")}
+              >
+                <option value="">Selecione a origem...</option>
+                {ORIGENS_LEAD.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-400">Não pode ser alterada depois que o lead for criado.</p>
             </div>
           </div>
 

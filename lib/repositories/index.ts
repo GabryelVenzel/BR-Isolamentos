@@ -1,6 +1,7 @@
 export { BaseRepository } from "./base";
 export type { FindAllOptions } from "./base";
 export { ClienteRepository } from "./cliente.repository";
+export { UsuarioRepository } from "./usuario.repository";
 export { OrcamentoRepository } from "./orcamento.repository";
 export type { FiltrosOrcamento } from "./orcamento.repository";
 export { LeadRepository } from "./lead.repository";

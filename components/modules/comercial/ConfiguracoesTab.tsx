@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "./toast";
+import ResponsaveisSection from "./ResponsaveisSection";
 
 type FormPrazos = Record<"dias_prospeccao" | "dias_contato" | "dias_proposta" | "dias_negociacao", string>;
 
@@ -127,28 +128,32 @@ const LABELS_PRAZO_ETAPA: Record<keyof FormPrazos, string> = {
  * fora do escopo desta versão, não implementadas. */
 export default function ConfiguracoesTab() {
   return (
-    <div className="flex flex-wrap gap-6">
-      <CardPrazos
-        titulo="Prazos de Reativação de Leads Frios"
-        descricao='Quando um lead vira "Frio", o sistema agenda um retorno automático depois de N dias — o prazo depende
-          da etapa em que o lead esfriou. Só afeta agendamentos criados a partir de agora; os já agendados mantêm a
-          data original.'
-        endpoint="/api/comercial/configuracoes/reativacao"
-        labels={LABELS_REATIVACAO}
-        mensagemSucesso="Prazos de reativação atualizados."
-        padrao={{ dias_prospeccao: "15", dias_contato: "20", dias_proposta: "30", dias_negociacao: "40" }}
-      />
+    <div className="space-y-6">
+      <div className="flex flex-wrap gap-6">
+        <CardPrazos
+          titulo="Prazos de Reativação de Leads Frios"
+          descricao='Quando um lead vira "Frio", o sistema agenda um retorno automático depois de N dias — o prazo
+            depende da etapa em que o lead esfriou. Só afeta agendamentos criados a partir de agora; os já agendados
+            mantêm a data original.'
+          endpoint="/api/comercial/configuracoes/reativacao"
+          labels={LABELS_REATIVACAO}
+          mensagemSucesso="Prazos de reativação atualizados."
+          padrao={{ dias_prospeccao: "15", dias_contato: "20", dias_proposta: "30", dias_negociacao: "40" }}
+        />
 
-      <CardPrazos
-        titulo="Prazo Máximo por Etapa (Leads Atrasados)"
-        descricao='Quantos dias um lead pode ficar em cada etapa antes de aparecer marcado como "atrasado" no Kanban —
-          ajuda a não deixar um lead parado por muito tempo sem avançar. Etapas terminais (Fechado/Perdido) não têm
-          prazo.'
-        endpoint="/api/comercial/configuracoes/prazo-etapas"
-        labels={LABELS_PRAZO_ETAPA}
-        mensagemSucesso="Prazos máximos por etapa atualizados."
-        padrao={{ dias_prospeccao: "7", dias_contato: "10", dias_proposta: "15", dias_negociacao: "20" }}
-      />
+        <CardPrazos
+          titulo="Prazo Máximo por Etapa (Leads Atrasados)"
+          descricao='Quantos dias um lead pode ficar em cada etapa antes de aparecer marcado como "atrasado" no
+            Kanban — ajuda a não deixar um lead parado por muito tempo sem avançar. Etapas terminais (Fechado/
+            Perdido) não têm prazo.'
+          endpoint="/api/comercial/configuracoes/prazo-etapas"
+          labels={LABELS_PRAZO_ETAPA}
+          mensagemSucesso="Prazos máximos por etapa atualizados."
+          padrao={{ dias_prospeccao: "7", dias_contato: "10", dias_proposta: "15", dias_negociacao: "20" }}
+        />
+      </div>
+
+      <ResponsaveisSection />
     </div>
   );
 }
