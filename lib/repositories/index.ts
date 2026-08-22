@@ -6,3 +6,7 @@ export type { FiltrosOrcamento } from "./orcamento.repository";
 export { LeadRepository } from "./lead.repository";
 export type { FiltrosLead } from "./lead.repository";
 export { InteracaoLeadRepository } from "./interacao-lead.repository";
+export { ParceiroRepository } from "./parceiro.repository";
+export type { FiltrosParceiro } from "./parceiro.repository";
+export { AgendamentoRepository } from "./agendamento.repository";
+export type { FiltrosAgendamento } from "./agendamento.repository";

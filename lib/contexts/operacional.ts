@@ -1,33 +1,67 @@
-// Contexto de negócio do módulo Operacional (parceiros de instalação + agenda)
-// — SCAFFOLDING. Mesma situação de `lib/contexts/comercial.ts`: o SQL das
-// tabelas `parceiros`/`agendamentos` já existe em
-// sql-migration-004-6modulos-completo.sql, falta aplicar no Supabase e
-// implementar repositório/use cases. Ver `Parceiro`/`Agendamento` em
-// `lib/types/domain.ts` para o formato de dado já definido — note que
-// `Agendamento.parceiros_alocados` é uma lista de ids (um agendamento pode ter
-// mais de um parceiro), não um `parceiro_id` único.
+// Contexto de negócio do módulo Operacional (parceiros de instalação + agenda
+// de execução). Ponto único de import para telas e API routes — reúne os
+// repositórios (`parceiros`, `agendamentos`) e os use cases de
+// `lib/usecases/operacional` atrás de uma fachada injetada com o client do
+// Supabase da requisição atual. Mesmo padrão de `lib/contexts/orcamento.ts`.
 
-import { NotImplementedError } from "../errors";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  AgendamentoRepository,
+  OrcamentoRepository,
+  ParceiroRepository,
+  type FiltrosAgendamento,
+  type FiltrosParceiro,
+} from "../repositories";
 import type { Agendamento, Parceiro } from "../types/domain";
+import { atualizarAgendamento, atualizarParceiro, criarAgendamento, criarParceiro } from "../usecases/operacional";
 
-const AVISO = "Módulo Operacional (parceiros/agenda) ainda não implementado — aplique sql-migration-004-6modulos-completo.sql e implemente o repositório.";
+export function createOperacionalContext(supabase: SupabaseClient) {
+  const parceiroRepo = new ParceiroRepository(supabase);
+  const agendamentoRepo = new AgendamentoRepository(supabase);
+  const orcamentoRepo = new OrcamentoRepository(supabase);
 
-export function createOperacionalContext() {
   return {
-    async listarParceiros(): Promise<Parceiro[]> {
-      throw new NotImplementedError(AVISO);
+    parceiroRepo,
+    agendamentoRepo,
+
+    listarParceiros(filtros?: FiltrosParceiro): Promise<Parceiro[]> {
+      return parceiroRepo.listar(filtros);
     },
 
-    async agendarInstalacao(
-      _dados: Omit<Agendamento, "id" | "created_at" | "updated_at" | "status">
-    ): Promise<Agendamento> {
-      throw new NotImplementedError(AVISO);
+    buscarParceiro(id: string): Promise<Parceiro> {
+      return parceiroRepo.findByIdOrThrow(id);
     },
 
-    /** Agendamentos onde `parceiroId` está entre os alocados (ver nota acima
-     * sobre `parceiros_alocados` ser uma lista). */
-    async listarAgendaPorParceiro(_parceiroId: string): Promise<Agendamento[]> {
-      throw new NotImplementedError(AVISO);
+    criarParceiro(dados: unknown): Promise<Parceiro> {
+      return criarParceiro(dados, { parceiroRepo });
+    },
+
+    atualizarParceiro(id: string, dados: unknown): Promise<Parceiro> {
+      return atualizarParceiro(id, dados, { parceiroRepo });
+    },
+
+    removerParceiro(id: string): Promise<void> {
+      return parceiroRepo.delete(id);
+    },
+
+    listarAgenda(filtros?: FiltrosAgendamento): Promise<Agendamento[]> {
+      return agendamentoRepo.listar(filtros);
+    },
+
+    buscarAgendamento(id: string): Promise<Agendamento> {
+      return agendamentoRepo.findByIdOrThrow(id);
+    },
+
+    criarAgendamento(dados: unknown): Promise<Agendamento> {
+      return criarAgendamento(dados, { agendamentoRepo, orcamentoRepo, parceiroRepo });
+    },
+
+    atualizarAgendamento(id: string, dados: unknown): Promise<Agendamento> {
+      return atualizarAgendamento(id, dados, { agendamentoRepo });
+    },
+
+    removerAgendamento(id: string): Promise<void> {
+      return agendamentoRepo.delete(id);
     },
   };
 }
