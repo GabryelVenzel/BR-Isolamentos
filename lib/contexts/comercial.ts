@@ -1,65 +1,55 @@
-// Contexto de negócio do módulo Comercial (CRM / funil de leads) — SCAFFOLDING.
+// Contexto de negócio do módulo Comercial (CRM / funil de leads).
 //
-// O SQL das tabelas `leads`/`interacoes_lead` já existe em
-// sql-migration-004-6modulos-completo.sql (ver lib/types/domain.ts para os
-// tipos correspondentes) — falta aplicar a migration no Supabase e
-// implementar repositório/use cases. As funções abaixo já declaram a
-// assinatura esperada (funil: prospecção → contato → proposta → negociação →
-// fechado, com saída possível para "perdido" em qualquer etapa ativa) para
-// que a implementação real seja um "preencher os buracos" em vez de desenhar
-// a API do zero. Até lá, todas lançam `NotImplementedError` (HTTP 501) —
-// nunca falhar silenciosamente.
-//
-// Passos para tirar este módulo do scaffolding:
-//   1. Aplicar sql-migration-004-6modulos-completo.sql no Supabase SQL Editor.
-//   2. Criar `lib/repositories/lead.repository.ts` (extends BaseRepository<Lead>).
-//   3. Implementar as funções abaixo usando o repositório, seguindo o padrão
-//      de `lib/contexts/orcamento.ts`.
-//   4. Revisar `lib/validators/lead.ts` (já existe) antes de usar.
+// Ponto único de import para telas e API routes que trabalham com leads —
+// reúne os repositórios (`leads`, `interacoes_lead`) e os use cases de
+// `lib/usecases/comercial` atrás de uma fachada injetada com o client do
+// Supabase da requisição atual. Mesmo padrão de `lib/contexts/orcamento.ts`.
 
-import { NotImplementedError } from "../errors";
-import type { EtapaFunil, Lead } from "../types/domain";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { InteracaoLeadRepository, LeadRepository, type FiltrosLead } from "../repositories";
+import type { EtapaFunil, InteracaoLead, Lead } from "../types/domain";
+import { atualizarLead, criarLead, moverLead, registrarInteracao, TRANSICOES_FUNIL } from "../usecases/comercial";
 
-const AVISO = "Módulo Comercial (funil de leads) ainda não implementado — aplique sql-migration-004-6modulos-completo.sql e implemente o repositório.";
+export { TRANSICOES_FUNIL };
 
-/** Transições de etapa permitidas no funil — regra de negócio já decidida,
- * pronta para o use case `moverLead` quando o módulo for implementado.
- * "perdido" é terminal (igual "fechado") e pode ser alcançado a partir de
- * qualquer etapa ativa — desistência do cliente não segue uma ordem fixa. */
-export const TRANSICOES_FUNIL: Record<EtapaFunil, EtapaFunil[]> = {
-  prospeccao: ["contato", "perdido"],
-  contato: ["prospeccao", "proposta", "perdido"],
-  proposta: ["contato", "negociacao", "perdido"],
-  negociacao: ["proposta", "fechado", "perdido"],
-  fechado: [],
-  perdido: [],
-};
+export function createComercialContext(supabase: SupabaseClient) {
+  const leadRepo = new LeadRepository(supabase);
+  const interacaoRepo = new InteracaoLeadRepository(supabase);
 
-export interface CreateLeadInput {
-  cliente_id: number;
-  etapa: EtapaFunil;
-  temperatura: Lead["temperatura"];
-  valor_estimado: number;
-  origem?: string | null;
-  proxima_acao?: string | null;
-  data_proxima_acao?: string | null;
-  notas?: string | null;
-  atribuido_a?: string | null;
-  tags?: string[];
-}
-
-export function createComercialContext() {
   return {
-    async criarLead(_dados: CreateLeadInput): Promise<Lead> {
-      throw new NotImplementedError(AVISO);
+    leadRepo,
+    interacaoRepo,
+
+    listarLeads(filtros?: FiltrosLead): Promise<Lead[]> {
+      return leadRepo.listar(filtros);
     },
 
-    async moverLead(_id: string, _novaEtapa: EtapaFunil): Promise<Lead> {
-      throw new NotImplementedError(AVISO);
+    buscarLead(id: string): Promise<Lead> {
+      return leadRepo.findByIdOrThrow(id);
     },
 
-    async listarLeadsPorEtapa(_etapa: EtapaFunil): Promise<Lead[]> {
-      throw new NotImplementedError(AVISO);
+    criarLead(dados: unknown): Promise<Lead> {
+      return criarLead(dados, { leadRepo });
+    },
+
+    atualizarLead(id: string, dados: unknown): Promise<Lead> {
+      return atualizarLead(id, dados, { leadRepo });
+    },
+
+    moverLead(leadId: string, novaEtapa: EtapaFunil): Promise<Lead> {
+      return moverLead({ leadId, novaEtapa }, { leadRepo });
+    },
+
+    removerLead(id: string): Promise<void> {
+      return leadRepo.delete(id);
+    },
+
+    listarInteracoes(leadId: string): Promise<InteracaoLead[]> {
+      return interacaoRepo.listarPorLead(leadId);
+    },
+
+    registrarInteracao(dados: unknown): Promise<InteracaoLead> {
+      return registrarInteracao(dados, { leadRepo, interacaoRepo });
     },
   };
 }

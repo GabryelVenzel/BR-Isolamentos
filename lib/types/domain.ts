@@ -1,13 +1,17 @@
 // Ponto único de import para tipos de domínio. Os tipos das entidades já
 // existentes (Cliente, Orçamento, ConfigEmpresa, ...) continuam declarados em
-// `lib/types.ts` — hoje re-exportados aqui só para não duplicar — e os tipos
-// dos módulos futuros do ERP (ainda sem tabela no banco) são declarados
-// diretamente neste arquivo como scaffolding, para o time inteiro (mesmo que
-// hoje seja um dev só) já enxergar o contrato de dados esperado.
-//
-// Ao criar a tabela real de um desses módulos no Supabase, mover o tipo daqui
-// para dentro do respectivo `lib/contexts/<modulo>.ts` (junto das funções que o
-// usam) e deixar aqui só um re-export, seguindo o padrão do bloco abaixo.
+// `lib/types.ts` — hoje re-exportados aqui só para não duplicar. Os tipos dos
+// módulos Comercial/Operacional/Financeiro (tabelas criadas em
+// sql-migration-004-6modulos-completo.sql) também vivem aqui, junto do
+// restante do domínio, em vez de dentro de cada `lib/contexts/<modulo>.ts` —
+// mantido assim (e não movido, como o comentário antigo sugeria) porque não
+// há ganho real em espalhar os tipos por vários arquivos agora que os 3
+// módulos estão implementados.
+
+// Import "normal" (não só `export type {} from`) para os dois tipos usados
+// como relação opcional (`cliente?`, `orcamento?`) mais abaixo neste arquivo —
+// um `export type { X } from "y"` não traz `X` para o escopo local do módulo.
+import type { Cliente, Orcamento } from "../types";
 
 export type {
   Acabamento,
@@ -36,11 +40,7 @@ export type {
   Usuario,
 } from "../types";
 
-// --- Módulo Comercial (CRM/funil de leads) — planejado ---
-// SQL das tabelas `leads`/`interacoes_lead` já existe em
-// sql-migration-004-6modulos-completo.sql (ainda precisa ser aplicado no
-// Supabase); falta o repositório/use cases para o módulo sair do scaffolding
-// em lib/contexts/comercial.ts.
+// --- Módulo Comercial (CRM/funil de leads) — ver lib/contexts/comercial.ts ---
 
 export type EtapaFunil = "prospeccao" | "contato" | "proposta" | "negociacao" | "fechado" | "perdido";
 export type TemperaturaLead = "frio" | "morno" | "quente";
@@ -61,6 +61,8 @@ export interface Lead {
   tags: string[];
   created_at: string;
   updated_at: string;
+  // Preenchido via join, opcional (ver LeadRepository.select).
+  cliente?: Cliente;
 }
 
 export type TipoInteracaoLead = "nota" | "email" | "chamada" | "reuniao" | "proposta_enviada";
@@ -76,9 +78,7 @@ export interface InteracaoLead {
   created_at: string;
 }
 
-// --- Módulo Operacional (parceiros/agenda de instalação) — planejado ---
-// SQL das tabelas `parceiros`/`agendamentos` já existe em
-// sql-migration-004-6modulos-completo.sql; falta o repositório/use cases.
+// --- Módulo Operacional (parceiros/agenda) — ver lib/contexts/operacional.ts ---
 
 export interface Parceiro {
   id: string;
@@ -116,12 +116,12 @@ export interface Agendamento {
   horas_reais: number | null;
   created_at: string;
   updated_at: string;
+  // Preenchido via join, opcional (ver AgendamentoRepository.select).
+  orcamento?: Orcamento;
 }
 
-// --- Módulo Financeiro (contas a pagar/receber) — planejado ---
-// SQL das tabelas `lancamentos_financeiros`/`custos_fixos`/`notas_fiscais` já
-// existe em sql-migration-004-6modulos-completo.sql; falta o repositório/use
-// cases. IMPORTANTE: este módulo nunca recalcula imposto — o imposto de um
+// --- Módulo Financeiro (caixa) — ver lib/contexts/financeiro.ts ---
+// IMPORTANTE: este módulo nunca recalcula imposto — o imposto de um
 // orçamento já foi calculado e gravado em `orcamentos.detalhamento_impostos`
 // na hora da venda (ver lib/tributos.ts); aqui só se registra o fluxo de caixa.
 
@@ -140,6 +140,8 @@ export interface LancamentoFinanceiro {
   arquivo_url: string | null;
   created_at: string;
   updated_at: string;
+  // Preenchido via join, opcional (ver LancamentoFinanceiroRepository.select).
+  orcamento?: Orcamento;
 }
 
 /** Despesa recorrente mensal (aluguel, energia, ...) — ver seed em

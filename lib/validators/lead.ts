@@ -19,6 +19,8 @@ export const CreateLeadSchema = z.object({
   tags: z.array(z.string().trim().min(1)).optional(),
 });
 
+export const UpdateLeadSchema = CreateLeadSchema.partial();
+
 export const MoverLeadSchema = z.object({
   leadId: z.string().min(1),
   novaEtapa: EtapaFunilSchema,
@@ -33,5 +35,6 @@ export const CreateInteracaoLeadSchema = z.object({
 });
 
 export type CreateLeadInput = z.infer<typeof CreateLeadSchema>;
+export type UpdateLeadInput = z.infer<typeof UpdateLeadSchema>;
 export type MoverLeadInput = z.infer<typeof MoverLeadSchema>;
 export type CreateInteracaoLeadInput = z.infer<typeof CreateInteracaoLeadSchema>;

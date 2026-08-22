@@ -10,8 +10,17 @@ const LINKS = [
   { href: "/", label: "Dashboard" },
   { href: "/novo-orcamento", label: "Novo Orçamento" },
   { href: "/historico", label: "Histórico" },
+  { href: "/comercial", label: "Comercial" },
+  { href: "/operacional", label: "Operacional" },
+  { href: "/financeiro", label: "Financeiro" },
   { href: "/config-precos", label: "Configurar Preços" },
 ];
+
+/** "/" só fica ativo na home exata; os demais links também ficam ativos em
+ * suas sub-rotas (ex.: "/comercial" ativo em "/comercial/abc123"). */
+function ehAtivo(pathname: string, href: string): boolean {
+  return href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
+}
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -76,7 +85,7 @@ export default function Navbar() {
 
         <nav className="hidden items-center gap-6 md:flex">
           {LINKS.map((link) => {
-            const ativo = pathname === link.href;
+            const ativo = ehAtivo(pathname, link.href);
             return (
               <Link
                 key={link.href}
