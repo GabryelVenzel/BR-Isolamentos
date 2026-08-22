@@ -10,15 +10,15 @@ interface Props {
 export default function DashboardChart({ dados }: Props) {
   return (
     <div className="card">
-      <h2 className="mb-4 text-sm font-semibold text-gray-600">Total de orçamentos por mês</h2>
+      <h2 className="mb-4 font-montserrat text-sm font-semibold text-brand">Total de orçamentos por mês</h2>
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={dados}>
             <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-            <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
-            <YAxis tick={{ fontSize: 12 }} width={80} tickFormatter={(v) => formatarMoeda(v)} />
+            <XAxis dataKey="mes" tick={{ fontSize: 12, fill: "#333333" }} />
+            <YAxis tick={{ fontSize: 12, fill: "#333333" }} width={80} tickFormatter={(v) => formatarMoeda(v)} />
             <Tooltip formatter={(value: number) => formatarMoeda(value)} />
-            <Bar dataKey="total" fill="#198754" radius={[4, 4, 0, 0]} />
+            <Bar dataKey="total" fill="#078B41" radius={[4, 4, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>

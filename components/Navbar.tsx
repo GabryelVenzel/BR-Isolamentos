@@ -1,10 +1,10 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import Logo from "./Logo";
 
 const LINKS = [
   { href: "/", label: "Dashboard" },
@@ -68,52 +68,63 @@ export default function Navbar() {
   }
 
   return (
-    <header className="border-b border-gray-200 bg-white">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-3">
-        <Link href="/" className="flex items-center gap-2 text-lg font-bold text-brand">
-          <Image src="/logo.png" alt="BR Isolamentos" width={32} height={32} className="rounded" />
-          BR Isolamentos
+    <header className="bg-brand">
+      <div className="mx-auto flex h-[60px] max-w-6xl items-center justify-between px-4">
+        <Link href="/" className="flex items-center">
+          <Logo variant="white" height={34} />
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex">
-          {LINKS.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`text-sm font-medium transition-colors hover:text-accent ${
-                pathname === link.href ? "text-accent" : "text-gray-600"
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
+          {LINKS.map((link) => {
+            const ativo = pathname === link.href;
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={`border-b-2 py-1 font-montserrat text-sm font-semibold transition-colors ${
+                  ativo
+                    ? "border-accent text-secondary"
+                    : "border-transparent text-white/80 hover:text-white"
+                }`}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
         </nav>
 
         <div className="flex items-center gap-3">
-          {email && <span className="hidden text-sm text-gray-500 sm:inline">{nomeExibicao ?? email}</span>}
+          {email && (
+            <span className="hidden font-alfaim text-sm text-white/70 sm:inline">
+              {nomeExibicao ?? email}
+            </span>
+          )}
           <button
             type="button"
             onClick={handleLogout}
             disabled={saindo}
-            className="text-sm font-medium text-gray-600 hover:text-red-600 disabled:opacity-50"
+            className="font-montserrat text-sm font-medium text-white/70 transition-colors hover:text-red-400 disabled:opacity-50"
           >
             Sair
           </button>
         </div>
       </div>
 
-      <nav className="flex items-center gap-4 overflow-x-auto border-t border-gray-100 px-4 py-2 md:hidden">
-        {LINKS.map((link) => (
-          <Link
-            key={link.href}
-            href={link.href}
-            className={`whitespace-nowrap text-sm font-medium ${
-              pathname === link.href ? "text-accent" : "text-gray-600"
-            }`}
-          >
-            {link.label}
-          </Link>
-        ))}
+      <nav className="flex items-center gap-4 overflow-x-auto border-t border-white/10 px-4 py-2 md:hidden">
+        {LINKS.map((link) => {
+          const ativo = pathname === link.href;
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`whitespace-nowrap font-montserrat text-sm font-semibold ${
+                ativo ? "text-secondary" : "text-white/80"
+              }`}
+            >
+              {link.label}
+            </Link>
+          );
+        })}
       </nav>
     </header>
   );

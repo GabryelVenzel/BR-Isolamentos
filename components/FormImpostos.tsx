@@ -55,7 +55,7 @@ export default function FormImpostos({ impostos, onSalvar, onRemover }: Props) {
 
       <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200 text-sm">
-          <thead className="text-left text-xs font-semibold uppercase text-gray-500">
+          <thead className="table-header">
             <tr>
               <th className="py-2 pr-4">Nome</th>
               <th className="py-2 pr-4">Percentual (%)</th>

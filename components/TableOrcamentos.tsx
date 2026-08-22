@@ -38,7 +38,7 @@ export default function TableOrcamentos({ orcamentos, onExcluir }: Props) {
   return (
     <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
       <table className="min-w-full divide-y divide-gray-200 text-sm">
-        <thead className="bg-gray-50 text-left text-xs font-semibold uppercase text-gray-500">
+        <thead className="table-header">
           <tr>
             <th className="px-4 py-3">Número</th>
             <th className="px-4 py-3">Cliente</th>
@@ -57,7 +57,7 @@ export default function TableOrcamentos({ orcamentos, onExcluir }: Props) {
               <td className="px-4 py-3">{orcamento.cliente?.nome ?? "—"}</td>
               <td className="px-4 py-3">{formatarData(orcamento.data_criacao)}</td>
               <td className="px-4 py-3">
-                <span className={`rounded-full px-2 py-1 text-xs font-medium ${classesStatus(orcamento.status)}`}>
+                <span className={`badge ${classesStatus(orcamento.status)}`}>
                   {formatarStatus(orcamento.status)}
                 </span>
               </td>

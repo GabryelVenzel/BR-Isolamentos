@@ -19,7 +19,7 @@ export default function TableMateriais({ quantificacao }: Props) {
   return (
     <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
       <table className="min-w-full divide-y divide-gray-200 text-sm">
-        <thead className="bg-gray-50 text-left text-xs font-semibold uppercase text-gray-500">
+        <thead className="table-header">
           <tr>
             <th className="px-4 py-3">Material</th>
             <th className="px-4 py-3 text-right">Quantidade</th>

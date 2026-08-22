@@ -2,6 +2,7 @@
 
 import { Suspense, useState, type FormEvent } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Logo from "@/components/Logo";
 
 export default function LoginPage() {
   return (
@@ -51,7 +52,7 @@ function LoginForm() {
   return (
     <div className="flex min-h-[80vh] items-center justify-center">
       <div className="card w-full max-w-sm">
-        <h1 className="mb-1 text-2xl font-bold">BR Isolamentos</h1>
+        <Logo variant="navy" height={40} className="mb-4" />
         <p className="mb-6 text-sm text-gray-500">
           Acesso restrito aos sócios cadastrados.
         </p>

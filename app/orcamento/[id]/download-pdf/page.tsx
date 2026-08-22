@@ -11,7 +11,7 @@ import {
   nomeArquivoPdfComercial,
   nomeArquivoPdfTecnica,
 } from "@/lib/pdf-generator";
-import type { Orcamento } from "@/lib/types";
+import type { ConfigEmpresa, Orcamento } from "@/lib/types";
 
 interface ImagemProposta {
   url: string;
@@ -22,6 +22,7 @@ export default function DownloadPdfPage() {
   const { id } = useParams<{ id: string }>();
   const [orcamento, setOrcamento] = useState<Orcamento | null>(null);
   const [imagens, setImagens] = useState<ImagemProposta[]>([]);
+  const [configEmpresa, setConfigEmpresa] = useState<ConfigEmpresa | null>(null);
   const [gerando, setGerando] = useState<"comercial" | "tecnica" | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -29,6 +30,13 @@ export default function DownloadPdfPage() {
     fetch(`/api/orcamentos/${id}`)
       .then((r) => r.json())
       .then(setOrcamento);
+
+    // Telefone/e-mail reais da empresa (cadastrados em Configurar Preços) para
+    // o rodapé da proposta — ver components/pdf/PdfFooter.tsx.
+    fetch("/api/config-empresa")
+      .then((r) => r.json())
+      .then(setConfigEmpresa)
+      .catch(() => setConfigEmpresa(null));
 
     const supabase = createSupabaseBrowserClient();
     supabase
@@ -75,7 +83,7 @@ export default function DownloadPdfPage() {
           <p className="text-sm text-gray-500">Duas propostas prontas para download: técnica e comercial.</p>
         </div>
         <div className="flex gap-3">
-          <button type="button" className="btn-secondary" onClick={baixarTecnica} disabled={gerando !== null}>
+          <button type="button" className="btn-accent" onClick={baixarTecnica} disabled={gerando !== null}>
             {gerando === "tecnica" ? "Gerando..." : "Baixar Proposta Técnica"}
           </button>
           <button type="button" className="btn-primary" onClick={baixarComercial} disabled={gerando !== null}>
@@ -90,7 +98,7 @@ export default function DownloadPdfPage() {
         <h2 className="mb-2 text-sm font-semibold text-gray-500">Prévia — Proposta Técnica</h2>
         <div className="overflow-x-auto rounded-xl border border-gray-200 bg-gray-100 p-6">
           <div id="pdf-preview-tecnica">
-            <PDFPreviewTecnica orcamento={orcamento} imagens={imagens} />
+            <PDFPreviewTecnica orcamento={orcamento} imagens={imagens} configEmpresa={configEmpresa} />
           </div>
         </div>
       </div>
@@ -99,7 +107,7 @@ export default function DownloadPdfPage() {
         <h2 className="mb-2 text-sm font-semibold text-gray-500">Prévia — Proposta Comercial</h2>
         <div className="overflow-x-auto rounded-xl border border-gray-200 bg-gray-100 p-6">
           <div id="pdf-preview-comercial">
-            <PDFPreviewComercial orcamento={orcamento} />
+            <PDFPreviewComercial orcamento={orcamento} configEmpresa={configEmpresa} />
           </div>
         </div>
       </div>

@@ -36,12 +36,16 @@ export function formatarStatus(status: string): string {
   return STATUS_LABELS[status] ?? status;
 }
 
+// Cores de status seguindo a paleta da marca (ver tailwind.config.ts):
+// verde = fechado/sucesso, amarelo = pendente/aguardando ação, azul marinho
+// (tint claro) = em elaboração, vermelho = recusado, cinza = neutro/rascunho.
+// Usar sempre junto da classe `.badge` (app/globals.css) para a forma da pílula.
 const STATUS_CLASSES: Record<string, string> = {
   rascunho: "bg-gray-100 text-gray-700",
-  proposta: "bg-blue-100 text-blue-700",
-  enviado: "bg-amber-100 text-amber-700",
+  proposta: "bg-brand-light text-brand",
+  enviado: "bg-secondary-light text-brand",
   aceito: "bg-accent-light text-accent-dark",
-  rejeitado: "bg-red-100 text-red-700",
+  rejeitado: "bg-red-100 text-status-error",
 };
 
 export function classesStatus(status: string): string {

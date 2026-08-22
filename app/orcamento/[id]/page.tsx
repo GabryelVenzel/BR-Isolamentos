@@ -31,7 +31,7 @@ export default async function OrcamentoDetalhePage({ params }: { params: { id: s
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <span className={`rounded-full px-3 py-1 text-xs font-medium ${classesStatus(orcamento.status)}`}>
+          <span className={`badge ${classesStatus(orcamento.status)}`}>
             {formatarStatus(orcamento.status)}
           </span>
           <Link href={`/orcamento/${orcamento.id}/editar`} className="btn-secondary">

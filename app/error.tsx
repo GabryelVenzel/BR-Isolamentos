@@ -5,7 +5,7 @@ export default function ErrorBoundary({ error, reset }: { error: Error & { diges
 
   return (
     <div className="mx-auto max-w-lg py-20 text-center">
-      <h1 className="text-xl font-bold text-red-600">Algo deu errado</h1>
+      <h1 className="font-montserrat text-xl font-bold text-status-error">Algo deu errado</h1>
 
       {isEnvError ? (
         <p className="mt-4 text-sm text-gray-600">

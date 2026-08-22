@@ -256,7 +256,7 @@ export default function Step3CalculosPage() {
           ← Voltar
         </button>
         <div className="flex gap-3">
-          <button type="button" className="btn-secondary" disabled={!temResultado || !quantificacao} onClick={adicionarOutroTrecho}>
+          <button type="button" className="btn-accent" disabled={!temResultado || !quantificacao} onClick={adicionarOutroTrecho}>
             + Adicionar outro trecho
           </button>
           <button

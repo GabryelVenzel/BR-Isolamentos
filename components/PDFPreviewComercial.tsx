@@ -1,8 +1,11 @@
-import { formatarData, formatarMoeda, formatarNumero } from "@/lib/format";
-import type { Orcamento } from "@/lib/types";
+import { formatarMoeda, formatarNumero } from "@/lib/format";
+import PdfFooter from "@/components/pdf/PdfFooter";
+import PdfHeader from "@/components/pdf/PdfHeader";
+import type { ConfigEmpresa, Orcamento } from "@/lib/types";
 
 interface Props {
   orcamento: Orcamento;
+  configEmpresa?: ConfigEmpresa | null;
 }
 
 const LABEL_TIPO: Record<string, string> = { quente: "Quente", frio: "Frio", misto: "Misto (quente + frio)" };
@@ -10,90 +13,230 @@ const LABEL_TIPO: Record<string, string> = { quente: "Quente", frio: "Frio", mis
 /**
  * Proposta comercial (com valores) — layout em HTML capturado via html2canvas em
  * lib/pdf-generator.ts. Mantido como componente puro (sem interatividade) para que o
- * snapshot fique estável.
+ * snapshot fique estável. Estrutura/cores seguem o Brand Book (ver
+ * 1-IdentidadeVisual/) — qualquer alteração de layout deve preservar o
+ * cabeçalho/rodapé com a marca e o total em destaque verde.
  */
-export default function PDFPreviewComercial({ orcamento }: Props) {
+export default function PDFPreviewComercial({ orcamento, configEmpresa }: Props) {
   const itens = [...(orcamento.itens ?? [])].sort((a, b) => a.ordem - b.ordem);
 
-  return (
-    <div className="mx-auto w-[210mm] bg-white p-10 text-gray-900" style={{ fontFamily: "Arial, sans-serif" }}>
-      <header className="mb-8 flex items-center justify-between border-b-2 border-brand pb-4">
-        <div>
-          <h1 className="text-2xl font-bold text-brand">BR Isolamentos</h1>
-          <p className="text-sm text-gray-500">Proposta comercial de isolamento térmico</p>
-        </div>
-        <div className="text-right text-sm text-gray-500">
-          <p>Nº {orcamento.numero}</p>
-          <p>{formatarData(orcamento.data_criacao)}</p>
-          <p>{LABEL_TIPO[orcamento.tipo_trabalho] ?? orcamento.tipo_trabalho}</p>
-        </div>
-      </header>
+  // Quantificação agregada de todos os trechos — não há preço unitário por
+  // material persistido no orçamento (só o custo total já calculado), então a
+  // tabela mostra quantidade + o custo total de materiais uma única vez no
+  // rodapé da tabela, em vez de inventar um preço unitário por linha.
+  const quantificacao = itens.reduce(
+    (acc, item) => ({
+      manta_kg: acc.manta_kg + (item.manta_kg ?? 0),
+      chapa_kg: acc.chapa_kg + (item.chapa_kg ?? 0),
+      rebites: acc.rebites + (item.rebites ?? 0),
+      parafusos: acc.parafusos + (item.parafusos ?? 0),
+      arame_kg: acc.arame_kg + (item.arame_kg ?? 0),
+      vedacao_pu: acc.vedacao_pu + (item.vedacao_pu ?? 0),
+      vedacit_un: acc.vedacit_un + (item.vedacit_un ?? 0),
+    }),
+    { manta_kg: 0, chapa_kg: 0, rebites: 0, parafusos: 0, arame_kg: 0, vedacao_pu: 0, vedacit_un: 0 }
+  );
 
-      <section className="mb-6">
-        <h2 className="mb-2 text-sm font-bold uppercase text-brand">Cliente</h2>
-        <p className="text-sm">{orcamento.cliente?.nome}</p>
-        {orcamento.cliente?.cnpj_cpf && <p className="text-sm text-gray-500">{orcamento.cliente.cnpj_cpf}</p>}
-        {orcamento.cliente?.endereco && <p className="text-sm text-gray-500">{orcamento.cliente.endereco}</p>}
+  const linhasQuantificacao = [
+    { material: "Manta isolante", quantidade: quantificacao.manta_kg, unidade: "kg" },
+    { material: "Chapa de acabamento", quantidade: quantificacao.chapa_kg, unidade: "kg" },
+    { material: "Rebites", quantidade: quantificacao.rebites, unidade: "un" },
+    { material: "Parafusos", quantidade: quantificacao.parafusos, unidade: "un" },
+    { material: "Arame", quantidade: quantificacao.arame_kg, unidade: "kg" },
+    { material: "Vedação P.U.", quantidade: quantificacao.vedacao_pu, unidade: "un" },
+    { material: "Vedacit", quantidade: quantificacao.vedacit_un, unidade: "un" },
+  ].filter((linha) => linha.quantidade > 0);
+
+  const temCustosOperacionais =
+    orcamento.valor_mao_obra > 0 ||
+    orcamento.valor_deslocamento > 0 ||
+    orcamento.valor_hospedagem > 0 ||
+    orcamento.valor_frete > 0;
+
+  const beneficios = itens.filter((i) => i.economia_anual != null || i.co2_ton_ano != null);
+  const economiaAnualTotal = beneficios.reduce((acc, i) => acc + (i.economia_anual ?? 0), 0);
+  const co2TotalAno = beneficios.reduce((acc, i) => acc + (i.co2_ton_ano ?? 0), 0);
+
+  return (
+    <div
+      className="mx-auto w-[210mm] bg-white p-10 text-gray-800"
+      style={{ fontFamily: "'Alfaim 2', -apple-system, 'Segoe UI', Arial, sans-serif" }}
+    >
+      <PdfHeader
+        titulo="PROPOSTA DE ORÇAMENTO"
+        numero={orcamento.numero}
+        data={orcamento.data_criacao}
+        tipoTrabalho={LABEL_TIPO[orcamento.tipo_trabalho] ?? orcamento.tipo_trabalho}
+      />
+
+      <section className="mb-6 rounded-card bg-brand-light/60 p-4">
+        <h2 className="mb-2 font-montserrat text-sm font-bold uppercase text-brand">Cliente</h2>
+        <p className="text-sm font-semibold text-gray-800">{orcamento.cliente?.nome}</p>
+        {orcamento.cliente?.cnpj_cpf && <p className="text-sm text-gray-600">{orcamento.cliente.cnpj_cpf}</p>}
+        {orcamento.cliente?.endereco && <p className="text-sm text-gray-600">{orcamento.cliente.endereco}</p>}
+        <p className="text-sm text-gray-600">
+          {[orcamento.cliente?.telefone, orcamento.cliente?.email].filter(Boolean).join("  ·  ")}
+        </p>
       </section>
 
-      {itens.map((item, index) => (
-        <section key={item.id} className="mb-6 break-inside-avoid">
-          <h2 className="mb-2 text-sm font-bold uppercase text-brand">
-            Trecho {index + 1} — {LABEL_TIPO[item.tipo_trabalho] ?? item.tipo_trabalho}
-          </h2>
-          <table className="w-full text-sm">
+      <section className="mb-6 break-inside-avoid">
+        <h2 className="mb-2 font-montserrat text-sm font-bold uppercase text-brand">Especificações Técnicas</h2>
+        <table className="w-full border-collapse text-xs">
+          <thead>
+            <tr className="bg-brand-light text-left font-montserrat font-bold uppercase text-brand">
+              <Th>Trecho</Th>
+              <Th>Material</Th>
+              <Th>Tipo</Th>
+              <Th>Geometria</Th>
+              <Th>Área</Th>
+              <Th>Espessura</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {itens.map((item, index) => (
+              <tr key={item.id} className="border-b border-gray-200">
+                <Td>
+                  {index + 1}
+                  {item.acabamento ? ` (${item.acabamento})` : ""}
+                </Td>
+                <Td>{item.material}</Td>
+                <Td>{LABEL_TIPO[item.tipo_trabalho] ?? item.tipo_trabalho}</Td>
+                <Td>{item.geometria === "tubulacao" ? "Tubulação" : "Superfície plana"}</Td>
+                <Td>{formatarNumero(item.area_m2)} m²</Td>
+                <Td>{formatarNumero(item.espessura_necessaria_mm, 1)} mm</Td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </section>
+
+      {linhasQuantificacao.length > 0 && (
+        <section className="mb-6 break-inside-avoid">
+          <h2 className="mb-2 font-montserrat text-sm font-bold uppercase text-brand">Quantificação de Materiais</h2>
+          <table className="w-full border-collapse text-xs">
+            <thead>
+              <tr className="bg-accent text-left font-montserrat font-bold uppercase text-white">
+                <Th light>Material</Th>
+                <Th light align="right">
+                  Quantidade
+                </Th>
+                <Th light>Unidade</Th>
+              </tr>
+            </thead>
             <tbody>
-              <Row label="Material" valor={item.material} />
-              {item.acabamento && <Row label="Acabamento" valor={item.acabamento} />}
-              <Row label="Geometria" valor={item.geometria === "tubulacao" ? "Tubulação" : "Superfície plana"} />
-              <Row label="Área" valor={`${formatarNumero(item.area_m2)} m²`} />
-              <Row label="Espessura necessária" valor={`${formatarNumero(item.espessura_necessaria_mm, 1)} mm`} />
-              <Row label="Manta isolante" valor={`${formatarNumero(item.manta_kg ?? 0)} kg`} />
-              <Row label="Chapa de acabamento" valor={`${formatarNumero(item.chapa_kg ?? 0)} kg`} />
-              <Row label="Rebites / Parafusos" valor={`${item.rebites ?? 0} / ${item.parafusos ?? 0} un`} />
-              <Row label="Arame" valor={`${formatarNumero(item.arame_kg ?? 0)} kg`} />
-              <Row label="Vedação P.U. / Vedacit" valor={`${item.vedacao_pu ?? 0} un / ${item.vedacit_un ?? 0} un`} />
-              <Row label="Custo de materiais" valor={formatarMoeda(item.valor_materiais)} />
+              {linhasQuantificacao.map((linha) => (
+                <tr key={linha.material} className="border-b border-gray-200 even:bg-gray-50">
+                  <Td>{linha.material}</Td>
+                  <Td align="right">{formatarNumero(linha.quantidade, linha.unidade === "un" ? 0 : 2)}</Td>
+                  <Td>{linha.unidade}</Td>
+                </tr>
+              ))}
+              <tr className="bg-gray-100 font-semibold">
+                <Td colSpan={2} align="right">
+                  Custo total de materiais
+                </Td>
+                <Td>{formatarMoeda(orcamento.valor_materiais)}</Td>
+              </tr>
             </tbody>
           </table>
         </section>
-      ))}
+      )}
 
-      <section className="mb-6">
-        <h2 className="mb-2 text-sm font-bold uppercase text-brand">Investimento</h2>
+      {temCustosOperacionais && (
+        <section className="mb-6 break-inside-avoid">
+          <h2 className="mb-2 font-montserrat text-sm font-bold uppercase text-brand">Custos Operacionais</h2>
+          <table className="w-full text-sm">
+            <tbody>
+              {orcamento.valor_mao_obra > 0 && <Row label="Mão de obra" valor={formatarMoeda(orcamento.valor_mao_obra)} />}
+              {orcamento.valor_deslocamento > 0 && (
+                <Row label="Deslocamento" valor={formatarMoeda(orcamento.valor_deslocamento)} />
+              )}
+              {orcamento.valor_hospedagem > 0 && (
+                <Row label="Hospedagem" valor={formatarMoeda(orcamento.valor_hospedagem)} />
+              )}
+              {orcamento.valor_frete > 0 && <Row label="Frete" valor={formatarMoeda(orcamento.valor_frete)} />}
+            </tbody>
+          </table>
+        </section>
+      )}
+
+      <section className="mb-6 break-inside-avoid rounded-card bg-brand-light/60 p-5">
+        <h2 className="mb-2 font-montserrat text-sm font-bold uppercase text-brand">Resumo Financeiro</h2>
         <table className="w-full text-sm">
           <tbody>
-            <Row label="Materiais" valor={formatarMoeda(orcamento.valor_materiais)} />
-            <Row label="Mão de obra" valor={formatarMoeda(orcamento.valor_mao_obra)} />
-            <Row label="Deslocamento" valor={formatarMoeda(orcamento.valor_deslocamento)} />
-            <Row label="Hospedagem" valor={formatarMoeda(orcamento.valor_hospedagem)} />
-            <Row label="Frete" valor={formatarMoeda(orcamento.valor_frete)} />
+            <Row label="Subtotal (materiais + serviços)" valor={formatarMoeda(orcamento.subtotal)} />
             {(orcamento.detalhamento_impostos ?? []).map((imposto) => (
-              <Row key={imposto.nome} label={`${imposto.nome} (${imposto.percentual.toFixed(2)}%)`} valor={formatarMoeda(imposto.valor)} />
+              <Row
+                key={imposto.nome}
+                label={`(+) ${imposto.nome} (${imposto.percentual.toFixed(2)}%)`}
+                valor={formatarMoeda(imposto.valor)}
+              />
             ))}
+            <Row label="(+) Margem de lucro" valor={formatarMoeda(orcamento.margem_lucro)} />
             {orcamento.valor_desconto > 0 && (
-              <Row label="Desconto" valor={`- ${formatarMoeda(orcamento.valor_desconto)}`} />
+              <Row label="(-) Desconto comercial" valor={`- ${formatarMoeda(orcamento.valor_desconto)}`} />
             )}
           </tbody>
         </table>
-        <div className="mt-4 rounded-lg bg-brand-light p-4 text-right">
-          <p className="text-xs uppercase text-gray-500">Valor total</p>
-          <p className="text-2xl font-bold text-brand">{formatarMoeda(orcamento.valor_final)}</p>
+        <div className="divider-brand" />
+        <div className="flex items-baseline justify-between">
+          <p className="font-montserrat text-sm font-bold uppercase text-brand">Valor Total</p>
+          <p className="font-montserrat text-2xl font-bold text-accent">{formatarMoeda(orcamento.valor_final)}</p>
         </div>
       </section>
 
-      <footer className="mt-10 border-t border-gray-200 pt-4 text-xs text-gray-400">
-        Cálculos realizados conforme ASTM C680 / ISO 12241, em conformidade com a ABNT NBR 16281.
-      </footer>
+      {beneficios.length > 0 && (
+        <section className="mb-6 break-inside-avoid rounded-card border-l-4 border-accent bg-accent-light/60 p-4">
+          <h2 className="mb-2 font-montserrat text-xs font-bold uppercase text-brand">Benefícios da Solução</h2>
+          <ul className="space-y-1 text-xs text-gray-700">
+            {economiaAnualTotal > 0 && <li>• Economia anual estimada de energia: {formatarMoeda(economiaAnualTotal)}</li>}
+            {co2TotalAno > 0 && <li>• Redução de emissão de CO₂: {formatarNumero(co2TotalAno, 2)} toneladas/ano</li>}
+          </ul>
+        </section>
+      )}
+
+      <PdfFooter
+        observacao="Proposta comercial preparada especialmente para o cliente acima."
+        telefoneEmpresa={configEmpresa?.telefone_empresa}
+        emailEmpresa={configEmpresa?.email_empresa}
+      />
     </div>
   );
 }
 
 function Row({ label, valor }: { label: string; valor: string }) {
   return (
-    <tr className="border-b border-gray-100">
-      <td className="py-1.5 text-gray-500">{label}</td>
-      <td className="py-1.5 text-right font-medium">{valor}</td>
+    <tr className="border-b border-gray-200/70">
+      <td className="py-1.5 text-gray-600">{label}</td>
+      <td className="py-1.5 text-right font-medium text-gray-800">{valor}</td>
     </tr>
+  );
+}
+
+function Th({ children, light, align }: { children: React.ReactNode; light?: boolean; align?: "left" | "right" }) {
+  return (
+    <th
+      className={`border-b-2 px-2 py-1.5 ${light ? "border-white/30" : "border-brand/20"} ${
+        align === "right" ? "text-right" : ""
+      }`}
+    >
+      {children}
+    </th>
+  );
+}
+
+function Td({
+  children,
+  align,
+  colSpan,
+}: {
+  children: React.ReactNode;
+  align?: "left" | "right";
+  colSpan?: number;
+}) {
+  return (
+    <td className={`px-2 py-1.5 ${align === "right" ? "text-right" : ""}`} colSpan={colSpan}>
+      {children}
+    </td>
   );
 }

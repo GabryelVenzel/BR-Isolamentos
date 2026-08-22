@@ -163,7 +163,7 @@ export default function Step5RevisaoPage() {
           ← Voltar
         </button>
         <div className="flex gap-3">
-          <button type="button" className="btn-secondary" disabled={!completo || salvando} onClick={() => salvar("rascunho")}>
+          <button type="button" className="btn-accent" disabled={!completo || salvando} onClick={() => salvar("rascunho")}>
             Salvar rascunho
           </button>
           <button type="button" className="btn-primary" disabled={!completo || salvando} onClick={() => salvar("proposta")}>

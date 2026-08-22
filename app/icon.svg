@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Favicon = só o elemento geométrico da marca (hexágono/seta amarelo+verde),
+  recortado do mesmo lockup oficial de 1-IdentidadeVisual/ — ver
+  public/brand/logo-mark-*.svg para a versão com "BR" usada na navbar/PDF.
+  Convenção de arquivo especial do Next.js App Router: `app/icon.svg` vira o
+  favicon automaticamente, sem precisar registrar em app/layout.tsx.
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="615 320 265 225">
+  <polygon fill="#078b41" points="808.53 330.25 709.52 330.25 771.53 437.64 715.96 533.9 814.96 533.9 870.53 437.64 808.53 330.25"/>
+  <path fill="#fbc819" d="M709.52,330.25h-84.96c41.39.1,62.23,24.09,55.02,64.98-4.8,27.22-26.82,49.18-52.82,58.84l34.34,79.83h54.85l55.57-96.25-62.01-107.4Z"/>
+</svg>
