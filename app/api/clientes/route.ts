@@ -11,7 +11,9 @@ import { logger } from "@/lib/logger";
 //
 // Mantém o formato de resposta "cru" (array/objeto direto, sem envelope
 // {success, data, error}) por compatibilidade com o frontend existente — ver
-// `lib/CONVENTIONS.md`.
+// `lib/CONVENTIONS.md`. A aba "Clientes" do CRM (módulo Comercial) reaproveita
+// esta mesma rota em vez de uma família `/api/comercial/clientes` separada —
+// ver comentário em `app/api/clientes/[id]/route.ts`.
 
 export async function GET(request: Request) {
   const supabase = createSupabaseServerClient();
@@ -20,6 +22,14 @@ export async function GET(request: Request) {
   const busca = searchParams.get("busca");
 
   try {
+    // `?resumo=1`: usado pela aba "Clientes" do CRM — cliente + contagem de
+    // leads + última interação (view v_clientes_resumo), em vez da linha
+    // crua de `clientes`.
+    if (searchParams.get("resumo")) {
+      const data = await clienteRepo.listarComResumo(busca ?? undefined);
+      return NextResponse.json(data);
+    }
+
     const data = busca
       ? await clienteRepo.buscarPorNome(busca)
       : await clienteRepo.findAll({ orderBy: "nome" });
@@ -48,6 +58,8 @@ export async function POST(request: Request) {
       email: dados.email ?? null,
       telefone: dados.telefone ?? null,
       endereco: dados.endereco ?? null,
+      cidade: dados.cidade ?? null,
+      estado: dados.estado ?? null,
       cnpj_cpf: dados.cnpj_cpf ?? null,
       criado_por: user?.email ?? null,
     });

@@ -1,45 +1,184 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import LeadCard from "@/components/comercial/LeadCard";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import ToastContainer from "@/components/modules/comercial/ToastContainer";
+import { toast } from "@/components/modules/comercial/toast";
+import KanbanBoard from "@/components/modules/comercial/KanbanBoard";
+import FiltrosKanban, { type FiltrosKanbanState } from "@/components/modules/comercial/FiltrosKanban";
+import LeadsFriosPanel from "@/components/modules/comercial/LeadsFriosPanel";
+import LeadDetailModal from "@/components/modules/comercial/LeadDetailModal";
+import ClientesTab from "@/components/modules/comercial/ClientesTab";
+import RelatoriosTab from "@/components/modules/comercial/RelatoriosTab";
+import ConfiguracoesTab from "@/components/modules/comercial/ConfiguracoesTab";
 import NovoLeadModal from "@/components/comercial/NovoLeadModal";
 import { formatarEtapa, formatarMoeda } from "@/lib/format";
-import type { EtapaFunil, Lead } from "@/lib/types/domain";
+import type { AgendamentoLeadFrio, EtapaFunil, Lead } from "@/lib/types/domain";
 
-// Ordem de exibição das colunas — "perdido" fica por último e mais discreta
-// (ver classesColuna abaixo), já que é uma etapa terminal "de saída", não
-// parte do fluxo principal do funil.
-const ETAPAS: EtapaFunil[] = ["prospeccao", "contato", "proposta", "negociacao", "fechado", "perdido"];
+type AbaComercial = "crm" | "clientes" | "relatorios" | "configuracoes";
 
-function classesColuna(etapa: EtapaFunil): string {
-  return etapa === "perdido" ? "bg-gray-100" : "bg-brand-light/60";
-}
+const ABAS: Array<{ valor: AbaComercial; label: string }> = [
+  { valor: "crm", label: "CRM" },
+  { valor: "clientes", label: "Clientes" },
+  { valor: "relatorios", label: "Relatórios" },
+  { valor: "configuracoes", label: "Configurações" },
+];
+
+const CHAVE_ABA = "br-isolamentos:comercial-aba";
+const FILTROS_INICIAIS: FiltrosKanbanState = { temperatura: "", origem: "", atribuidoA: "", periodo: "" };
 
 export default function ComercialPage() {
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [carregando, setCarregando] = useState(true);
-  const [mostrarNovo, setMostrarNovo] = useState(false);
-  const [erro, setErro] = useState<string | null>(null);
+  return (
+    <Suspense fallback={null}>
+      <ComercialPageConteudo />
+    </Suspense>
+  );
+}
 
-  const carregar = useCallback(async () => {
-    setCarregando(true);
-    setErro(null);
+function ComercialPageConteudo() {
+  const searchParams = useSearchParams();
+
+  const [aba, setAba] = useState<AbaComercial>("crm");
+  const [leads, setLeads] = useState<Lead[]>([]);
+  const [carregandoLeads, setCarregandoLeads] = useState(true);
+  const [filtros, setFiltros] = useState<FiltrosKanbanState>(FILTROS_INICIAIS);
+  const [origens, setOrigens] = useState<string[]>([]);
+  const [usuarios, setUsuarios] = useState<Array<{ email: string; nome: string }>>([]);
+
+  const [mostrarFrios, setMostrarFrios] = useState(false);
+  const [leadsFrios, setLeadsFrios] = useState<AgendamentoLeadFrio[]>([]);
+  const [carregandoFrios, setCarregandoFrios] = useState(false);
+
+  const [leadSelecionadoId, setLeadSelecionadoId] = useState<string | null>(null);
+  const [mostrarNovoLead, setMostrarNovoLead] = useState(false);
+
+  // Aba selecionada persiste entre visitas (localStorage) — mesmo padrão de
+  // outros módulos com sub-navegação. `?aba=` na URL tem prioridade (permite
+  // linkar direto pra uma aba específica).
+  useEffect(() => {
+    const abaUrl = searchParams.get("aba") as AbaComercial | null;
+    if (abaUrl && ABAS.some((a) => a.valor === abaUrl)) {
+      setAba(abaUrl);
+      return;
+    }
+    const salva = window.localStorage.getItem(CHAVE_ABA) as AbaComercial | null;
+    if (salva && ABAS.some((a) => a.valor === salva)) setAba(salva);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function trocarAba(nova: AbaComercial) {
+    setAba(nova);
+    window.localStorage.setItem(CHAVE_ABA, nova);
+  }
+
+  // `?lead=<id>` abre o modal de detalhe automaticamente — usado pelo
+  // redirect de /comercial/[id] (rota antiga) e por links diretos.
+  useEffect(() => {
+    const leadParam = searchParams.get("lead");
+    if (leadParam) setLeadSelecionadoId(leadParam);
+  }, [searchParams]);
+
+  const carregarLeads = useCallback(async () => {
+    setCarregandoLeads(true);
     try {
-      const response = await fetch("/api/comercial/leads");
-      const payload = await response.json();
-      if (!response.ok || !payload.success) {
-        setErro(payload.error ?? "Erro ao carregar leads.");
-        return;
+      const params = new URLSearchParams();
+      if (filtros.temperatura) params.set("temperatura", filtros.temperatura);
+      if (filtros.origem) params.set("origem", filtros.origem);
+      if (filtros.atribuidoA) params.set("atribuido_a", filtros.atribuidoA);
+      if (filtros.periodo) {
+        const agora = new Date();
+        let desde: Date;
+        if (filtros.periodo === "mes") desde = new Date(agora.getFullYear(), agora.getMonth(), 1);
+        else desde = new Date(agora.getTime() - (filtros.periodo === "7dias" ? 7 : 30) * 24 * 60 * 60 * 1000);
+        params.set("criados_a_partir_de", desde.toISOString());
       }
-      setLeads(payload.data);
+
+      const response = await fetch(`/api/comercial/leads?${params.toString()}`);
+      const payload = await response.json();
+      if (payload.success) setLeads(payload.data);
     } finally {
-      setCarregando(false);
+      setCarregandoLeads(false);
+    }
+  }, [filtros]);
+
+  const carregarLeadsFrios = useCallback(async () => {
+    setCarregandoFrios(true);
+    try {
+      const response = await fetch("/api/comercial/leads-frios");
+      const payload = await response.json();
+      if (payload.success) setLeadsFrios(payload.data);
+    } finally {
+      setCarregandoFrios(false);
     }
   }, []);
 
   useEffect(() => {
-    carregar();
-  }, [carregar]);
+    carregarLeads();
+  }, [carregarLeads]);
+
+  useEffect(() => {
+    if (aba === "crm") carregarLeadsFrios();
+  }, [aba, carregarLeadsFrios]);
+
+  useEffect(() => {
+    fetch("/api/comercial/origens").then((r) => r.json()).then((p) => p.success && setOrigens(p.data));
+    fetch("/api/usuarios").then((r) => r.json()).then(setUsuarios).catch(() => setUsuarios([]));
+  }, []);
+
+  async function moverLead(leadId: string, novaEtapa: EtapaFunil) {
+    const leadAtual = leads.find((l) => l.id === leadId);
+    if (!leadAtual || leadAtual.etapa === novaEtapa) return;
+
+    // Atualização otimista — o card já pula de coluna antes da resposta do
+    // servidor; se falhar, o card volta (refetch) e o erro aparece no toast.
+    setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, etapa: novaEtapa } : l)));
+
+    try {
+      const response = await fetch(`/api/comercial/leads/${leadId}/mover`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ novaEtapa }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        toast.erro(payload.error ?? "Não foi possível mover o lead.");
+        carregarLeads();
+        return;
+      }
+      toast.sucesso(`Lead movido para ${formatarEtapa(novaEtapa)}.`);
+    } catch {
+      toast.erro("Erro de conexão ao mover o lead.");
+      carregarLeads();
+    }
+  }
+
+  async function reativarFrio(agendamentoId: string) {
+    const response = await fetch(`/api/comercial/leads-frios/${agendamentoId}/reativar`, { method: "POST" });
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      toast.erro(payload.error ?? "Não foi possível reativar o lead.");
+      return;
+    }
+    toast.sucesso("Lead reativado — voltou para Morno/Contato.");
+    carregarLeadsFrios();
+    carregarLeads();
+  }
+
+  async function cancelarFrio(agendamentoId: string) {
+    if (!confirm("Cancelar este agendamento de reativação? O lead continua Frio, só sem retorno automático.")) return;
+    const response = await fetch(`/api/comercial/leads-frios/${agendamentoId}/cancelar`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({}),
+    });
+    const payload = await response.json();
+    if (!response.ok || !payload.success) {
+      toast.erro(payload.error ?? "Não foi possível cancelar o agendamento.");
+      return;
+    }
+    toast.info("Agendamento de reativação cancelado.");
+    carregarLeadsFrios();
+  }
 
   const valorTotalAtivo = leads
     .filter((l) => l.etapa !== "fechado" && l.etapa !== "perdido")
@@ -47,51 +186,89 @@ export default function ComercialPage() {
 
   return (
     <div className="space-y-6">
+      <ToastContainer />
+
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Comercial</h1>
           <p className="text-sm text-gray-500">
-            Funil de vendas — {leads.length} lead{leads.length === 1 ? "" : "s"}, {formatarMoeda(valorTotalAtivo)} em
-            negociação ativa.
+            {aba === "crm" && `${leads.length} lead${leads.length === 1 ? "" : "s"}, ${formatarMoeda(valorTotalAtivo)} em negociação ativa.`}
+            {aba === "clientes" && "Cadastro de clientes e histórico de leads."}
+            {aba === "relatorios" && "Insights e indicadores comerciais."}
+            {aba === "configuracoes" && "Prazos de reativação de leads frios."}
           </p>
         </div>
-        <button type="button" className="btn-primary" onClick={() => setMostrarNovo(true)}>
-          + Novo Lead
-        </button>
+        {aba === "crm" && (
+          <button type="button" className="btn-primary" onClick={() => setMostrarNovoLead(true)}>
+            + Novo Lead
+          </button>
+        )}
       </div>
 
-      {erro && <p className="text-sm text-status-error">{erro}</p>}
+      <div className="flex gap-1 border-b border-gray-200">
+        {ABAS.map((a) => (
+          <button
+            key={a.valor}
+            type="button"
+            onClick={() => trocarAba(a.valor)}
+            className={`rounded-t-lg px-4 py-2 text-sm font-medium transition-colors ${
+              aba === a.valor ? "border-b-2 border-brand bg-brand-light text-brand" : "text-gray-500 hover:bg-gray-50"
+            }`}
+          >
+            {a.label}
+          </button>
+        ))}
+      </div>
 
-      {carregando ? (
-        <p className="text-sm text-gray-500">Carregando...</p>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 overflow-x-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-          {ETAPAS.map((etapa) => {
-            const leadsDaEtapa = leads.filter((l) => l.etapa === etapa);
-            return (
-              <div key={etapa} className={`rounded-card p-3 ${classesColuna(etapa)}`}>
-                <div className="mb-3 flex items-center justify-between">
-                  <h2 className="font-montserrat text-sm font-bold text-brand">{formatarEtapa(etapa)}</h2>
-                  <span className="badge bg-secondary-light text-brand">{leadsDaEtapa.length}</span>
-                </div>
-                <div className="space-y-2">
-                  {leadsDaEtapa.map((lead) => (
-                    <LeadCard key={lead.id} lead={lead} />
-                  ))}
-                  {leadsDaEtapa.length === 0 && <p className="text-xs text-gray-400">Nenhum lead nesta etapa.</p>}
-                </div>
-              </div>
-            );
-          })}
+      {aba === "crm" && (
+        <div className="space-y-4">
+          <FiltrosKanban
+            filtros={filtros}
+            onChange={(patch) => setFiltros((prev) => ({ ...prev, ...patch }))}
+            origens={origens}
+            usuarios={usuarios}
+            mostrarFrios={mostrarFrios}
+            onToggleFrios={setMostrarFrios}
+            totalLeadsFrios={leadsFrios.length}
+          />
+
+          {mostrarFrios ? (
+            <LeadsFriosPanel
+              agendamentos={leadsFrios}
+              carregando={carregandoFrios}
+              onReativar={reativarFrio}
+              onCancelar={cancelarFrio}
+            />
+          ) : carregandoLeads ? (
+            <p className="text-sm text-gray-500">Carregando...</p>
+          ) : (
+            <KanbanBoard leads={leads} onAbrirLead={(lead) => setLeadSelecionadoId(lead.id)} onMoverLead={moverLead} />
+          )}
         </div>
       )}
 
-      {mostrarNovo && (
+      {aba === "clientes" && <ClientesTab />}
+      {aba === "relatorios" && <RelatoriosTab />}
+      {aba === "configuracoes" && <ConfiguracoesTab />}
+
+      {leadSelecionadoId && (
+        <LeadDetailModal
+          leadId={leadSelecionadoId}
+          onFechar={() => setLeadSelecionadoId(null)}
+          onLeadMudou={() => {
+            carregarLeads();
+            carregarLeadsFrios();
+          }}
+        />
+      )}
+
+      {mostrarNovoLead && (
         <NovoLeadModal
-          onFechar={() => setMostrarNovo(false)}
+          onFechar={() => setMostrarNovoLead(false)}
           onCriado={() => {
-            setMostrarNovo(false);
-            carregar();
+            setMostrarNovoLead(false);
+            toast.sucesso("Lead criado.");
+            carregarLeads();
           }}
         />
       )}

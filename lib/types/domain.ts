@@ -59,6 +59,16 @@ export interface Lead {
   /** E-mail (`usuarios.email`) do responsável pelo lead. */
   atribuido_a: string | null;
   tags: string[];
+  /** Valor de `etapa`/`temperatura` imediatamente antes da última mudança —
+   * espelha o topo de `historico_mudancas_leads` sem precisar de um join,
+   * usado no card do Kanban ("veio de Contato"). A fonte de verdade completa
+   * (toda a sequência de mudanças) é o histórico, não estes dois campos. */
+  etapa_anterior: EtapaFunil | null;
+  temperatura_anterior: TemperaturaLead | null;
+  /** Carimbo da interação mais recente (nota, ligação, e-mail...) — mantido
+   * por `lib/usecases/comercial/registrarInteracao.ts`. Base do relatório
+   * "leads dormindo" (sem interação há 7+ dias). */
+  data_ultima_interacao: string | null;
   created_at: string;
   updated_at: string;
   // Preenchido via join, opcional (ver LeadRepository.select).
@@ -67,7 +77,9 @@ export interface Lead {
 
 export type TipoInteracaoLead = "nota" | "email" | "chamada" | "reuniao" | "proposta_enviada";
 
-/** Um registro na timeline de um lead (ver `interacoes_lead`). */
+/** Um registro na timeline de contatos de um lead (ver `interacoes_lead`) —
+ * não confundir com `HistoricoMudancaLead`, que registra mudança de
+ * etapa/temperatura, não contato. */
 export interface InteracaoLead {
   id: string;
   lead_id: string;
@@ -76,6 +88,76 @@ export interface InteracaoLead {
   autor_email: string | null;
   data_interacao: string;
   created_at: string;
+}
+
+export type TipoMudancaLead =
+  | "criacao"
+  | "mudanca_etapa"
+  | "mudanca_temperatura"
+  | "reativacao_manual"
+  | "reativacao_automatica";
+
+/** Um registro na timeline de mudanças de etapa/temperatura de um lead (ver
+ * `historico_mudancas_leads`) — o "caminho do lead" exibido no
+ * LeadDetailModal. */
+export interface HistoricoMudancaLead {
+  id: string;
+  lead_id: string;
+  tipo_mudanca: TipoMudancaLead;
+  etapa_anterior: EtapaFunil | null;
+  etapa_nova: EtapaFunil | null;
+  temperatura_anterior: TemperaturaLead | null;
+  temperatura_nova: TemperaturaLead | null;
+  data_mudanca: string;
+  usuario_email: string | null;
+  created_at: string;
+}
+
+export type StatusAgendamentoLeadFrio = "agendado" | "reativado" | "cancelado";
+
+/** Reativação agendada de um lead marcado como "frio" (ver
+ * `agendamentos_leads_frios` e lib/usecases/comercial/mudarTemperatura.ts). */
+export interface AgendamentoLeadFrio {
+  id: string;
+  lead_id: string;
+  temperatura_anterior: TemperaturaLead | null;
+  etapa_anterior: EtapaFunil | null;
+  data_agendamento: string;
+  data_retorno: string;
+  intervalo_dias: number;
+  status: StatusAgendamentoLeadFrio;
+  motivo_cancelamento: string | null;
+  created_at: string;
+  reativado_em: string | null;
+  // Preenchido via join, opcional (ver AgendamentoLeadFrioRepository.select).
+  lead?: Lead;
+}
+
+/** Prazos de reativação por etapa em que o lead "esfriou" — linha única (id
+ * fixo = 1), editável na aba Configurações do CRM. */
+export interface ConfigReativacaoLeadsFrios {
+  id: number;
+  dias_prospeccao: number;
+  dias_contato: number;
+  dias_proposta: number;
+  dias_negociacao: number;
+  updated_at: string;
+}
+
+/** Linha da view `v_clientes_resumo` — cliente + métricas agregadas dos
+ * leads associados, para a aba "Clientes" do CRM. */
+export interface ClienteResumo {
+  id: number;
+  nome: string;
+  telefone: string | null;
+  email: string | null;
+  endereco: string | null;
+  cidade: string | null;
+  estado: string | null;
+  cnpj_cpf: string | null;
+  criado_em: string;
+  total_leads: number;
+  ultima_interacao: string | null;
 }
 
 // --- Módulo Operacional (parceiros/agenda) — ver lib/contexts/operacional.ts ---

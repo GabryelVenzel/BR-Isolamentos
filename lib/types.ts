@@ -18,6 +18,8 @@ export interface Cliente {
   email: string | null;
   telefone: string | null;
   endereco: string | null;
+  cidade: string | null;
+  estado: string | null;
   cnpj_cpf: string | null;
   criado_em: string;
   criado_por: string | null;

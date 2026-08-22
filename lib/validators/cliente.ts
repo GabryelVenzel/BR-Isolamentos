@@ -7,6 +7,8 @@ export const CreateClienteSchema = z.object({
   email: z.string().trim().email("E-mail inválido.").nullable().optional(),
   telefone: z.string().trim().nullable().optional(),
   endereco: z.string().trim().nullable().optional(),
+  cidade: z.string().trim().nullable().optional(),
+  estado: z.string().trim().max(2, "Use a sigla do estado (ex.: PR).").nullable().optional(),
   cnpj_cpf: z.string().trim().nullable().optional(),
 });
 

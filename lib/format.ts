@@ -31,14 +31,23 @@ function parseDataLocal(valor: string): Date {
   return new Date(valor);
 }
 
+// TIMEZONE: horário de Brasília (America/Sao_Paulo, UTC-3) fixado
+// explicitamente no Intl.DateTimeFormat — não fica implícito no fuso do
+// dispositivo de quem está vendo a tela. Isso importa de verdade pro CRM
+// (módulo Comercial): a timeline de um lead ("Caminho do lead"), a data de
+// reativação de um lead frio etc. precisam mostrar o mesmo horário pra
+// qualquer sócio, esteja ele em Curitiba ou viajando em outro fuso — sem
+// isso, dependeria do relógio/timezone configurado no navegador de cada um.
+const FUSO_BRASILIA = "America/Sao_Paulo";
+
 export function formatarData(data: string | Date): string {
   const d = typeof data === "string" ? parseDataLocal(data) : data;
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(d);
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeZone: FUSO_BRASILIA }).format(d);
 }
 
 export function formatarDataHora(data: string | Date): string {
   const d = typeof data === "string" ? parseDataLocal(data) : data;
-  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(d);
+  return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short", timeZone: FUSO_BRASILIA }).format(d);
 }
 
 const STATUS_LABELS: Record<string, string> = {

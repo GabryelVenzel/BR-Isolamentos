@@ -1,29 +1,29 @@
-import { ConflictError, NotFoundError } from "../../errors";
-import type { LeadRepository } from "../../repositories";
-import type { EtapaFunil, Lead } from "../../types/domain";
+import { NotFoundError } from "../../errors";
+import type { HistoricoMudancaLeadRepository, LeadRepository } from "../../repositories";
+import type { EtapaFunil, HistoricoMudancaLead, Lead } from "../../types/domain";
 import { MoverLeadSchema, parseOrThrow } from "../../validators";
-
-/** Transições de etapa permitidas no funil comercial:
- * prospecção → contato → proposta → negociação → fechado. "perdido" é
- * terminal (igual "fechado") e alcançável a partir de qualquer etapa ativa —
- * desistência do cliente não segue uma ordem fixa. Etapas terminais não têm
- * saída: um lead "fechado" ou "perdido" não volta a se mover (reabrir é criar
- * um lead novo). */
-export const TRANSICOES_FUNIL: Record<EtapaFunil, EtapaFunil[]> = {
-  prospeccao: ["contato", "perdido"],
-  contato: ["prospeccao", "proposta", "perdido"],
-  proposta: ["contato", "negociacao", "perdido"],
-  negociacao: ["proposta", "fechado", "perdido"],
-  fechado: [],
-  perdido: [],
-};
 
 export interface MoverLeadInput {
   leadId: string;
   novaEtapa: EtapaFunil;
 }
 
-export async function moverLead(input: unknown, repos: { leadRepo: LeadRepository }): Promise<Lead> {
+/** Move um lead para qualquer etapa do funil — decisão explícita do CRM:
+ * QUALQUER transição é permitida (inclusive "retroceder", ou sair de uma
+ * etapa terminal como "fechado"/"perdido"), porque quem opera o funil
+ * conhece o negócio melhor que uma máquina de estados fixa. Isso substitui a
+ * versão anterior deste use case, que restringia a transições numa ordem
+ * fixa via `TRANSICOES_FUNIL` — removido de propósito, não é um descuido.
+ *
+ * Toda mudança de etapa grava uma entrada em `historico_mudancas_leads`
+ * (a timeline "Caminho do lead" do LeadDetailModal) e atualiza
+ * `leads.etapa_anterior`, para o card/modal saberem "de onde" o lead veio
+ * sem precisar de outro join. */
+export async function moverLead(
+  input: unknown,
+  repos: { leadRepo: LeadRepository; historicoRepo: HistoricoMudancaLeadRepository },
+  usuarioEmail?: string | null
+): Promise<Lead> {
   const { leadId, novaEtapa } = parseOrThrow(MoverLeadSchema, input);
 
   const lead = await repos.leadRepo.findById(leadId);
@@ -31,14 +31,18 @@ export async function moverLead(input: unknown, repos: { leadRepo: LeadRepositor
 
   if (lead.etapa === novaEtapa) return lead;
 
-  const permitido = TRANSICOES_FUNIL[lead.etapa].includes(novaEtapa);
-  if (!permitido) {
-    throw new ConflictError(
-      `Não é possível mover o lead de "${lead.etapa}" para "${novaEtapa}". Transições permitidas a partir de "${lead.etapa}": ${
-        TRANSICOES_FUNIL[lead.etapa].join(", ") || "nenhuma (etapa terminal)"
-      }.`
-    );
-  }
+  const atualizado = await repos.leadRepo.update(leadId, {
+    etapa: novaEtapa,
+    etapa_anterior: lead.etapa,
+  } as Partial<Lead>);
 
-  return repos.leadRepo.update(leadId, { etapa: novaEtapa });
+  await repos.historicoRepo.create({
+    lead_id: leadId,
+    tipo_mudanca: "mudanca_etapa",
+    etapa_anterior: lead.etapa,
+    etapa_nova: novaEtapa,
+    usuario_email: usuarioEmail ?? null,
+  } as Partial<HistoricoMudancaLead>);
+
+  return atualizado;
 }

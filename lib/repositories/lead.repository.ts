@@ -5,6 +5,11 @@ import { BaseRepository } from "./base";
 export interface FiltrosLead {
   etapa?: EtapaFunil | string;
   atribuidoA?: string;
+  temperatura?: string;
+  origem?: string;
+  /** Só leads criados a partir desta data (ISO) — filtro "Período" do
+   * Kanban/Relatórios. */
+  criadosApartirDe?: string;
 }
 
 export class LeadRepository extends BaseRepository<Lead> {
@@ -21,10 +26,22 @@ export class LeadRepository extends BaseRepository<Lead> {
 
     if (filtros.etapa) query = query.eq("etapa", filtros.etapa);
     if (filtros.atribuidoA) query = query.eq("atribuido_a", filtros.atribuidoA);
+    if (filtros.temperatura) query = query.eq("temperatura", filtros.temperatura);
+    if (filtros.origem) query = query.eq("origem", filtros.origem);
+    if (filtros.criadosApartirDe) query = query.gte("created_at", filtros.criadosApartirDe);
 
     const { data, error } = await query;
     if (error) throw error;
     return (data ?? []) as unknown as Lead[];
+  }
+
+  /** Origens distintas já cadastradas (para popular o filtro "Origem" sem
+   * hardcodar uma lista fixa — a origem é texto livre, ver CreateLeadSchema). */
+  async listarOrigensDistintas(): Promise<string[]> {
+    const { data, error } = await this.queryBuilder().select("origem").not("origem", "is", null);
+    if (error) throw error;
+    const origens = new Set((data ?? []).map((linha: { origem: string }) => linha.origem).filter(Boolean));
+    return Array.from(origens).sort() as string[];
   }
 
   // --- Consultas do dashboard executivo (módulo Resumo) ---
