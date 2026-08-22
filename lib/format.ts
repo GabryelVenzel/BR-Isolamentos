@@ -14,13 +14,30 @@ export function formatarNumero(valor: number, casasDecimais = 2): string {
   }).format(valor);
 }
 
+// Datas "puras" (YYYY-MM-DD, sem hora — como vêm de colunas `date` do
+// Postgres: agendamentos.data_inicio, lancamentos_financeiros.data, etc.) não
+// podem passar por `new Date(string)` direto: o JS interpreta esse formato
+// como UTC meia-noite, e o Intl.DateTimeFormat later formata no fuso local —
+// em fusos negativos (America/Sao_Paulo, UTC-3) isso exibe o dia anterior.
+// Construir a data a partir dos componentes Y/M/D evita o deslocamento.
+// Timestamps completos (criado_em, data_criacao...) continuam com o parsing
+// padrão, que já reflete corretamente o instante real no fuso local.
+function parseDataLocal(valor: string): Date {
+  const somenteData = /^(\d{4})-(\d{2})-(\d{2})$/.exec(valor);
+  if (somenteData) {
+    const [, ano, mes, dia] = somenteData;
+    return new Date(Number(ano), Number(mes) - 1, Number(dia));
+  }
+  return new Date(valor);
+}
+
 export function formatarData(data: string | Date): string {
-  const d = typeof data === "string" ? new Date(data) : data;
+  const d = typeof data === "string" ? parseDataLocal(data) : data;
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short" }).format(d);
 }
 
 export function formatarDataHora(data: string | Date): string {
-  const d = typeof data === "string" ? new Date(data) : data;
+  const d = typeof data === "string" ? parseDataLocal(data) : data;
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(d);
 }
 

@@ -1,36 +1,69 @@
-// Contexto de negócio do módulo Financeiro (contas a pagar/receber, custos
-// fixos e notas fiscais) — SCAFFOLDING. O SQL das tabelas
-// `lancamentos_financeiros`/`custos_fixos`/`notas_fiscais` já existe em
-// sql-migration-004-6modulos-completo.sql, falta aplicar no Supabase e
-// implementar repositório/use cases. Ver tipos em `lib/types/domain.ts`.
+// Contexto de negócio do módulo Financeiro (lançamentos de receita/despesa,
+// custos fixos). Ponto único de import para telas e API routes — reúne os
+// repositórios e os use cases de `lib/usecases/financeiro` atrás de uma
+// fachada injetada com o client do Supabase da requisição atual. Mesmo
+// padrão de `lib/contexts/orcamento.ts`.
 //
-// Nota importante para quando este módulo for implementado: ele NÃO deve
-// reimplementar cálculo de impostos — sempre reutilizar
-// `lib/tributos.ts`/`lib/usecases/orcamento/calcularOrcamento.ts`, que já
-// aplicam a carga tributária real e completa do regime configurado (exigência
-// permanente do projeto, não simplificar para um percentual aproximado). Este
-// módulo só registra o fluxo de caixa (receita/despesa já com imposto
-// aplicado, quando vinculado a um orçamento).
+// IMPORTANTE: este módulo nunca recalcula imposto — o imposto de um
+// orçamento já foi calculado e gravado em `orcamentos.detalhamento_impostos`
+// na hora da venda (ver lib/tributos.ts); aqui só se registra o fluxo de caixa.
 
-import { NotImplementedError } from "../errors";
-import type { LancamentoFinanceiro } from "../types/domain";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import {
+  CustoFixoRepository,
+  LancamentoFinanceiroRepository,
+  type FiltrosLancamento,
+  type ResumoMesAtual,
+} from "../repositories";
+import type { CustoFixo, LancamentoFinanceiro } from "../types/domain";
+import { criarCustoFixo, criarLancamento, marcarComoPago } from "../usecases/financeiro";
 
-const AVISO = "Módulo Financeiro ainda não implementado — aplique sql-migration-004-6modulos-completo.sql e implemente o repositório.";
+export function createFinanceiroContext(supabase: SupabaseClient) {
+  const lancamentoRepo = new LancamentoFinanceiroRepository(supabase);
+  const custoFixoRepo = new CustoFixoRepository(supabase);
 
-export function createFinanceiroContext() {
   return {
-    async listarPendentes(): Promise<LancamentoFinanceiro[]> {
-      throw new NotImplementedError(AVISO);
+    lancamentoRepo,
+    custoFixoRepo,
+
+    listarLancamentos(filtros?: FiltrosLancamento): Promise<LancamentoFinanceiro[]> {
+      return lancamentoRepo.listar(filtros);
     },
 
-    async lancar(
-      _dados: Omit<LancamentoFinanceiro, "id" | "created_at" | "updated_at" | "pago" | "data_pagamento">
-    ): Promise<LancamentoFinanceiro> {
-      throw new NotImplementedError(AVISO);
+    buscarLancamento(id: string): Promise<LancamentoFinanceiro> {
+      return lancamentoRepo.findByIdOrThrow(id);
     },
 
-    async marcarComoPago(_id: string): Promise<LancamentoFinanceiro> {
-      throw new NotImplementedError(AVISO);
+    criarLancamento(dados: unknown): Promise<LancamentoFinanceiro> {
+      return criarLancamento(dados, { lancamentoRepo });
+    },
+
+    marcarComoPago(id: string, dataPagamento?: string): Promise<LancamentoFinanceiro> {
+      return marcarComoPago(id, dataPagamento, { lancamentoRepo });
+    },
+
+    removerLancamento(id: string): Promise<void> {
+      return lancamentoRepo.delete(id);
+    },
+
+    async resumoMesAtual(): Promise<ResumoMesAtual & { custosFixosMensal: number }> {
+      const [resumo, custosFixosMensal] = await Promise.all([
+        lancamentoRepo.resumoMesAtual(),
+        custoFixoRepo.totalMensalAtivo(),
+      ]);
+      return { ...resumo, custosFixosMensal };
+    },
+
+    listarCustosFixos(): Promise<CustoFixo[]> {
+      return custoFixoRepo.listarTodos();
+    },
+
+    criarCustoFixo(dados: unknown): Promise<CustoFixo> {
+      return criarCustoFixo(dados, { custoFixoRepo });
+    },
+
+    atualizarCustoFixo(id: string, dados: Partial<CustoFixo>): Promise<CustoFixo> {
+      return custoFixoRepo.update(id, dados);
     },
   };
 }

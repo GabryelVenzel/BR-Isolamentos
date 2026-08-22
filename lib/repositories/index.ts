@@ -10,3 +10,6 @@ export { ParceiroRepository } from "./parceiro.repository";
 export type { FiltrosParceiro } from "./parceiro.repository";
 export { AgendamentoRepository } from "./agendamento.repository";
 export type { FiltrosAgendamento } from "./agendamento.repository";
+export { LancamentoFinanceiroRepository } from "./lancamento-financeiro.repository";
+export type { FiltrosLancamento, ResumoMesAtual } from "./lancamento-financeiro.repository";
+export { CustoFixoRepository } from "./custo-fixo.repository";
