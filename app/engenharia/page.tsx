@@ -1,16 +1,34 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import CalculadoraForm, { type EngenhariaFormState } from "@/components/modules/engenharia/CalculadoraForm";
+import EconomiaSection, { type EconomiaFormState } from "@/components/modules/engenharia/EconomiaSection";
+import ResultadoCard from "@/components/modules/engenharia/ResultadoCard";
 import { formatarNumero } from "@/lib/format";
-import type {
-  Acabamento,
-  CalcularTermicoInput,
-  CalcularTermicoResultadoFrio,
-  CalcularTermicoResultadoQuente,
-  Geometria,
-  MaterialIsolante,
-  TipoTrabalho,
-} from "@/lib/types";
+import type { Acabamento, MaterialIsolante } from "@/lib/types";
+import type { ResultadoEconomia, ResultadoFrio, ResultadoQuente } from "@/lib/usecases/engenharia";
+
+const FORM_INICIAL: EngenhariaFormState = {
+  tipoTrabalho: "quente",
+  materialId: undefined,
+  acabamentoId: undefined,
+  geometria: "tubulacao",
+  diametroMm: undefined,
+  espessuraMm: undefined,
+  temperaturaQuente: undefined,
+  temperaturaAmbiente: undefined,
+  umidadeRelativa: undefined,
+  velocidadeVentoMs: undefined,
+};
+
+const ECONOMIA_INICIAL: EconomiaFormState = {
+  combustivel: "eletricidade",
+  custoCombustivel: undefined,
+  eficienciaPercentual: undefined,
+  horasOperacaoAno: undefined,
+  valorInvestimento: undefined,
+  areaM2: undefined,
+};
 
 /**
  * Calculadora rápida quente/frio — módulo Engenharia. Roda só o cálculo
@@ -18,82 +36,167 @@ import type {
  * imediata em campo, sem quantificar materiais nem gerar orçamento (isso
  * continua sendo função do wizard "Novo Orçamento", que também persiste os
  * dados a um cliente). Estado 100% local — não usa o store do wizard.
+ *
+ * Fiel a 2-DocumentaçãoTecnica/CALCULADORA-TERMICA.py: painel Quente sem
+ * campo de vento (pior cenário = sem ventilação), painel Frio com umidade
+ * relativa (não ponto de orvalho direto) + vento opcional, economia de
+ * energia só disponível no painel Quente. Ver comentários em
+ * lib/usecases/engenharia/*.ts pros detalhes de cada divergência resolvida
+ * a favor do código Python quando o pedido original divergia dele.
  */
 export default function EngenhariaPage() {
   const [materiais, setMateriais] = useState<MaterialIsolante[]>([]);
   const [acabamentos, setAcabamentos] = useState<Acabamento[]>([]);
 
-  const [tipoTrabalho, setTipoTrabalho] = useState<TipoTrabalho>("quente");
-  const [materialId, setMaterialId] = useState<number | null>(null);
-  const [acabamentoId, setAcabamentoId] = useState<number | null>(null);
-  const [geometria, setGeometria] = useState<Geometria>("tubulacao");
-  const [diametroMm, setDiametroMm] = useState(88.9);
-  const [espessuraMm, setEspessuraMm] = useState(51);
-  const [temperaturaQuente, setTemperaturaQuente] = useState(200);
-  const [temperaturaAmbiente, setTemperaturaAmbiente] = useState(30);
-  const [velocidadeVento, setVelocidadeVento] = useState(0);
-  const [umidadeRelativa, setUmidadeRelativa] = useState(70);
+  const [form, setForm] = useState<EngenhariaFormState>(FORM_INICIAL);
+  const [economiaAtiva, setEconomiaAtiva] = useState(false);
+  const [economiaForm, setEconomiaForm] = useState<EconomiaFormState>(ECONOMIA_INICIAL);
 
   const [calculando, setCalculando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [resultadoQuente, setResultadoQuente] = useState<CalcularTermicoResultadoQuente | null>(null);
-  const [resultadoFrio, setResultadoFrio] = useState<CalcularTermicoResultadoFrio | null>(null);
+  const [resultadoQuente, setResultadoQuente] = useState<ResultadoQuente | null>(null);
+  const [resultadoFrio, setResultadoFrio] = useState<ResultadoFrio | null>(null);
+  const [resultadoEconomia, setResultadoEconomia] = useState<ResultadoEconomia | null>(null);
 
   useEffect(() => {
     fetch("/api/materiais").then((r) => r.json()).then(setMateriais);
     fetch("/api/acabamentos").then((r) => r.json()).then(setAcabamentos);
   }, []);
 
-  const material = materiais.find((m) => m.id === materialId);
-  const acabamento = acabamentos.find((a) => a.id === acabamentoId);
-  const isQuente = tipoTrabalho === "quente";
-  const isTubulacao = geometria === "tubulacao";
+  function atualizarForm(patch: Partial<EngenhariaFormState>) {
+    setForm((prev) => ({ ...prev, ...patch }));
+  }
+
+  function trocarTipo(tipoTrabalho: EngenhariaFormState["tipoTrabalho"]) {
+    // Trocar de painel limpa resultado anterior — evita mostrar um
+    // resultado "frio" com o formulário já em modo "quente", por exemplo.
+    setForm((prev) => ({ ...prev, tipoTrabalho }));
+    setResultadoQuente(null);
+    setResultadoFrio(null);
+    setResultadoEconomia(null);
+    setErro(null);
+    if (tipoTrabalho === "frio") setEconomiaAtiva(false);
+  }
 
   async function calcular() {
-    if (!material) {
-      setErro("Selecione um material isolante.");
-      return;
-    }
     setErro(null);
     setCalculando(true);
     setResultadoQuente(null);
     setResultadoFrio(null);
+    setResultadoEconomia(null);
 
     try {
-      const payload: CalcularTermicoInput = {
-        tipo_trabalho: tipoTrabalho,
-        material_k_func: material.k_func,
-        t_min: material.t_min,
-        t_max: material.t_max,
-        emissividade: acabamento?.emissividade ?? 0.9,
-        geometria,
-        diametro_mm: isTubulacao ? diametroMm : undefined,
-        espessuras_mm: [espessuraMm],
-        temperatura_quente: temperaturaQuente,
-        temperatura_ambiente: temperaturaAmbiente,
-        velocidade_vento_ms: velocidadeVento,
-        umidade_relativa: isQuente ? undefined : umidadeRelativa,
-      };
+      if (form.tipoTrabalho === "quente") {
+        const payloadQuente = {
+          material_id: form.materialId,
+          acabamento_id: form.acabamentoId,
+          geometria: form.geometria,
+          diametro_mm: form.geometria === "tubulacao" ? form.diametroMm : undefined,
+          espessura_mm: form.espessuraMm,
+          temperatura_quente: form.temperaturaQuente,
+          temperatura_ambiente: form.temperaturaAmbiente,
+        };
 
-      const response = await fetch("/api/calcular-termico", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      const dados = await response.json();
+        const respostaQuente = await fetch("/api/engenharia/calcular-quente", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payloadQuente),
+        });
+        const dadosQuente = await respostaQuente.json();
+        if (!dadosQuente.success) {
+          setErro(dadosQuente.error ?? "Erro no cálculo térmico.");
+          return;
+        }
+        setResultadoQuente(dadosQuente.data);
 
-      if (!response.ok) {
-        setErro(dados.error ?? "Erro no cálculo térmico.");
-        return;
+        if (economiaAtiva) {
+          const payloadEconomia = {
+            perda_com_isolante_kw_m2: dadosQuente.data.perda_com_isolante_kw_m2,
+            perda_sem_isolante_kw_m2: dadosQuente.data.perda_sem_isolante_kw_m2,
+            area_m2: economiaForm.areaM2,
+            combustivel: economiaForm.combustivel,
+            custo_combustivel: economiaForm.custoCombustivel,
+            eficiencia_percentual: economiaForm.eficienciaPercentual,
+            horas_operacao_ano: economiaForm.horasOperacaoAno,
+            valor_investimento: economiaForm.valorInvestimento,
+          };
+
+          const respostaEconomia = await fetch("/api/engenharia/economia", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payloadEconomia),
+          });
+          const dadosEconomia = await respostaEconomia.json();
+          if (!dadosEconomia.success) {
+            setErro(dadosEconomia.error ?? "Erro ao calcular a economia de energia.");
+            return;
+          }
+          setResultadoEconomia(dadosEconomia.data);
+        }
+      } else {
+        const payloadFrio = {
+          material_id: form.materialId,
+          geometria: form.geometria,
+          diametro_mm: form.geometria === "tubulacao" ? form.diametroMm : undefined,
+          temperatura_interna: form.temperaturaQuente,
+          temperatura_ambiente: form.temperaturaAmbiente,
+          umidade_relativa: form.umidadeRelativa,
+          velocidade_vento_ms: form.velocidadeVentoMs ?? 0,
+        };
+
+        const respostaFrio = await fetch("/api/engenharia/calcular-frio", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payloadFrio),
+        });
+        const dadosFrio = await respostaFrio.json();
+        if (!dadosFrio.success) {
+          setErro(dadosFrio.error ?? "Erro no cálculo térmico.");
+          return;
+        }
+        setResultadoFrio(dadosFrio.data);
       }
-
-      if (isQuente) setResultadoQuente(dados);
-      else setResultadoFrio(dados);
     } catch {
       setErro("Erro de conexão ao calcular.");
     } finally {
       setCalculando(false);
     }
+  }
+
+  function copiarResultadoBase() {
+    const material = materiais.find((m) => m.id === form.materialId);
+    const linhas: string[] = [`Cálculo térmico — ${material?.nome ?? ""} (${form.tipoTrabalho === "quente" ? "Quente" : "Frio"})`];
+
+    if (resultadoQuente) {
+      linhas.push(
+        `Espessura necessária: ${formatarNumero(resultadoQuente.espessura_mm, 1)} mm`,
+        `Temperatura de face fria: ${formatarNumero(resultadoQuente.temperatura_face_fria, 1)} °C`,
+        `Perda térmica com isolante: ${formatarNumero(resultadoQuente.perda_com_isolante_kw_m2, 3)} kW/m²`,
+        `Perda térmica sem isolante: ${formatarNumero(resultadoQuente.perda_sem_isolante_kw_m2, 3)} kW/m²`
+      );
+    }
+    if (resultadoFrio) {
+      linhas.push(
+        `Espessura mínima (evita condensação): ${formatarNumero(resultadoFrio.espessura_minima_mm, 1)} mm`,
+        `Temperatura de orvalho: ${formatarNumero(resultadoFrio.temperatura_orvalho, 1)} °C`,
+        `Temperatura de face fria alcançada: ${formatarNumero(resultadoFrio.temperatura_face_fria, 1)} °C`
+      );
+    }
+
+    navigator.clipboard?.writeText(linhas.join("\n"));
+  }
+
+  function copiarEconomia() {
+    if (!resultadoEconomia) return;
+    const linhas = [
+      "Economia de energia estimada",
+      `Economia: ${formatarNumero(resultadoEconomia.economia_anual_kwh, 0)} kWh/ano`,
+      `Economia financeira: ${formatarNumero(resultadoEconomia.economia_financeira_anual, 2)} R$/ano`,
+      resultadoEconomia.roi_meses !== null ? `ROI estimado: ${formatarNumero(resultadoEconomia.roi_meses, 0)} meses` : null,
+      `Redução de CO₂: ${formatarNumero(resultadoEconomia.co2_reduzido_ton_ano, 2)} ton CO₂/ano`,
+    ].filter(Boolean);
+
+    navigator.clipboard?.writeText(linhas.join("\n"));
   }
 
   return (
@@ -102,166 +205,42 @@ export default function EngenhariaPage() {
         <h1 className="text-2xl font-bold">Engenharia</h1>
         <p className="text-sm text-gray-500">
           Cálculo térmico rápido (quente ou frio) — sem quantificação de materiais nem orçamento. Para gerar uma
-          proposta completa, use "Orçamento → Novo Orçamento".
+          proposta completa, use &quot;Orçamento → Novo Orçamento&quot;.
         </p>
       </div>
 
-      <div className="card space-y-4">
-        <div>
-          <label className="label-field">Tipo de trabalho</label>
-          <div className="flex gap-4">
-            {(["quente", "frio"] as const).map((tipo) => (
-              <label key={tipo} className="flex items-center gap-2 text-sm">
-                <input type="radio" checked={tipoTrabalho === tipo} onChange={() => setTipoTrabalho(tipo)} />
-                {tipo === "quente" ? "🔥 Quente" : "🧊 Frio (condensação)"}
-              </label>
-            ))}
-          </div>
+      {erro && (
+        <div className="flex items-start gap-2 rounded-card border-l-4 border-l-status-error bg-red-50 p-4 text-sm text-status-error">
+          <span aria-hidden>⚠️</span>
+          <p>{erro}</p>
         </div>
+      )}
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div>
-            <label className="label-field">Material isolante</label>
-            <select
-              className="input-field"
-              value={materialId ?? ""}
-              onChange={(e) => setMaterialId(Number(e.target.value))}
-            >
-              <option value="" disabled>
-                Selecione...
-              </option>
-              {materiais.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.nome}
-                </option>
-              ))}
-            </select>
-          </div>
+      <CalculadoraForm
+        form={{ ...form, tipoTrabalho: form.tipoTrabalho }}
+        onChange={(patch) => (patch.tipoTrabalho ? trocarTipo(patch.tipoTrabalho) : atualizarForm(patch))}
+        materiais={materiais}
+        acabamentos={acabamentos}
+      />
 
-          {isQuente && (
-            <div>
-              <label className="label-field">Acabamento externo</label>
-              <select
-                className="input-field"
-                value={acabamentoId ?? ""}
-                onChange={(e) => setAcabamentoId(Number(e.target.value))}
-              >
-                <option value="" disabled>
-                  Selecione...
-                </option>
-                {acabamentos.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.nome} (ε = {a.emissividade})
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          <div>
-            <label className="label-field">Tipo de superfície</label>
-            <select className="input-field" value={geometria} onChange={(e) => setGeometria(e.target.value as Geometria)}>
-              <option value="tubulacao">Tubulação</option>
-              <option value="plana">Superfície Plana</option>
-            </select>
-          </div>
-
-          {isTubulacao && (
-            <div>
-              <label className="label-field">Diâmetro externo do tubo (mm)</label>
-              <input
-                type="number"
-                className="input-field"
-                value={diametroMm}
-                onChange={(e) => setDiametroMm(Number(e.target.value))}
-              />
-            </div>
-          )}
-
-          <div>
-            <label className="label-field">Espessura do isolante (mm)</label>
-            <input
-              type="number"
-              className="input-field"
-              value={espessuraMm}
-              onChange={(e) => setEspessuraMm(Number(e.target.value))}
-              disabled={!isQuente}
-            />
-            {!isQuente && <p className="mt-1 text-xs text-gray-400">No modo frio, a espessura mínima é calculada.</p>}
-          </div>
-        </div>
-      </div>
-
-      <div className="card grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        <div>
-          <label className="label-field">{isQuente ? "Temperatura da face quente (°C)" : "Temperatura interna (°C)"}</label>
-          <input
-            type="number"
-            className="input-field"
-            value={temperaturaQuente}
-            onChange={(e) => setTemperaturaQuente(Number(e.target.value))}
-          />
-        </div>
-        <div>
-          <label className="label-field">Temperatura ambiente (°C)</label>
-          <input
-            type="number"
-            className="input-field"
-            value={temperaturaAmbiente}
-            onChange={(e) => setTemperaturaAmbiente(Number(e.target.value))}
-          />
-        </div>
-        <div>
-          <label className="label-field">Velocidade do vento (m/s)</label>
-          <input
-            type="number"
-            step="0.1"
-            className="input-field"
-            value={velocidadeVento}
-            onChange={(e) => setVelocidadeVento(Number(e.target.value))}
-          />
-        </div>
-        {!isQuente && (
-          <div>
-            <label className="label-field">Umidade relativa do ar (%)</label>
-            <input
-              type="number"
-              className="input-field"
-              value={umidadeRelativa}
-              onChange={(e) => setUmidadeRelativa(Number(e.target.value))}
-            />
-          </div>
-        )}
-      </div>
+      {form.tipoTrabalho === "quente" && (
+        <EconomiaSection
+          ativo={economiaAtiva}
+          onToggle={setEconomiaAtiva}
+          form={economiaForm}
+          onChange={(patch) => setEconomiaForm((prev) => ({ ...prev, ...patch }))}
+          resultado={resultadoEconomia}
+          onCopiar={copiarEconomia}
+        />
+      )}
 
       <div className="card">
-        <button type="button" className="btn-primary" onClick={calcular} disabled={calculando || !material}>
+        <button type="button" className="btn-primary" onClick={calcular} disabled={calculando || !form.materialId}>
           {calculando ? "Calculando..." : "Calcular"}
         </button>
-        {erro && <p className="mt-3 text-sm text-status-error">{erro}</p>}
       </div>
 
-      {resultadoQuente && (
-        <div className="card space-y-2 border-l-4 border-accent">
-          <h2 className="font-montserrat text-lg font-semibold text-brand">Resultado térmico</h2>
-          <p>
-            🌡️ Temperatura da face fria: <strong>{formatarNumero(resultadoQuente.temperatura_face_fria, 1)} °C</strong>
-          </p>
-          <p>⚡ Perda de calor com isolante: {formatarNumero(resultadoQuente.perda_com_isolante_kw_m2, 3)} kW/m²</p>
-          <p>⚡ Perda de calor sem isolante: {formatarNumero(resultadoQuente.perda_sem_isolante_kw_m2, 3)} kW/m²</p>
-        </div>
-      )}
-
-      {resultadoFrio && (
-        <div className="card space-y-2 border-l-4 border-brand">
-          <h2 className="font-montserrat text-lg font-semibold text-brand">Resultado — prevenção de condensação</h2>
-          <p>💧 Temperatura de orvalho: {formatarNumero(resultadoFrio.temperatura_orvalho, 1)} °C</p>
-          <p>
-            ✅ Espessura mínima recomendada:{" "}
-            <strong>{formatarNumero(resultadoFrio.espessura_minima_mm ?? 0, 1)} mm</strong>
-          </p>
-        </div>
-      )}
+      <ResultadoCard resultadoQuente={resultadoQuente} resultadoFrio={resultadoFrio} onCopiar={copiarResultadoBase} />
     </div>
   );
 }
