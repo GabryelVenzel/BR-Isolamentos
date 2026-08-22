@@ -1,56 +1,62 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { ClienteRepository } from "@/lib/repositories";
+import { CreateClienteSchema, parseOrThrow } from "@/lib/validators";
+import { toHttpError } from "@/lib/errors";
+import { logger } from "@/lib/logger";
 
 // Não fazia parte da árvore de rotas do prompt original, mas é necessário
 // para o step-1 do wizard (buscar/criar cliente) e para a tabela `clientes`
 // definida no schema.
+//
+// Mantém o formato de resposta "cru" (array/objeto direto, sem envelope
+// {success, data, error}) por compatibilidade com o frontend existente — ver
+// `lib/CONVENTIONS.md`.
 
 export async function GET(request: Request) {
   const supabase = createSupabaseServerClient();
+  const clienteRepo = new ClienteRepository(supabase);
   const { searchParams } = new URL(request.url);
   const busca = searchParams.get("busca");
 
-  let query = supabase.from("clientes").select("*").order("nome");
-  if (busca) {
-    query = query.ilike("nome", `%${busca}%`);
+  try {
+    const data = busca
+      ? await clienteRepo.buscarPorNome(busca)
+      : await clienteRepo.findAll({ orderBy: "nome" });
+    return NextResponse.json(data);
+  } catch (error) {
+    logger.error("Falha ao listar clientes", error);
+    const { message, statusCode } = toHttpError(error);
+    return NextResponse.json({ error: message }, { status: statusCode });
   }
-
-  const { data, error } = await query;
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
-  }
-
-  return NextResponse.json(data);
 }
 
 export async function POST(request: Request) {
   const supabase = createSupabaseServerClient();
+  const clienteRepo = new ClienteRepository(supabase);
   const body = await request.json().catch(() => null);
 
-  if (!body?.nome) {
-    return NextResponse.json({ error: "Informe o nome do cliente." }, { status: 400 });
-  }
+  try {
+    const dados = parseOrThrow(CreateClienteSchema, body);
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
 
-  const { data, error } = await supabase
-    .from("clientes")
-    .insert({
-      nome: body.nome,
-      email: body.email ?? null,
-      telefone: body.telefone ?? null,
-      endereco: body.endereco ?? null,
-      cnpj_cpf: body.cnpj_cpf ?? null,
+    const cliente = await clienteRepo.create({
+      ...dados,
+      email: dados.email ?? null,
+      telefone: dados.telefone ?? null,
+      endereco: dados.endereco ?? null,
+      cnpj_cpf: dados.cnpj_cpf ?? null,
       criado_por: user?.email ?? null,
-    })
-    .select()
-    .single();
+    });
 
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    logger.info("Cliente criado", { id: cliente.id });
+    return NextResponse.json(cliente, { status: 201 });
+  } catch (error) {
+    logger.error("Falha ao criar cliente", error);
+    const { message, statusCode } = toHttpError(error);
+    return NextResponse.json({ error: message }, { status: statusCode });
   }
-
-  return NextResponse.json(data, { status: 201 });
 }

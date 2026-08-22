@@ -1,78 +1,54 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createOrcamentoContext } from "@/lib/contexts/orcamento";
+import { toHttpError, ValidationError } from "@/lib/errors";
+import { logger } from "@/lib/logger";
+
+// Mantém o formato de resposta "cru" por compatibilidade com o frontend
+// existente (app/historico, wizard) — ver `lib/CONVENTIONS.md`.
 
 export async function GET(request: Request) {
   const supabase = createSupabaseServerClient();
+  const ctx = createOrcamentoContext(supabase);
   const { searchParams } = new URL(request.url);
 
-  const status = searchParams.get("status");
-  const clienteId = searchParams.get("cliente_id");
-  const dataInicio = searchParams.get("data_inicio");
-  const dataFim = searchParams.get("data_fim");
-
-  let query = supabase
-    .from("orcamentos")
-    .select("*, cliente:clientes(*), itens:itens_orcamento(*)")
-    .order("criado_em", { ascending: false });
-
-  if (status) query = query.eq("status", status);
-  if (clienteId) query = query.eq("cliente_id", clienteId);
-  if (dataInicio) query = query.gte("data_criacao", dataInicio);
-  if (dataFim) query = query.lte("data_criacao", dataFim);
-
-  const { data, error } = await query;
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  try {
+    const data = await ctx.listar({
+      status: searchParams.get("status") ?? undefined,
+      clienteId: searchParams.get("cliente_id") ?? undefined,
+      dataInicio: searchParams.get("data_inicio") ?? undefined,
+      dataFim: searchParams.get("data_fim") ?? undefined,
+    });
+    return NextResponse.json(data);
+  } catch (error) {
+    logger.error("Falha ao listar orçamentos", error);
+    const { message, statusCode } = toHttpError(error);
+    return NextResponse.json({ error: message }, { status: statusCode });
   }
-
-  return NextResponse.json(data);
 }
 
 export async function POST(request: Request) {
   const supabase = createSupabaseServerClient();
+  const ctx = createOrcamentoContext(supabase);
   const body = await request.json().catch(() => null);
 
-  if (!body?.cliente_id) {
-    return NextResponse.json({ error: "Orçamento sem cliente vinculado." }, { status: 400 });
+  try {
+    if (!body?.cliente_id) throw new ValidationError("Orçamento sem cliente vinculado.");
+    if (!Array.isArray(body.itens) || body.itens.length === 0) {
+      throw new ValidationError("Orçamento precisa de ao menos um item/trecho.");
+    }
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const orcamento = await ctx.criar(body, user?.email ?? null);
+
+    logger.info("Orçamento criado", { id: orcamento.id, numero: orcamento.numero });
+    return NextResponse.json(orcamento, { status: 201 });
+  } catch (error) {
+    logger.error("Falha ao criar orçamento", error);
+    const { message, statusCode } = toHttpError(error);
+    return NextResponse.json({ error: message }, { status: statusCode });
   }
-  if (!Array.isArray(body.itens) || body.itens.length === 0) {
-    return NextResponse.json({ error: "Orçamento precisa de ao menos um item/trecho." }, { status: 400 });
-  }
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { count } = await supabase.from("orcamentos").select("id", { count: "exact", head: true });
-  const numero = `ORC-${new Date().getFullYear()}-${String((count ?? 0) + 1).padStart(4, "0")}`;
-
-  const { itens, ...cabecalho } = body;
-
-  const { data: orcamento, error: erroOrcamento } = await supabase
-    .from("orcamentos")
-    .insert({ ...cabecalho, numero, criado_por: user?.email ?? null })
-    .select()
-    .single();
-
-  if (erroOrcamento) {
-    return NextResponse.json({ error: erroOrcamento.message }, { status: 500 });
-  }
-
-  const { error: erroItens } = await supabase
-    .from("itens_orcamento")
-    .insert(itens.map((item: Record<string, unknown>) => ({ ...item, orcamento_id: orcamento.id })));
-
-  if (erroItens) {
-    // evita orçamento órfão sem itens
-    await supabase.from("orcamentos").delete().eq("id", orcamento.id);
-    return NextResponse.json({ error: erroItens.message }, { status: 500 });
-  }
-
-  const { data: completo } = await supabase
-    .from("orcamentos")
-    .select("*, cliente:clientes(*), itens:itens_orcamento(*)")
-    .eq("id", orcamento.id)
-    .single();
-
-  return NextResponse.json(completo ?? orcamento, { status: 201 });
 }

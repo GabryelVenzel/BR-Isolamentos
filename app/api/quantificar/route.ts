@@ -1,17 +1,18 @@
 import { NextResponse } from "next/server";
-import { quantificarMateriais } from "@/lib/quantificador";
+import { quantificar } from "@/lib/usecases/engenharia";
+import { toHttpError } from "@/lib/errors";
+import { logger } from "@/lib/logger";
 import type { QuantificarInput } from "@/lib/types";
 
 export async function POST(request: Request) {
   const input = (await request.json().catch(() => null)) as QuantificarInput | null;
 
-  if (!input || !input.area_m2 || !input.espessura_mm) {
-    return NextResponse.json(
-      { error: "Informe espessura, área e demais dados de quantificação." },
-      { status: 400 }
-    );
+  try {
+    const resultado = quantificar(input as QuantificarInput);
+    return NextResponse.json(resultado);
+  } catch (error) {
+    logger.error("Falha ao quantificar materiais", error);
+    const { message, statusCode } = toHttpError(error);
+    return NextResponse.json({ error: message }, { status: statusCode });
   }
-
-  const resultado = quantificarMateriais(input);
-  return NextResponse.json(resultado);
 }
