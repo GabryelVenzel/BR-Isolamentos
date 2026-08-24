@@ -129,6 +129,36 @@ describe("finalizarServico", () => {
     expect(historicoRepo.create).toHaveBeenCalledWith(expect.objectContaining({ tipo_evento: "finalizacao" }));
   });
 
+  it("cria um lançamento de receita pendente vinculado ao serviço (integração com o Financeiro)", async () => {
+    const servicoRepo = criarServicoRepoFake(
+      servico({ numero_servico: "S00042", foto_principal_url: "foto.jpg", pdf_relatorio_url: "relatorio.pdf", orcamento_id: 7 })
+    );
+    const historicoRepo = criarHistoricoRepoFake();
+    const lancamentoRepo = { create: jest.fn(async (dados: unknown) => dados) };
+
+    await finalizarServico(
+      "s1",
+      { valor_real: 5000 },
+      { servicoRepo: servicoRepo as never, historicoRepo: historicoRepo as never, lancamentoRepo: lancamentoRepo as never }
+    );
+
+    expect(lancamentoRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({ tipo: "receita", valor: 5000, pago: false, servico_id: "s1", orcamento_id: 7 })
+    );
+  });
+
+  it("não quebra se lancamentoRepo não for passado (compatibilidade)", async () => {
+    const servicoRepo = criarServicoRepoFake(servico({ foto_principal_url: "foto.jpg", pdf_relatorio_url: "relatorio.pdf" }));
+    const historicoRepo = criarHistoricoRepoFake();
+
+    const resultado = await finalizarServico(
+      "s1",
+      { valor_real: 1000 },
+      { servicoRepo: servicoRepo as never, historicoRepo: historicoRepo as never }
+    );
+    expect(resultado.etapa).toBe("finalizado");
+  });
+
   it("rejeita finalizar um serviço já finalizado", async () => {
     const servicoRepo = criarServicoRepoFake(
       servico({ etapa: "finalizado", foto_principal_url: "foto.jpg", pdf_relatorio_url: "relatorio.pdf" })

@@ -24,3 +24,7 @@ export type { FiltrosAgendamento } from "./agendamento.repository";
 export { LancamentoFinanceiroRepository } from "./lancamento-financeiro.repository";
 export type { FiltrosLancamento, ResumoMesAtual } from "./lancamento-financeiro.repository";
 export { CustoFixoRepository } from "./custo-fixo.repository";
+export { HistoricoCustoFixoRepository } from "./historico-custo-fixo.repository";
+export { CategoriaLancamentoRepository } from "./categoria-lancamento.repository";
+export type { FiltrosCategoriaLancamento } from "./categoria-lancamento.repository";
+export { ConfigFinanceiroRepository } from "./config-financeiro.repository";

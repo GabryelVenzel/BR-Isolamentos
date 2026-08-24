@@ -1,6 +1,6 @@
 import { ConflictError, NotFoundError, ValidationError } from "../../errors";
-import type { HistoricoServicoRepository, ServicoRepository } from "../../repositories";
-import type { HistoricoServico, Servico } from "../../types/domain";
+import type { HistoricoServicoRepository, LancamentoFinanceiroRepository, ServicoRepository } from "../../repositories";
+import type { HistoricoServico, LancamentoFinanceiro, Servico } from "../../types/domain";
 import { FinalizarServicoSchema, parseOrThrow } from "../../validators";
 
 /** Checklist de finalização (regra do pedido — "não deixa finalizar sem foto
@@ -8,11 +8,18 @@ import { FinalizarServicoSchema, parseOrThrow } from "../../validators";
  * (via PATCH normal do serviço, upload feito no cliente antes de chamar
  * isto — ver ServicoDetailModal.tsx) ANTES de chamar este use case; valor
  * real vem no corpo desta chamada. Os 4 requisitos são checados juntos
- * aqui, não espalhados — evita finalizar com só 3 de 4 prontos. */
+ * aqui, não espalhados — evita finalizar com só 3 de 4 prontos.
+ *
+ * Integração com o módulo Financeiro: finalizar cria automaticamente um
+ * lançamento de RECEITA pendente (pedido explícito — "Status: Pendente até
+ * receber"), vinculado ao serviço/orçamento, pro sócio não ter que lançar
+ * manualmente toda venda fechada. `lancamentoRepo` é opcional só pra não
+ * quebrar quem já chamava este use case sem ele (testes existentes) — em
+ * produção o contexto (lib/contexts/operacional.ts) sempre passa. */
 export async function finalizarServico(
   servicoId: string,
   input: unknown,
-  repos: { servicoRepo: ServicoRepository; historicoRepo: HistoricoServicoRepository },
+  repos: { servicoRepo: ServicoRepository; historicoRepo: HistoricoServicoRepository; lancamentoRepo?: LancamentoFinanceiroRepository },
   usuarioEmail?: string | null
 ): Promise<Servico> {
   const dados = parseOrThrow(FinalizarServicoSchema, input);
@@ -50,6 +57,20 @@ export async function finalizarServico(
     descricao: `Serviço finalizado — valor real: ${dados.valor_real}.`,
     usuario_email: usuarioEmail ?? null,
   } as Partial<HistoricoServico>);
+
+  if (repos.lancamentoRepo) {
+    await repos.lancamentoRepo.create({
+      tipo: "receita",
+      categoria: "Venda de orçamento/serviço",
+      descricao: `Serviço ${servico.numero_servico}${servico.cliente ? ` — ${servico.cliente.nome}` : ""}`,
+      valor: dados.valor_real,
+      data: dataFimReal,
+      pago: false,
+      orcamento_id: servico.orcamento_id,
+      servico_id: servico.id,
+      lead_id: servico.lead_id,
+    } as Partial<LancamentoFinanceiro>);
+  }
 
   return atualizado;
 }

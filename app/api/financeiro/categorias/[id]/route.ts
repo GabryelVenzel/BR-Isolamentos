@@ -2,43 +2,39 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createFinanceiroContext } from "@/lib/contexts/financeiro";
 import { apiError, apiSuccess } from "@/lib/types/common";
-import { toHttpError, ValidationError } from "@/lib/errors";
+import { toHttpError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 
 interface Params {
   params: { id: string };
 }
 
-/** PATCH: atualização simples (valor mensal, ativo/inativo) — sem use case
- * dedicado porque é um update parcial direto, sem regra de negócio além da
- * validação de forma já feita pelo repositório/Postgres (NOT NULL, etc.). */
 export async function PATCH(request: Request, { params }: Params) {
   const ctx = createFinanceiroContext(createSupabaseServerClient());
   const body = await request.json().catch(() => null);
 
   try {
-    if (!body) throw new ValidationError("Corpo da requisição inválido.");
-    const custoFixo = await ctx.atualizarCustoFixo(params.id, body);
-    logger.info("Custo fixo atualizado", { id: params.id });
-    return NextResponse.json(apiSuccess(custoFixo));
+    const categoria = await ctx.atualizarCategoria(params.id, body);
+    logger.info("Categoria de lançamento atualizada", { id: params.id });
+    return NextResponse.json(apiSuccess(categoria));
   } catch (error) {
-    logger.error("Falha ao atualizar custo fixo", error, { id: params.id });
+    logger.error("Falha ao atualizar categoria de lançamento", error, { id: params.id });
     const { message, statusCode } = toHttpError(error);
     return NextResponse.json(apiError(message), { status: statusCode });
   }
 }
 
-/** DELETE: exclui o custo fixo — `historico_custos_fixos.custo_fixo_id` tem
- * `on delete cascade`, então o histórico junto é removido automaticamente. */
+/** DELETE: bloqueia categorias protegidas (pré-definidas) e categorias com
+ * lançamentos vinculados (ver lib/usecases/financeiro/removerCategoria.ts). */
 export async function DELETE(_request: Request, { params }: Params) {
   const ctx = createFinanceiroContext(createSupabaseServerClient());
 
   try {
-    await ctx.removerCustoFixo(params.id);
-    logger.info("Custo fixo excluído", { id: params.id });
+    await ctx.removerCategoria(params.id);
+    logger.info("Categoria de lançamento excluída", { id: params.id });
     return NextResponse.json(apiSuccess({ ok: true }));
   } catch (error) {
-    logger.error("Falha ao excluir custo fixo", error, { id: params.id });
+    logger.error("Falha ao excluir categoria de lançamento", error, { id: params.id });
     const { message, statusCode } = toHttpError(error);
     return NextResponse.json(apiError(message), { status: statusCode });
   }

@@ -23,6 +23,10 @@ export const OPERACIONAL_SUBNAV: ModuleSubNavItem[] = [
 ];
 
 export const FINANCEIRO_SUBNAV: ModuleSubNavItem[] = [
-  { href: "/financeiro", label: "Lançamentos" },
+  { href: "/financeiro", label: "Dashboard" },
+  { href: "/financeiro/lancamentos", label: "Lançamentos" },
   { href: "/financeiro/custos-fixos", label: "Custos Fixos" },
+  { href: "/financeiro/categorias", label: "Categorias" },
+  { href: "/financeiro/relatorios", label: "Relatórios" },
+  { href: "/financeiro/configuracoes", label: "Configurações" },
 ];

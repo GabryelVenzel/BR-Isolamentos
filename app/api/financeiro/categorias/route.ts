@@ -5,17 +5,19 @@ import { apiError, apiSuccess } from "@/lib/types/common";
 import { toHttpError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 
-/** GET: lista custos fixos — garante antes que o histórico do mês atual
- * existe pra cada um ativo (sweep sob demanda, ver
- * lib/usecases/financeiro/garantirHistoricoMesAtual.ts). */
-export async function GET() {
+export async function GET(request: Request) {
   const ctx = createFinanceiroContext(createSupabaseServerClient());
+  const { searchParams } = new URL(request.url);
 
   try {
-    const custosFixos = await ctx.listarCustosFixosComHistoricoAtualizado();
-    return NextResponse.json(apiSuccess(custosFixos, { total: custosFixos.length }));
+    const ativoParam = searchParams.get("ativo");
+    const categorias = await ctx.listarCategorias({
+      tipo: (searchParams.get("tipo") as "receita" | "despesa" | null) ?? undefined,
+      ativo: ativoParam === null ? undefined : ativoParam === "true",
+    });
+    return NextResponse.json(apiSuccess(categorias, { total: categorias.length }));
   } catch (error) {
-    logger.error("Falha ao listar custos fixos", error);
+    logger.error("Falha ao listar categorias de lançamento", error);
     const { message, statusCode } = toHttpError(error);
     return NextResponse.json(apiError(message), { status: statusCode });
   }
@@ -26,11 +28,11 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => null);
 
   try {
-    const custoFixo = await ctx.criarCustoFixo(body);
-    logger.info("Custo fixo criado", { id: custoFixo.id, categoria: custoFixo.categoria });
-    return NextResponse.json(apiSuccess(custoFixo), { status: 201 });
+    const categoria = await ctx.criarCategoria(body);
+    logger.info("Categoria de lançamento criada", { id: categoria.id, nome: categoria.nome });
+    return NextResponse.json(apiSuccess(categoria), { status: 201 });
   } catch (error) {
-    logger.error("Falha ao criar custo fixo", error);
+    logger.error("Falha ao criar categoria de lançamento", error);
     const { message, statusCode } = toHttpError(error);
     return NextResponse.json(apiError(message), { status: statusCode });
   }

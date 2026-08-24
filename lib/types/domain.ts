@@ -369,6 +369,23 @@ export interface InteracaoServico {
 
 export type TipoLancamentoFinanceiro = "receita" | "despesa";
 
+/** Status de validação de um anexo por IA (feature futura — só a estrutura
+ * de dado existe, ver sql-migration-009-financeiro-completo.sql decisão 4).
+ * "pending" é o valor de todo anexo hoje, porque nada roda a validação
+ * ainda. */
+export type StatusValidacaoAnexo = "pending" | "coherent" | "inconsistent" | "error";
+
+/** Um PDF anexado a um lançamento — array em `lancamentos_financeiros.anexos`
+ * (jsonb), não um bucket de linhas próprias: um lançamento tem no máximo 5
+ * anexos, não justifica uma tabela relacional à parte. */
+export interface AnexoLancamento {
+  url: string;
+  nome: string;
+  tamanho: number;
+  statusValidacao: StatusValidacaoAnexo;
+  notasValidacao: string | null;
+}
+
 export interface LancamentoFinanceiro {
   id: string;
   tipo: TipoLancamentoFinanceiro;
@@ -379,11 +396,32 @@ export interface LancamentoFinanceiro {
   pago: boolean;
   data_pagamento: string | null;
   orcamento_id: number | null;
+  /** @deprecated Um único arquivo — substituído por `anexos` (múltiplos).
+   * Mantido no schema/tipo por compatibilidade com dados antigos; a UI não
+   * escreve mais aqui. */
   arquivo_url: string | null;
+  anexos: AnexoLancamento[];
+  servico_id: string | null;
+  lead_id: string | null;
   created_at: string;
   updated_at: string;
   // Preenchido via join, opcional (ver LancamentoFinanceiroRepository.select).
   orcamento?: Orcamento;
+}
+
+export type StatusHistoricoCustoFixo = "pendente" | "pago" | "atrasado";
+
+/** Um registro no ledger de pagamentos de um custo fixo, um por mês — ver
+ * lib/usecases/financeiro/marcarCustoFixoPago.ts. */
+export interface HistoricoCustoFixo {
+  id: string;
+  custo_fixo_id: string;
+  data_prevista: string;
+  data_pagamento: string | null;
+  valor: number;
+  status: StatusHistoricoCustoFixo;
+  lancamento_id: string | null;
+  created_at: string;
 }
 
 /** Despesa recorrente mensal (aluguel, energia, ...) — ver seed em
@@ -393,8 +431,39 @@ export interface CustoFixo {
   categoria: string;
   descricao: string;
   valor_mensal: number;
+  /** Dia do mês (1-31) em que o custo normalmente é pago — base do cálculo
+   * de "próximo pagamento" (lib/usecases/financeiro/custoFixo.ts). Pode ser
+   * `null` em custos antigos criados antes deste campo existir. */
+  dia_mes: number | null;
+  notas: string | null;
   ativo: boolean;
   created_at: string;
+  updated_at: string;
+}
+
+/** Categoria centralizada de lançamento (aba Categorias) — `nome` é o valor
+ * de fato gravado em `lancamentos_financeiros.categoria`/`custos_fixos.categoria`
+ * (texto livre, não uma FK — ver decisão 2 na migração 009). */
+export interface CategoriaLancamento {
+  id: string;
+  nome: string;
+  descricao: string | null;
+  tipo: TipoLancamentoFinanceiro;
+  cor: string | null;
+  ativo: boolean;
+  /** Categorias pré-definidas (seed) — não podem ser excluídas, só
+   * desativadas. */
+  protegida: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Configuração do ciclo financeiro (aba Configurações) — linha única
+ * (id fixo = 1). `dia_inicio_ciclo` ainda não é usado pelos cálculos
+ * existentes (continuam no calendário civil) — ver decisão na migração 009. */
+export interface ConfigFinanceiro {
+  id: number;
+  dia_inicio_ciclo: number;
   updated_at: string;
 }
 

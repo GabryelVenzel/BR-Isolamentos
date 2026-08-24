@@ -10,6 +10,7 @@ import {
   FornecedorRepository,
   HistoricoServicoRepository,
   InteracaoServicoRepository,
+  LancamentoFinanceiroRepository,
   LeadRepository,
   OrcamentoRepository,
   ParceiroRepository,
@@ -56,8 +57,13 @@ export function createOperacionalContext(supabase: SupabaseClient) {
   const servicoRepo = new ServicoRepository(supabase);
   const historicoServicoRepo = new HistoricoServicoRepository(supabase);
   const interacaoServicoRepo = new InteracaoServicoRepository(supabase);
+  const lancamentoRepo = new LancamentoFinanceiroRepository(supabase);
 
   const reposServico = { servicoRepo, historicoRepo: historicoServicoRepo };
+  // finalizarServico usa `lancamentoRepo` além dos dois de cima — separado
+  // aqui porque moverServico (que também usa `reposServico`) não precisa
+  // dele, e passar um repositório extra sem uso é ruído.
+  const reposFinalizarServico = { servicoRepo, historicoRepo: historicoServicoRepo, lancamentoRepo };
   const reposCriarServico = { servicoRepo, historicoRepo: historicoServicoRepo, leadRepo, orcamentoRepo };
 
   return {
@@ -157,7 +163,7 @@ export function createOperacionalContext(supabase: SupabaseClient) {
     },
 
     finalizarServico(servicoId: string, dados: unknown, usuarioEmail?: string | null): Promise<Servico> {
-      return finalizarServico(servicoId, dados, reposServico, usuarioEmail);
+      return finalizarServico(servicoId, dados, reposFinalizarServico, usuarioEmail);
     },
 
     anexarArquivoServico(servicoId: string, dados: unknown, usuarioEmail?: string | null): Promise<Servico> {
