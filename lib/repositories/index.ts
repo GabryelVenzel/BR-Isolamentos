@@ -13,6 +13,12 @@ export { ConfigReativacaoLeadsFriosRepository } from "./config-reativacao-leads-
 export { ConfigPrazoEtapasRepository } from "./config-prazo-etapas.repository";
 export { ParceiroRepository } from "./parceiro.repository";
 export type { FiltrosParceiro } from "./parceiro.repository";
+export { FornecedorRepository } from "./fornecedor.repository";
+export type { FiltrosFornecedor } from "./fornecedor.repository";
+export { ServicoRepository } from "./servico.repository";
+export type { FiltrosServico } from "./servico.repository";
+export { HistoricoServicoRepository } from "./historico-servico.repository";
+export { InteracaoServicoRepository } from "./interacao-servico.repository";
 export { AgendamentoRepository } from "./agendamento.repository";
 export type { FiltrosAgendamento } from "./agendamento.repository";
 export { LancamentoFinanceiroRepository } from "./lancamento-financeiro.repository";

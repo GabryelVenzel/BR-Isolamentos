@@ -1,4 +1,4 @@
-import { NotFoundError } from "../../errors";
+import { ConflictError, NotFoundError } from "../../errors";
 import type { HistoricoMudancaLeadRepository, LeadRepository } from "../../repositories";
 import type { EtapaFunil, HistoricoMudancaLead, Lead } from "../../types/domain";
 import { MoverLeadSchema, parseOrThrow } from "../../validators";
@@ -15,6 +15,11 @@ export interface MoverLeadInput {
  * versão anterior deste use case, que restringia a transições numa ordem
  * fixa via `TRANSICOES_FUNIL` — removido de propósito, não é um descuido.
  *
+ * ÚNICA exceção a essa regra (pedido explícito da integração
+ * Lead→Orçamento→Serviço): mover pra "proposta" exige um orçamento já
+ * vinculado (ver lib/usecases/comercial/vincularOrcamento.ts) — sem isso o
+ * card de "Proposta" ficaria sem nenhum valor/documento por trás.
+ *
  * Toda mudança de etapa grava uma entrada em `historico_mudancas_leads`
  * (a timeline "Caminho do lead" do LeadDetailModal) e atualiza
  * `leads.etapa_anterior`, para o card/modal saberem "de onde" o lead veio
@@ -30,6 +35,10 @@ export async function moverLead(
   if (!lead) throw new NotFoundError(`Lead ${leadId} não encontrado.`);
 
   if (lead.etapa === novaEtapa) return lead;
+
+  if (novaEtapa === "proposta" && !lead.orcamento_id) {
+    throw new ConflictError("Vincule um orçamento a este lead antes de movê-lo para Proposta.");
+  }
 
   const atualizado = await repos.leadRepo.update(leadId, {
     etapa: novaEtapa,

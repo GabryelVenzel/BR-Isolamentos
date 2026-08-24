@@ -57,6 +57,10 @@ export type OrigemLead = (typeof ORIGENS_LEAD)[number];
 
 export interface Lead {
   id: string;
+  /** Código único auto-gerado (L00001, L00002, ...) — ver
+   * sql-migration-008-operacional-servicos.sql. Base da rastreabilidade
+   * Lead→Orçamento→Serviço. */
+  numero_lead: string | null;
   cliente_id: number;
   etapa: EtapaFunil;
   temperatura: TemperaturaLead;
@@ -69,6 +73,10 @@ export interface Lead {
   /** E-mail (`usuarios.email`) do responsável pelo lead. */
   atribuido_a: string | null;
   tags: string[];
+  /** Orçamento vinculado — obrigatório para mover o lead pra etapa
+   * "proposta" (ver lib/usecases/comercial/moverLead.ts). Quando vinculado,
+   * `valor_estimado` passa a refletir `orcamento.valor_final`. */
+  orcamento_id: number | null;
   /** Valor de `etapa`/`temperatura` imediatamente antes da última mudança —
    * espelha o topo de `historico_mudancas_leads` sem precisar de um join,
    * usado no card do Kanban ("veio de Contato"). A fonte de verdade completa
@@ -83,6 +91,7 @@ export interface Lead {
   updated_at: string;
   // Preenchido via join, opcional (ver LeadRepository.select).
   cliente?: Cliente;
+  orcamento?: Orcamento;
   // Campos CALCULADOS, não persistidos — anexados por
   // lib/usecases/comercial/prazoEtapa.ts a partir de historico_mudancas_leads
   // + ConfigPrazoEtapas (ver createComercialContext#listarLeads). Ausentes
@@ -111,7 +120,8 @@ export type TipoMudancaLead =
   | "mudanca_etapa"
   | "mudanca_temperatura"
   | "reativacao_manual"
-  | "reativacao_automatica";
+  | "reativacao_automatica"
+  | "vinculo_orcamento";
 
 /** Um registro na timeline de mudanças de etapa/temperatura de um lead (ver
  * `historico_mudancas_leads`) — o "caminho do lead" exibido no
@@ -124,6 +134,10 @@ export interface HistoricoMudancaLead {
   etapa_nova: EtapaFunil | null;
   temperatura_anterior: TemperaturaLead | null;
   temperatura_nova: TemperaturaLead | null;
+  /** Texto livre — só preenchido em eventos que não cabem nas colunas de
+   * etapa/temperatura (hoje só "vinculo_orcamento": "Orçamento O00001
+   * vinculado."). */
+  descricao: string | null;
   data_mudanca: string;
   usuario_email: string | null;
   created_at: string;
@@ -191,13 +205,21 @@ export interface ClienteResumo {
   ultima_interacao: string | null;
 }
 
-// --- Módulo Operacional (parceiros/agenda) — ver lib/contexts/operacional.ts ---
+// --- Módulo Operacional (parceiros/fornecedores/agenda/serviços) — ver lib/contexts/operacional.ts ---
+
+/** Tipos de trabalho fixos do módulo Operacional — NÃO confundir com
+ * `TipoTrabalho` (lib/types.ts: "quente"|"frio"|"misto", classificação
+ * térmica do orçamento). Este é o tipo de SERVIÇO/mão de obra executado
+ * (bancada, caldeiraria, isolamentos removíveis/fixos). */
+export type TipoTrabalhoOperacional = "bancada" | "caldeiraria" | "isolamentos_removiveis" | "isolamentos_fixos";
 
 export interface Parceiro {
   id: string;
+  numero_parceiro: string | null;
   nome: string;
   email: string | null;
   telefone: string | null;
+  cnpj: string | null;
   endereco: string | null;
   cidade: string | null;
   estado: string | null;
@@ -207,6 +229,42 @@ export interface Parceiro {
   disponibilidade_horas_semana: number | null;
   disponibilidade_dias: string[];
   custo_hora: number | null;
+  // Campos novos (ver sql-migration-008-operacional-servicos.sql) — modelo de
+  // capacidade por HEADCOUNT (pessoas), usado pela aba Serviços/Capacidade.
+  // Os campos acima (especialidades/custo_hora/disponibilidade_horas_semana)
+  // continuam existindo e alimentando o modelo antigo por HORAS, usado pelo
+  // dashboard Resumo (v_capacidade_parceiros) — os dois modelos coexistem.
+  tipos_trabalho: TipoTrabalhoOperacional[];
+  notas_bancada: string | null;
+  notas_caldeiraria: string | null;
+  notas_isolamentos_removiveis: string | null;
+  notas_isolamentos_fixos: string | null;
+  /** Capacidade total de pessoas do parceiro. "Mobilizadas"/"disponíveis"
+   * NÃO são colunas — são calculadas por dia a partir dos serviços ativos
+   * (ver lib/usecases/operacional/capacidade.ts), porque dependem de QUAL
+   * DIA está sendo consultado. */
+  total_pessoas: number | null;
+  ativo: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Fornecedor de materiais/equipamentos/serviços (não confundir com
+ * `Parceiro`, que é mão de obra de instalação). */
+export interface Fornecedor {
+  id: string;
+  numero_fornecedor: string | null;
+  nome: string;
+  email: string | null;
+  telefone: string | null;
+  cnpj: string | null;
+  endereco: string | null;
+  cidade: string | null;
+  estado: string | null;
+  tipo_fornecimento: "materiais" | "equipamentos" | "servicos" | null;
+  especialidade: string | null;
+  notas: string | null;
+  pessoa_contato: string | null;
   ativo: boolean;
   created_at: string;
   updated_at: string;
@@ -231,6 +289,77 @@ export interface Agendamento {
   updated_at: string;
   // Preenchido via join, opcional (ver AgendamentoRepository.select).
   orcamento?: Orcamento;
+}
+
+export type EtapaServico = "planejamento" | "execucao" | "finalizado";
+
+/** Uma obra/serviço executado — o elo final da rastreabilidade
+ * Lead (L00001) → Orçamento (O00001) → Serviço (S00001). Criado a partir de
+ * um lead movido para "Fechado" (ver NovoServicoModal.tsx). */
+export interface Servico {
+  id: string;
+  numero_servico: string;
+  lead_id: string | null;
+  numero_lead: string | null;
+  orcamento_id: number | null;
+  numero_orcamento: string | null;
+  cliente_id: number | null;
+  etapa: EtapaServico;
+  tipo_trabalho: TipoTrabalhoOperacional | null;
+  valor_orcado: number | null;
+  /** Preenchido só na finalização — base da análise "real vs orçado". */
+  valor_real: number | null;
+  data_inicio: string | null;
+  data_fim_prevista: string | null;
+  data_fim_real: string | null;
+  parceiro_principal_id: string | null;
+  /** Quantas pessoas do parceiro principal estão alocadas neste serviço —
+   * base do cálculo de capacidade por dia (ver
+   * lib/usecases/operacional/capacidade.ts). */
+  pessoas_alocadas: number | null;
+  /** Parceiros de apoio (sem headcount individual — ver decisão 3 em
+   * sql-migration-008-operacional-servicos.sql). */
+  parceiros_alocados: string[];
+  descricao: string | null;
+  notas: string | null;
+  foto_principal_url: string | null;
+  fotos_url: string[];
+  pdf_relatorio_url: string | null;
+  responsavel_email: string | null;
+  created_at: string;
+  updated_at: string;
+  // Preenchidos via join, opcionais (ver ServicoRepository.select).
+  cliente?: Cliente;
+  parceiro_principal?: Parceiro;
+}
+
+export type TipoEventoServico = "criacao" | "mudanca_etapa" | "anexo_adicionado" | "finalizacao";
+
+/** Timeline de mudanças de etapa/anexos de um serviço (mesma ideia de
+ * `HistoricoMudancaLead` no módulo Comercial). */
+export interface HistoricoServico {
+  id: string;
+  servico_id: string;
+  tipo_evento: TipoEventoServico;
+  etapa_anterior: EtapaServico | null;
+  etapa_nova: EtapaServico | null;
+  descricao: string | null;
+  usuario_email: string | null;
+  data_evento: string;
+  created_at: string;
+}
+
+export type TipoInteracaoServico = "nota" | "foto" | "chamada" | "email" | "reuniao";
+
+/** Timeline de contatos/notas de um serviço (mesma ideia de `InteracaoLead`). */
+export interface InteracaoServico {
+  id: string;
+  servico_id: string;
+  tipo: TipoInteracaoServico;
+  descricao: string;
+  autor_email: string | null;
+  data_interacao: string;
+  created_at: string;
 }
 
 // --- Módulo Financeiro (caixa) — ver lib/contexts/financeiro.ts ---

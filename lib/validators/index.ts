@@ -2,9 +2,11 @@ export * from "./agendamento";
 export * from "./cliente";
 export * from "./engenharia";
 export * from "./financeiro";
+export * from "./fornecedor";
 export * from "./lead";
 export * from "./orcamento";
 export * from "./parceiro";
+export * from "./servico";
 export * from "./usuario";
 
 // --- Helper comum de uso em API routes ---

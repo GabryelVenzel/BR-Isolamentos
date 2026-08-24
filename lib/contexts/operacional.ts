@@ -1,28 +1,74 @@
-// Contexto de negócio do módulo Operacional (parceiros de instalação + agenda
-// de execução). Ponto único de import para telas e API routes — reúne os
-// repositórios (`parceiros`, `agendamentos`) e os use cases de
+// Contexto de negócio do módulo Operacional (parceiros, fornecedores, agenda
+// de execução, serviços/obras, capacidade, relatórios). Ponto único de
+// import para telas e API routes — reúne os repositórios e os use cases de
 // `lib/usecases/operacional` atrás de uma fachada injetada com o client do
-// Supabase da requisição atual. Mesmo padrão de `lib/contexts/orcamento.ts`.
+// Supabase da requisição atual. Mesmo padrão de `lib/contexts/comercial.ts`.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   AgendamentoRepository,
+  FornecedorRepository,
+  HistoricoServicoRepository,
+  InteracaoServicoRepository,
+  LeadRepository,
   OrcamentoRepository,
   ParceiroRepository,
+  ServicoRepository,
   type FiltrosAgendamento,
+  type FiltrosFornecedor,
   type FiltrosParceiro,
+  type FiltrosServico,
 } from "../repositories";
-import type { Agendamento, Parceiro } from "../types/domain";
-import { atualizarAgendamento, atualizarParceiro, criarAgendamento, criarParceiro } from "../usecases/operacional";
+import type {
+  Agendamento,
+  EtapaServico,
+  Fornecedor,
+  HistoricoServico,
+  InteracaoServico,
+  Parceiro,
+  Servico,
+} from "../types/domain";
+import {
+  anexarArquivoServico,
+  atualizarAgendamento,
+  atualizarFornecedor,
+  atualizarParceiro,
+  atualizarServico,
+  calcularCapacidadeDia,
+  criarAgendamento,
+  criarFornecedor,
+  criarParceiro,
+  criarServico,
+  finalizarServico,
+  gerarRelatorioOperacional,
+  moverServico,
+  registrarInteracaoServico,
+  type CapacidadeDia,
+  type RelatorioOperacional,
+} from "../usecases/operacional";
 
 export function createOperacionalContext(supabase: SupabaseClient) {
   const parceiroRepo = new ParceiroRepository(supabase);
+  const fornecedorRepo = new FornecedorRepository(supabase);
   const agendamentoRepo = new AgendamentoRepository(supabase);
   const orcamentoRepo = new OrcamentoRepository(supabase);
+  const leadRepo = new LeadRepository(supabase);
+  const servicoRepo = new ServicoRepository(supabase);
+  const historicoServicoRepo = new HistoricoServicoRepository(supabase);
+  const interacaoServicoRepo = new InteracaoServicoRepository(supabase);
+
+  const reposServico = { servicoRepo, historicoRepo: historicoServicoRepo };
+  const reposCriarServico = { servicoRepo, historicoRepo: historicoServicoRepo, leadRepo, orcamentoRepo };
 
   return {
     parceiroRepo,
+    fornecedorRepo,
     agendamentoRepo,
+    servicoRepo,
+    historicoServicoRepo,
+    interacaoServicoRepo,
+
+    // --- Parceiros ---
 
     listarParceiros(filtros?: FiltrosParceiro): Promise<Parceiro[]> {
       return parceiroRepo.listar(filtros);
@@ -44,6 +90,30 @@ export function createOperacionalContext(supabase: SupabaseClient) {
       return parceiroRepo.delete(id);
     },
 
+    // --- Fornecedores ---
+
+    listarFornecedores(filtros?: FiltrosFornecedor): Promise<Fornecedor[]> {
+      return fornecedorRepo.listar(filtros);
+    },
+
+    buscarFornecedor(id: string): Promise<Fornecedor> {
+      return fornecedorRepo.findByIdOrThrow(id);
+    },
+
+    criarFornecedor(dados: unknown): Promise<Fornecedor> {
+      return criarFornecedor(dados, { fornecedorRepo });
+    },
+
+    atualizarFornecedor(id: string, dados: unknown): Promise<Fornecedor> {
+      return atualizarFornecedor(id, dados, { fornecedorRepo });
+    },
+
+    removerFornecedor(id: string): Promise<void> {
+      return fornecedorRepo.delete(id);
+    },
+
+    // --- Agenda (existente, inalterada) ---
+
     listarAgenda(filtros?: FiltrosAgendamento): Promise<Agendamento[]> {
       return agendamentoRepo.listar(filtros);
     },
@@ -62,6 +132,73 @@ export function createOperacionalContext(supabase: SupabaseClient) {
 
     removerAgendamento(id: string): Promise<void> {
       return agendamentoRepo.delete(id);
+    },
+
+    // --- Serviços (Kanban de obras) ---
+
+    listarServicos(filtros?: FiltrosServico): Promise<Servico[]> {
+      return servicoRepo.listar(filtros);
+    },
+
+    buscarServico(id: string): Promise<Servico> {
+      return servicoRepo.findByIdOrThrow(id);
+    },
+
+    criarServico(dados: unknown, usuarioEmail?: string | null): Promise<Servico> {
+      return criarServico(dados, reposCriarServico, usuarioEmail);
+    },
+
+    atualizarServico(id: string, dados: unknown): Promise<Servico> {
+      return atualizarServico(id, dados, { servicoRepo });
+    },
+
+    moverServico(servicoId: string, novaEtapa: EtapaServico, usuarioEmail?: string | null): Promise<Servico> {
+      return moverServico({ servicoId, novaEtapa }, reposServico, usuarioEmail);
+    },
+
+    finalizarServico(servicoId: string, dados: unknown, usuarioEmail?: string | null): Promise<Servico> {
+      return finalizarServico(servicoId, dados, reposServico, usuarioEmail);
+    },
+
+    anexarArquivoServico(servicoId: string, dados: unknown, usuarioEmail?: string | null): Promise<Servico> {
+      return anexarArquivoServico(servicoId, dados, reposServico, usuarioEmail);
+    },
+
+    removerServico(id: string): Promise<void> {
+      return servicoRepo.delete(id);
+    },
+
+    listarHistoricoServico(servicoId: string): Promise<HistoricoServico[]> {
+      return historicoServicoRepo.listarPorServico(servicoId);
+    },
+
+    listarInteracoesServico(servicoId: string): Promise<InteracaoServico[]> {
+      return interacaoServicoRepo.listarPorServico(servicoId);
+    },
+
+    registrarInteracaoServico(dados: unknown): Promise<InteracaoServico> {
+      return registrarInteracaoServico(dados, { servicoRepo, interacaoRepo: interacaoServicoRepo });
+    },
+
+    listarServicosPorParceiro(parceiroId: string): Promise<Servico[]> {
+      return servicoRepo.listarPorParceiro(parceiroId);
+    },
+
+    // --- Capacidade ---
+
+    async obterCapacidadeDia(data: string): Promise<CapacidadeDia> {
+      const [parceiros, servicosAtivos] = await Promise.all([
+        parceiroRepo.listar({ ativo: true }),
+        servicoRepo.listarAtivosNoDia(data),
+      ]);
+      return calcularCapacidadeDia(data, parceiros, servicosAtivos);
+    },
+
+    // --- Relatórios ---
+
+    async gerarRelatorio(filtros: { criadosApartirDe?: string; tipoTrabalho?: string; responsavelEmail?: string }): Promise<RelatorioOperacional> {
+      const servicos = await servicoRepo.listar(filtros);
+      return gerarRelatorioOperacional(servicos);
     },
   };
 }

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "./toast";
+import NovoServicoModal from "@/components/modules/operacional/NovoServicoModal";
 import {
   classesTemperatura,
   formatarDataHora,
@@ -17,6 +18,7 @@ import type {
   TemperaturaLead,
   TipoInteracaoLead,
 } from "@/lib/types/domain";
+import type { Orcamento } from "@/lib/types";
 
 const ETAPAS: EtapaFunil[] = ["prospeccao", "contato", "proposta", "negociacao", "fechado", "perdido"];
 const TEMPERATURAS: TemperaturaLead[] = ["quente", "morno", "frio"];
@@ -49,6 +51,8 @@ function descreverMudanca(h: HistoricoMudancaLead): string {
       return "Reativado manualmente (Frio → Morno, etapa → Contato)";
     case "reativacao_automatica":
       return "Reativado automaticamente (prazo de recontato vencido)";
+    case "vinculo_orcamento":
+      return h.descricao ?? "Orçamento vinculado.";
     default:
       return h.tipo_mudanca;
   }
@@ -83,6 +87,14 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
   const [novaInteracaoDescricao, setNovaInteracaoDescricao] = useState("");
   const [salvandoInteracao, setSalvandoInteracao] = useState(false);
 
+  // Integração Lead→Orçamento→Serviço: orçamentos do cliente deste lead
+  // (pro seletor "Vincular Orçamento") + o modal de criação de serviço,
+  // oferecido quando o lead está "Fechado".
+  const [orcamentosDoCliente, setOrcamentosDoCliente] = useState<Orcamento[]>([]);
+  const [orcamentoParaVincular, setOrcamentoParaVincular] = useState("");
+  const [vinculando, setVinculando] = useState(false);
+  const [mostrarNovoServico, setMostrarNovoServico] = useState(false);
+
   const carregar = useCallback(async () => {
     setCarregando(true);
     try {
@@ -105,6 +117,12 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
         setAtribuidoA(l.atribuido_a ?? "");
         setEtapaSelecionada(l.etapa);
         setTemperaturaSelecionada(l.temperatura);
+
+        // Orçamentos do cliente deste lead — popula o seletor "Vincular
+        // Orçamento" (integração Lead→Orçamento→Serviço).
+        fetch(`/api/orcamentos?cliente_id=${l.cliente_id}`)
+          .then((r) => r.json())
+          .then((orcamentos) => Array.isArray(orcamentos) && setOrcamentosDoCliente(orcamentos));
       }
       if (payloadHistorico.success) setHistorico(payloadHistorico.data);
       if (payloadInteracoes.success) setInteracoes(payloadInteracoes.data);
@@ -116,6 +134,29 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  async function vincularOrcamento() {
+    if (!orcamentoParaVincular) return;
+    setVinculando(true);
+    try {
+      const response = await fetch(`/api/comercial/leads/${leadId}/vincular-orcamento`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ orcamentoId: Number(orcamentoParaVincular) }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        toast.erro(payload.error ?? "Não foi possível vincular o orçamento.");
+        return;
+      }
+      toast.sucesso("Orçamento vinculado ao lead.");
+      setOrcamentoParaVincular("");
+      await carregar();
+      onLeadMudou();
+    } finally {
+      setVinculando(false);
+    }
+  }
 
   async function salvarDados() {
     setSalvandoDados(true);
@@ -314,6 +355,50 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
                   </div>
 
                   <div className="space-y-3 border-t border-gray-100 pt-4">
+                    <h3 className="font-montserrat text-xs font-bold uppercase text-brand">Orçamento vinculado</h3>
+                    {lead.orcamento_id ? (
+                      <p className="rounded-input bg-brand-light px-3 py-2 text-sm text-brand">
+                        {lead.orcamento?.numero_orcamento ?? lead.orcamento?.numero ?? `#${lead.orcamento_id}`}
+                        {lead.orcamento && ` — ${formatarMoeda(lead.orcamento.valor_final)}`}
+                      </p>
+                    ) : (
+                      <p className="text-xs text-gray-500">
+                        Nenhum orçamento vinculado ainda — obrigatório para mover o lead pra &quot;Proposta&quot;.
+                      </p>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <select
+                        className="input-field"
+                        value={orcamentoParaVincular}
+                        onChange={(e) => setOrcamentoParaVincular(e.target.value)}
+                      >
+                        <option value="">Selecione um orçamento...</option>
+                        {orcamentosDoCliente.map((o) => (
+                          <option key={o.id} value={o.id}>
+                            {o.numero_orcamento ?? o.numero} — {formatarMoeda(o.valor_final)}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        className="btn-accent shrink-0"
+                        onClick={vincularOrcamento}
+                        disabled={!orcamentoParaVincular || vinculando}
+                      >
+                        {vinculando ? "Vinculando..." : "Vincular"}
+                      </button>
+                    </div>
+
+                    {lead.etapa === "fechado" && (
+                      <div className="border-t border-gray-100 pt-3">
+                        <button type="button" className="btn-primary" onClick={() => setMostrarNovoServico(true)}>
+                          + Criar Serviço
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-3 border-t border-gray-100 pt-4">
                     <h3 className="font-montserrat text-xs font-bold uppercase text-brand">Mudar status/etapa</h3>
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div>
@@ -435,6 +520,17 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
           </>
         )}
       </div>
+
+      {mostrarNovoServico && (
+        <NovoServicoModal
+          leadIdInicial={leadId}
+          onFechar={() => setMostrarNovoServico(false)}
+          onCriado={() => {
+            setMostrarNovoServico(false);
+            toast.sucesso("Serviço criado — confira na aba Operacional → Serviços.");
+          }}
+        />
+      )}
     </div>
   );
 }

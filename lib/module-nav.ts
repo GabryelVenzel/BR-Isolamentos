@@ -16,6 +16,10 @@ export const ORCAMENTO_SUBNAV: ModuleSubNavItem[] = [
 export const OPERACIONAL_SUBNAV: ModuleSubNavItem[] = [
   { href: "/operacional", label: "Agenda" },
   { href: "/operacional/parceiros", label: "Parceiros" },
+  { href: "/operacional/fornecedores", label: "Fornecedores" },
+  { href: "/operacional/servicos", label: "Serviços" },
+  { href: "/operacional/capacidade", label: "Capacidade" },
+  { href: "/operacional/relatorios", label: "Relatórios" },
 ];
 
 export const FINANCEIRO_SUBNAV: ModuleSubNavItem[] = [

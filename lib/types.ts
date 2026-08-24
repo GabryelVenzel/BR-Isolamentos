@@ -81,7 +81,15 @@ export interface ItemOrcamento {
 
 export interface Orcamento {
   id: number;
+  /** Número "oficial" da proposta (ex.: "ORC-2026-0001") — já existia,
+   * gerado em lib/repositories/orcamento.repository.ts#proximoNumero e
+   * usado em PDFs de proposta emitidos. */
   numero: string;
+  /** Código curto auto-gerado (O00001, O00002, ...) — ver
+   * sql-migration-008-operacional-servicos.sql. Usado pela integração
+   * Lead→Orçamento→Serviço (módulos Comercial/Operacional); NÃO substitui
+   * `numero`, que continua sendo o número da proposta em si. */
+  numero_orcamento: string | null;
   cliente_id: number;
   data_criacao: string;
   tipo_trabalho: TipoTrabalho;

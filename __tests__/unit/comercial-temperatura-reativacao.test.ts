@@ -5,6 +5,7 @@ import type { AgendamentoLeadFrio, ConfigReativacaoLeadsFrios, Lead } from "@/li
 function lead(overrides: Partial<Lead> = {}): Lead {
   return {
     id: "l1",
+    numero_lead: null,
     cliente_id: 1,
     etapa: "contato",
     temperatura: "morno",
@@ -15,6 +16,7 @@ function lead(overrides: Partial<Lead> = {}): Lead {
     notas: null,
     atribuido_a: null,
     tags: [],
+    orcamento_id: null,
     etapa_anterior: null,
     temperatura_anterior: null,
     data_ultima_interacao: null,

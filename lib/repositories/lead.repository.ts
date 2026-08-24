@@ -13,9 +13,10 @@ export interface FiltrosLead {
 }
 
 export class LeadRepository extends BaseRepository<Lead> {
-  // Cliente resolvido via join — todo lugar que lista/mostra um lead precisa
-  // do nome do cliente junto (card do Kanban, detalhe, timeline).
-  protected select = "*, cliente:clientes(*)";
+  // Cliente + orçamento vinculado resolvidos via join — o card do Kanban e o
+  // LeadDetailModal sempre precisam do nome do cliente, e o modal também do
+  // número/valor do orçamento vinculado (integração Lead→Orçamento→Serviço).
+  protected select = "*, cliente:clientes(*), orcamento:orcamentos(*)";
 
   constructor(supabase: SupabaseClient) {
     super(supabase, "leads");

@@ -1,10 +1,11 @@
-import { NotFoundError } from "@/lib/errors";
+import { ConflictError, NotFoundError } from "@/lib/errors";
 import { moverLead } from "@/lib/usecases/comercial";
 import type { Lead } from "@/lib/types/domain";
 
 function criarLeadFake(overrides: Partial<Lead> = {}): Lead {
   return {
     id: "lead-1",
+    numero_lead: "L00001",
     cliente_id: 1,
     etapa: "prospeccao",
     temperatura: "morno",
@@ -15,6 +16,7 @@ function criarLeadFake(overrides: Partial<Lead> = {}): Lead {
     notas: null,
     atribuido_a: null,
     tags: [],
+    orcamento_id: null,
     etapa_anterior: null,
     temperatura_anterior: null,
     data_ultima_interacao: null,
@@ -75,7 +77,7 @@ describe("moverLead", () => {
     const historicoRepo = criarHistoricoRepoFake();
 
     await moverLead(
-      { leadId: "lead-1", novaEtapa: "proposta" },
+      { leadId: "lead-1", novaEtapa: "negociacao" },
       { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never },
       "consultor@brisolamentos.com"
     );
@@ -85,10 +87,35 @@ describe("moverLead", () => {
         lead_id: "lead-1",
         tipo_mudanca: "mudanca_etapa",
         etapa_anterior: "contato",
-        etapa_nova: "proposta",
+        etapa_nova: "negociacao",
         usuario_email: "consultor@brisolamentos.com",
       })
     );
+  });
+
+  it("bloqueia mover pra 'proposta' sem orçamento vinculado (única exceção à regra de transição livre)", async () => {
+    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "contato", orcamento_id: null }));
+    const historicoRepo = criarHistoricoRepoFake();
+
+    await expect(
+      moverLead(
+        { leadId: "lead-1", novaEtapa: "proposta" },
+        { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never }
+      )
+    ).rejects.toBeInstanceOf(ConflictError);
+    expect(leadRepo.update).not.toHaveBeenCalled();
+  });
+
+  it("permite mover pra 'proposta' quando já tem orçamento vinculado", async () => {
+    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "contato", orcamento_id: 42 }));
+    const historicoRepo = criarHistoricoRepoFake();
+
+    const resultado = await moverLead(
+      { leadId: "lead-1", novaEtapa: "proposta" },
+      { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never }
+    );
+
+    expect(resultado.etapa).toBe("proposta");
   });
 
   it("é idempotente: mover para a etapa atual não grava histórico nem atualiza", async () => {

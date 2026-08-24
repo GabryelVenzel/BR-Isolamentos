@@ -12,6 +12,7 @@ import type { AgendamentoLeadFrio, HistoricoMudancaLead, Lead } from "@/lib/type
 function lead(overrides: Partial<Lead> = {}): Lead {
   return {
     id: "l1",
+    numero_lead: null,
     cliente_id: 1,
     etapa: "prospeccao",
     temperatura: "morno",
@@ -22,6 +23,7 @@ function lead(overrides: Partial<Lead> = {}): Lead {
     notas: null,
     atribuido_a: null,
     tags: [],
+    orcamento_id: null,
     etapa_anterior: null,
     temperatura_anterior: null,
     data_ultima_interacao: null,
@@ -40,6 +42,7 @@ function mudancaEtapa(overrides: Partial<HistoricoMudancaLead> = {}): HistoricoM
     etapa_nova: null,
     temperatura_anterior: null,
     temperatura_nova: null,
+    descricao: null,
     data_mudanca: "2026-01-01T00:00:00Z",
     usuario_email: null,
     created_at: "2026-01-01T00:00:00Z",

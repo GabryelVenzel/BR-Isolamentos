@@ -39,6 +39,15 @@ export const MoverLeadSchema = z.object({
   novaEtapa: EtapaFunilSchema,
 });
 
+// Vincula um orçamento ao lead — obrigatório antes de mover pra etapa
+// "proposta" (ver lib/usecases/comercial/moverLead.ts e
+// lib/usecases/comercial/vincularOrcamento.ts). Integração
+// Lead→Orçamento→Serviço.
+export const VincularOrcamentoSchema = z.object({
+  leadId: z.string().min(1),
+  orcamentoId: z.number().int().positive("Selecione um orçamento."),
+});
+
 // Mudar temperatura é uma operação separada de `atualizarLead` (como mover de
 // etapa) porque tem efeito colateral: virar "frio" agenda uma reativação
 // automática (ver lib/usecases/comercial/mudarTemperatura.ts). O usuário pode
@@ -85,6 +94,7 @@ export const CreateInteracaoLeadSchema = z.object({
 export type CreateLeadInput = z.infer<typeof CreateLeadSchema>;
 export type UpdateLeadInput = z.infer<typeof UpdateLeadSchema>;
 export type MoverLeadInput = z.infer<typeof MoverLeadSchema>;
+export type VincularOrcamentoInput = z.infer<typeof VincularOrcamentoSchema>;
 export type MudarTemperaturaInput = z.infer<typeof MudarTemperaturaSchema>;
 export type CancelarAgendamentoFrioInput = z.infer<typeof CancelarAgendamentoFrioSchema>;
 export type AtualizarConfigReativacaoInput = z.infer<typeof AtualizarConfigReativacaoSchema>;

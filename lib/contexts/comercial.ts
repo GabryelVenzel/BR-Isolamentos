@@ -15,6 +15,7 @@ import {
   HistoricoMudancaLeadRepository,
   InteracaoLeadRepository,
   LeadRepository,
+  OrcamentoRepository,
   type FiltrosLead,
 } from "../repositories";
 import type {
@@ -39,6 +40,7 @@ import {
   reativarLeadFrio,
   registrarInteracao,
   verificarReativacoesPendentes,
+  vincularOrcamento,
   type RelatorioComercial,
 } from "../usecases/comercial";
 
@@ -50,8 +52,10 @@ export function createComercialContext(supabase: SupabaseClient) {
   const configReativacaoRepo = new ConfigReativacaoLeadsFriosRepository(supabase);
   const configPrazoEtapasRepo = new ConfigPrazoEtapasRepository(supabase);
   const clienteRepo = new ClienteRepository(supabase);
+  const orcamentoRepo = new OrcamentoRepository(supabase);
 
   const reposMudancaEtapa = { leadRepo, historicoRepo };
+  const reposVincularOrcamento = { leadRepo, orcamentoRepo, historicoRepo };
   const reposTemperatura = { leadRepo, historicoRepo, agendamentoFrioRepo, configReativacaoRepo };
   const reposReativacao = { leadRepo, historicoRepo, agendamentoFrioRepo };
 
@@ -110,6 +114,15 @@ export function createComercialContext(supabase: SupabaseClient) {
 
     removerLead(id: string): Promise<void> {
       return leadRepo.delete(id);
+    },
+
+    /** Integração Lead→Orçamento→Serviço: vincula um orçamento ao lead,
+     * pré-requisito pra mover pra "proposta" (ver moverLead.ts). O seletor
+     * "Vincular Orçamento" do LeadDetailModal usa a rota já existente
+     * GET /api/orcamentos?cliente_id=X pra listar as opções, sem precisar de
+     * um método/rota novos só pra isso. */
+    vincularOrcamento(leadId: string, orcamentoId: number, usuarioEmail?: string | null): Promise<Lead> {
+      return vincularOrcamento({ leadId, orcamentoId }, reposVincularOrcamento, usuarioEmail);
     },
 
     // --- Interações (timeline de contato) ---
