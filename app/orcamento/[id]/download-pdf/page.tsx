@@ -11,6 +11,7 @@ import {
   nomeArquivoPdfComercial,
   nomeArquivoPdfTecnica,
 } from "@/lib/pdf-generator";
+import { gerarPropostaComercialDocx, nomeArquivoDocxComercial } from "@/lib/docx-generator";
 import type { ConfigEmpresa, Orcamento } from "@/lib/types";
 
 interface ImagemProposta {
@@ -23,7 +24,7 @@ export default function DownloadPdfPage() {
   const [orcamento, setOrcamento] = useState<Orcamento | null>(null);
   const [imagens, setImagens] = useState<ImagemProposta[]>([]);
   const [configEmpresa, setConfigEmpresa] = useState<ConfigEmpresa | null>(null);
-  const [gerando, setGerando] = useState<"comercial" | "tecnica" | null>(null);
+  const [gerando, setGerando] = useState<"comercial" | "tecnica" | "comercial-word" | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
@@ -73,6 +74,20 @@ export default function DownloadPdfPage() {
     }
   }
 
+  async function baixarComercialWord() {
+    if (!orcamento) return;
+    setErro(null);
+    setGerando("comercial-word");
+    try {
+      const blob = await gerarPropostaComercialDocx(orcamento, configEmpresa);
+      baixarPdf(blob, nomeArquivoDocxComercial(orcamento));
+    } catch {
+      setErro("Não foi possível gerar o Word da proposta comercial.");
+    } finally {
+      setGerando(null);
+    }
+  }
+
   if (!orcamento) return <p className="text-sm text-gray-500">Carregando...</p>;
 
   return (
@@ -87,10 +102,16 @@ export default function DownloadPdfPage() {
             {gerando === "tecnica" ? "Gerando..." : "Baixar Proposta Técnica"}
           </button>
           <button type="button" className="btn-primary" onClick={baixarComercial} disabled={gerando !== null}>
-            {gerando === "comercial" ? "Gerando..." : "Baixar Proposta Comercial"}
+            {gerando === "comercial" ? "Gerando..." : "Baixar Proposta Comercial (PDF)"}
+          </button>
+          <button type="button" className="btn-secondary" onClick={baixarComercialWord} disabled={gerando !== null}>
+            {gerando === "comercial-word" ? "Gerando..." : "Baixar Proposta Comercial (Word)"}
           </button>
         </div>
       </div>
+
+      {/* Só a Proposta Comercial tem versão Word — ver comentário no topo de
+          lib/docx-generator.ts pra decisão de escopo. */}
 
       {erro && <p className="text-sm text-red-600">{erro}</p>}
 

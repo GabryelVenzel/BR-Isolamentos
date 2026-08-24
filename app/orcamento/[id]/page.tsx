@@ -61,17 +61,44 @@ export default async function OrcamentoDetalhePage({ params }: { params: { id: s
             {item.co2_ton_ano != null && <p>CO₂ evitado/ano: {formatarNumero(item.co2_ton_ano, 2)} t</p>}
             <p>Custo de materiais: {formatarMoeda(item.valor_materiais)}</p>
           </div>
-          <TableMateriais
-            quantificacao={{
-              manta_kg: item.manta_kg ?? 0,
-              chapa_kg: item.chapa_kg ?? 0,
-              rebites: item.rebites ?? 0,
-              parafusos: item.parafusos ?? 0,
-              arame_kg: item.arame_kg ?? 0,
-              vedacao_pu: item.vedacao_pu ?? 0,
-              vedacit_un: item.vedacit_un ?? 0,
-            }}
-          />
+          {item.manta_kg != null ? (
+            // Orçamento anterior à migração 010 — Método Expert em kg.
+            <TableMateriais
+              quantificacao={{
+                manta_kg: item.manta_kg ?? 0,
+                chapa_kg: item.chapa_kg ?? 0,
+                rebites: item.rebites ?? 0,
+                parafusos: item.parafusos ?? 0,
+                arame_kg: item.arame_kg ?? 0,
+                vedacao_pu: item.vedacao_pu ?? 0,
+                vedacit_un: item.vedacit_un ?? 0,
+              }}
+            />
+          ) : (
+            <div className="space-y-2 border-t border-gray-100 pt-3 text-sm">
+              {(item.escopo_itens?.length ?? 0) > 0 && (
+                <div>
+                  <p className="mb-1 text-xs font-semibold uppercase text-gray-500">Escopo</p>
+                  <ul className="space-y-0.5 text-gray-600">
+                    {item.escopo_itens.map((escopo) => (
+                      <li key={escopo.id}>• {escopo.nome}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {item.preco_isolante_m2 != null && (
+                <p>
+                  Isolante: {formatarNumero(item.area_m2)} m² × {formatarMoeda(item.preco_isolante_m2)}/m²
+                </p>
+              )}
+              {item.preco_acabamento_m2 != null && (
+                <p>
+                  Acabamento: {formatarNumero(item.area_m2)} m² × {formatarMoeda(item.preco_acabamento_m2)}/m²
+                </p>
+              )}
+              {item.horas_mao_obra > 0 && <p>Mão de obra: {formatarNumero(item.horas_mao_obra, 1)}h</p>}
+            </div>
+          )}
         </div>
       ))}
 

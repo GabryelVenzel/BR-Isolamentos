@@ -3,10 +3,13 @@
 // Router; o Zustand é o que preserva os dados ao navegar entre elas).
 //
 // Um orçamento pode ter vários "itens" (trechos técnicos independentes — ex.: linha de
-// vapor quente + linha de água gelada no mesmo projeto = orçamento "misto"). O usuário
-// preenche especificações + calcula um item por vez (`itemAtual`); ao confirmar, o item
-// vai para a lista `itens` e o formulário limpa para o próximo trecho (ou segue pro
-// próximo step, se só houver um).
+// vapor quente + linha de água gelada no mesmo projeto = orçamento "misto"). Cada trecho
+// tem: um Escopo (lista de itens de área — tubulação/curva/plano, ver
+// lib/usecases/orcamento/escopo.ts), UMA especificação técnica (quente OU frio, nunca as
+// duas no mesmo trecho) e uma precificação por m² (ver lib/usecases/orcamento/precificarTrecho.ts).
+// O usuário preenche escopo + especificações + preços um trecho por vez (`escopoAtual` +
+// `itemAtual`); ao confirmar, o trecho vai para a lista `itens` e o formulário limpa para
+// o próximo (ou segue pro próximo step, se só houver um).
 
 "use client";
 
@@ -18,43 +21,57 @@ import type {
   CalcularTermicoResultadoQuente,
   Cliente,
   CombustivelTipo,
-  Geometria,
-  QuantificarResultado,
+  ItemEscopo,
   TipoTrabalho,
 } from "./types";
+import type { PrecificacaoTrecho } from "./usecases/orcamento";
 
 export interface WizardEspecificacoes {
   tipo_trabalho: TipoTrabalho;
-  material_id: number | null;
-  acabamento_id: number | null;
-  geometria: Geometria;
-  diametro_mm: number | null;
-  area_m2: number;
-  perimetro_m: number | null;
-  espessuras_mm: number[];
-  temperatura_quente: number;
-  temperatura_ambiente: number;
-  umidade_relativa: number;
+  /** FK para precos_config (tipo_material isolante_*) — a escolha comercial. */
+  preco_isolante_id: number | null;
+  /** FK para precos_config (tipo_material chaparia_*) — só usado no quente. */
+  preco_acabamento_id: number | null;
+  /** Obrigatório só no quente; no frio é calculada (ver calcularFrio). */
+  espessura_mm: number | null;
+  // Nullable de propósito (pedido: "campo vazio, não 0") — 0°C é um valor
+  // fisicamente válido em trechos frios, então usar 0 como "não preenchido"
+  // bloquearia esse caso real; null é o único jeito seguro de distinguir
+  // "usuário ainda não digitou nada" de "usuário digitou zero".
+  temperatura_quente: number | null;
+  temperatura_ambiente: number | null;
+  umidade_relativa: number | null;
+  /** Sempre 0 no quente (removido do formulário, por pedido); editável no frio. */
   velocidade_vento_ms: number;
   calcular_financeiro: boolean;
   combustivel: CombustivelTipo;
   custo_combustivel: number | null;
   horas_operacao_dia: number;
   dias_operacao_semana: number;
+  /** Override da metragem total do trecho (soma do Escopo) — checkbox "editar metragem". */
+  metragem_editada: boolean;
+  metragem_manual_m2: number | null;
+  /** Mão de obra deste trecho (horas) — soma de todos os trechos alimenta o
+   * `horas_mao_obra` único que `calcularOrcamento` usa (taxa é global). */
+  horas_mao_obra: number;
 }
 
 export interface WizardItem {
+  escopoItens: ItemEscopo[];
   especificacoes: WizardEspecificacoes;
   materialNome: string;
   acabamentoNome: string | null;
+  especificacaoIsolante: string | null;
+  especificacaoAcabamento: string | null;
   resultadoTermicoQuente: CalcularTermicoResultadoQuente | null;
   resultadoTermicoFrio: CalcularTermicoResultadoFrio | null;
-  quantificacao: QuantificarResultado;
+  precificacao: PrecificacaoTrecho;
+  /** = precificacao.subtotal_material — nome mantido para compat com telas que só
+   * precisam do custo de material (ex.: totalizadores rápidos). */
   valorMateriais: number;
 }
 
 export interface WizardCustosOperacionais {
-  horas_mao_obra: number;
   km_deslocamento: number;
   noites_hospedagem: number;
   toneladas_frete: number;
@@ -65,21 +82,31 @@ interface WizardState {
   clienteSelecionado: Cliente | null;
   itens: WizardItem[];
 
-  // Rascunho do item em edição (step-2/step-3)
+  // Rascunho do trecho em edição (step-2-escopo / step-3-especificacoes)
+  escopoAtual: ItemEscopo[];
   itemAtual: WizardEspecificacoes;
   resultadoTermicoQuenteAtual: CalcularTermicoResultadoQuente | null;
   resultadoTermicoFrioAtual: CalcularTermicoResultadoFrio | null;
-  quantificacaoAtual: QuantificarResultado | null;
 
   custosOperacionais: WizardCustosOperacionais;
   resultadoOrcamento: CalcularOrcamentoResultado | null;
 
   setCliente: (cliente: Cliente | null) => void;
+  setEscopoAtual: (itens: ItemEscopo[]) => void;
   setItemAtual: (dados: Partial<WizardEspecificacoes>) => void;
   setResultadoAtualQuente: (resultado: CalcularTermicoResultadoQuente | null) => void;
   setResultadoAtualFrio: (resultado: CalcularTermicoResultadoFrio | null) => void;
-  setQuantificacaoAtual: (resultado: QuantificarResultado | null) => void;
-  confirmarItemAtual: (materialNome: string, acabamentoNome: string | null, valorMateriais: number) => void;
+  confirmarItemAtual: (dados: {
+    materialNome: string;
+    acabamentoNome: string | null;
+    especificacaoIsolante: string | null;
+    especificacaoAcabamento: string | null;
+    precificacao: PrecificacaoTrecho;
+  }) => void;
+  /** Remove o trecho `index` de `itens` e recarrega escopo/especificações dele
+   * de volta em `escopoAtual`/`itemAtual`, para reabrir em step-2-escopo
+   * (botão "Editar" da Revisão). */
+  editarItem: (index: number) => void;
   removerItem: (index: number) => void;
   setCustosOperacionais: (dados: Partial<WizardCustosOperacionais>) => void;
   setResultadoOrcamento: (resultado: CalcularOrcamentoResultado | null) => void;
@@ -88,26 +115,24 @@ interface WizardState {
 
 const itemAtualInicial: WizardEspecificacoes = {
   tipo_trabalho: "quente",
-  material_id: null,
-  acabamento_id: null,
-  geometria: "tubulacao",
-  diametro_mm: 88.9,
-  area_m2: 10,
-  perimetro_m: null,
-  espessuras_mm: [51],
-  temperatura_quente: 250,
-  temperatura_ambiente: 30,
-  umidade_relativa: 70,
+  preco_isolante_id: null,
+  preco_acabamento_id: null,
+  espessura_mm: null,
+  temperatura_quente: null,
+  temperatura_ambiente: null,
+  umidade_relativa: null,
   velocidade_vento_ms: 0,
-  calcular_financeiro: false,
+  calcular_financeiro: true,
   combustivel: "eletricidade",
   custo_combustivel: null,
   horas_operacao_dia: 8,
   dias_operacao_semana: 5,
+  metragem_editada: false,
+  metragem_manual_m2: null,
+  horas_mao_obra: 0,
 };
 
 const custosOperacionaisIniciais: WizardCustosOperacionais = {
-  horas_mao_obra: 0,
   km_deslocamento: 0,
   noites_hospedagem: 0,
   toneladas_frete: 0,
@@ -116,44 +141,58 @@ const custosOperacionaisIniciais: WizardCustosOperacionais = {
 
 export const useWizardStore = create<WizardState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       clienteSelecionado: null,
       itens: [],
 
+      escopoAtual: [],
       itemAtual: itemAtualInicial,
       resultadoTermicoQuenteAtual: null,
       resultadoTermicoFrioAtual: null,
-      quantificacaoAtual: null,
 
       custosOperacionais: custosOperacionaisIniciais,
       resultadoOrcamento: null,
 
       setCliente: (cliente) => set({ clienteSelecionado: cliente }),
+      setEscopoAtual: (itens) => set({ escopoAtual: itens }),
       setItemAtual: (dados) => set((state) => ({ itemAtual: { ...state.itemAtual, ...dados } })),
       setResultadoAtualQuente: (resultado) => set({ resultadoTermicoQuenteAtual: resultado }),
       setResultadoAtualFrio: (resultado) => set({ resultadoTermicoFrioAtual: resultado }),
-      setQuantificacaoAtual: (resultado) => set({ quantificacaoAtual: resultado }),
 
-      confirmarItemAtual: (materialNome, acabamentoNome, valorMateriais) =>
+      confirmarItemAtual: ({ materialNome, acabamentoNome, especificacaoIsolante, especificacaoAcabamento, precificacao }) =>
         set((state) => {
-          if (!state.quantificacaoAtual) return state;
           const novoItem: WizardItem = {
+            escopoItens: state.escopoAtual,
             especificacoes: state.itemAtual,
             materialNome,
             acabamentoNome,
+            especificacaoIsolante,
+            especificacaoAcabamento,
             resultadoTermicoQuente: state.resultadoTermicoQuenteAtual,
             resultadoTermicoFrio: state.resultadoTermicoFrioAtual,
-            quantificacao: state.quantificacaoAtual,
-            valorMateriais,
+            precificacao,
+            valorMateriais: precificacao.subtotal_material,
           };
           return {
             itens: [...state.itens, novoItem],
+            escopoAtual: [],
             itemAtual: itemAtualInicial,
             resultadoTermicoQuenteAtual: null,
             resultadoTermicoFrioAtual: null,
-            quantificacaoAtual: null,
           };
         }),
+
+      editarItem: (index) => {
+        const item = get().itens[index];
+        if (!item) return;
+        set((state) => ({
+          itens: state.itens.filter((_, i) => i !== index),
+          escopoAtual: item.escopoItens,
+          itemAtual: item.especificacoes,
+          resultadoTermicoQuenteAtual: item.resultadoTermicoQuente,
+          resultadoTermicoFrioAtual: item.resultadoTermicoFrio,
+        }));
+      },
 
       removerItem: (index) => set((state) => ({ itens: state.itens.filter((_, i) => i !== index) })),
 
@@ -165,10 +204,10 @@ export const useWizardStore = create<WizardState>()(
         set({
           clienteSelecionado: null,
           itens: [],
+          escopoAtual: [],
           itemAtual: itemAtualInicial,
           resultadoTermicoQuenteAtual: null,
           resultadoTermicoFrioAtual: null,
-          quantificacaoAtual: null,
           custosOperacionais: custosOperacionaisIniciais,
           resultadoOrcamento: null,
         }),
@@ -183,4 +222,11 @@ export function tipoTrabalhoAgregado(itens: WizardItem[]): TipoTrabalho {
   const tipos = new Set(itens.map((i) => i.especificacoes.tipo_trabalho));
   if (tipos.size === 1) return itens[0].especificacoes.tipo_trabalho;
   return "misto";
+}
+
+/** Soma as horas de mão de obra de todos os trechos — é o único
+ * `horas_mao_obra` que `calcularOrcamento` recebe (a taxa/hora é global,
+ * não varia por trecho). */
+export function horasMaoObraTotal(itens: WizardItem[]): number {
+  return Number(itens.reduce((acc, i) => acc + i.especificacoes.horas_mao_obra, 0).toFixed(2));
 }

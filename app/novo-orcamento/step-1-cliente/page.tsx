@@ -27,7 +27,7 @@ export default function Step1ClientePage() {
           type="button"
           className="btn-primary"
           disabled={!clienteSelecionado}
-          onClick={() => router.push("/novo-orcamento/step-2-especificacoes")}
+          onClick={() => router.push("/novo-orcamento/step-2-escopo")}
         >
           Próximo →
         </button>

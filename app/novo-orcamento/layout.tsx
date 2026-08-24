@@ -6,8 +6,8 @@ import { ORCAMENTO_SUBNAV } from "@/lib/module-nav";
 
 const STEPS = [
   { path: "step-1-cliente", label: "Cliente" },
-  { path: "step-2-especificacoes", label: "Especificações" },
-  { path: "step-3-calculos", label: "Cálculos" },
+  { path: "step-2-escopo", label: "Escopo" },
+  { path: "step-3-especificacoes", label: "Especificações" },
   { path: "step-4-precos", label: "Preços" },
   { path: "step-5-revisao", label: "Revisão" },
 ];

@@ -20,10 +20,16 @@ const LABEL_TIPO: Record<string, string> = { quente: "Quente", frio: "Frio", mis
 export default function PDFPreviewComercial({ orcamento, configEmpresa }: Props) {
   const itens = [...(orcamento.itens ?? [])].sort((a, b) => a.ordem - b.ordem);
 
-  // Quantificação agregada de todos os trechos — não há preço unitário por
-  // material persistido no orçamento (só o custo total já calculado), então a
-  // tabela mostra quantidade + o custo total de materiais uma única vez no
-  // rodapé da tabela, em vez de inventar um preço unitário por linha.
+  // Um orçamento é inteiramente de um "regime" ou outro — Método Expert em kg
+  // (anterior à migração 010) ou preço por m² (atual). Não mistura os dois no
+  // mesmo orçamento, então basta checar o primeiro item pra decidir qual
+  // detalhamento mostrar.
+  const ehLegado = itens.length > 0 && itens[0].manta_kg != null;
+
+  // Quantificação agregada de todos os trechos (Método Expert, kg) — só pra
+  // orçamentos anteriores à migração 010. Não há preço unitário por material
+  // persistido no orçamento (só o custo total já calculado), então a tabela
+  // mostra quantidade + o custo total de materiais uma única vez no rodapé.
   const quantificacao = itens.reduce(
     (acc, item) => ({
       manta_kg: acc.manta_kg + (item.manta_kg ?? 0),
@@ -46,6 +52,14 @@ export default function PDFPreviewComercial({ orcamento, configEmpresa }: Props)
     { material: "Vedação P.U.", quantidade: quantificacao.vedacao_pu, unidade: "un" },
     { material: "Vedacit", quantidade: quantificacao.vedacit_un, unidade: "un" },
   ].filter((linha) => linha.quantidade > 0);
+
+  // Divisão Material / Mão de obra "com a mesma margem de lucro" (pedido
+  // original) — Material inclui isolante + acabamento de todos os trechos;
+  // Mão de obra é o total já calculado no orçamento (valor_mao_obra). Ambos
+  // dividem a MESMA margem/impostos do cálculo completo (não uma margem fixa
+  // separada) — por isso a soma dos dois blocos abaixo bate exatamente com
+  // "Subtotal (materiais + serviços)" da seção de Resumo Financeiro.
+  const totalHoras = itens.reduce((acc, i) => acc + (i.horas_mao_obra ?? 0), 0);
 
   const temCustosOperacionais =
     orcamento.valor_mao_obra > 0 ||
@@ -110,7 +124,7 @@ export default function PDFPreviewComercial({ orcamento, configEmpresa }: Props)
         </table>
       </section>
 
-      {linhasQuantificacao.length > 0 && (
+      {ehLegado && linhasQuantificacao.length > 0 && (
         <section className="mb-6 break-inside-avoid">
           <h2 className="mb-2 font-montserrat text-sm font-bold uppercase text-brand">Quantificação de Materiais</h2>
           <table className="w-full border-collapse text-xs">
@@ -137,6 +151,55 @@ export default function PDFPreviewComercial({ orcamento, configEmpresa }: Props)
                 </Td>
                 <Td>{formatarMoeda(orcamento.valor_materiais)}</Td>
               </tr>
+            </tbody>
+          </table>
+        </section>
+      )}
+
+      {!ehLegado && itens.length > 0 && (
+        <section className="mb-6 break-inside-avoid">
+          <h2 className="mb-2 font-montserrat text-sm font-bold uppercase text-brand">Materiais por Trecho (R$/m²)</h2>
+          <table className="w-full border-collapse text-xs">
+            <thead>
+              <tr className="bg-accent text-left font-montserrat font-bold uppercase text-white">
+                <Th light>Trecho</Th>
+                <Th light>Isolante</Th>
+                <Th light>Acabamento</Th>
+                <Th light align="right">
+                  Metragem
+                </Th>
+                <Th light align="right">
+                  Mão de obra
+                </Th>
+              </tr>
+            </thead>
+            <tbody>
+              {itens.map((item, index) => (
+                <tr key={item.id} className="border-b border-gray-200 even:bg-gray-50">
+                  <Td>{index + 1}</Td>
+                  <Td>{item.material}</Td>
+                  <Td>{item.acabamento ?? "—"}</Td>
+                  <Td align="right">{formatarNumero(item.area_m2)} m²</Td>
+                  <Td align="right">{formatarNumero(item.horas_mao_obra ?? 0, 1)}h</Td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+
+          {/* Transparência limitada, conforme o pedido: divide-se em Material e Mão de
+              Obra, ambos com a mesma margem de lucro do cálculo completo — não uma
+              margem fixa separada por bloco. */}
+          <p className="mb-2 mt-4 text-xs text-gray-500">
+            O valor apresentado divide-se em Material e Mão de Obra, ambos com a mesma margem de lucro,
+            conforme segue:
+          </p>
+          <table className="w-full text-sm">
+            <tbody>
+              <Row label="Material (isolante + acabamentos)" valor={formatarMoeda(orcamento.valor_materiais)} />
+              <Row
+                label={`Mão de obra (${formatarNumero(totalHoras, 1)}h)`}
+                valor={formatarMoeda(orcamento.valor_mao_obra)}
+              />
             </tbody>
           </table>
         </section>

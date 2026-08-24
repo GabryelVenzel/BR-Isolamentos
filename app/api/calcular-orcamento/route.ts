@@ -8,8 +8,11 @@ export async function POST(request: Request) {
   const input = (await request.json().catch(() => null)) as CalcularOrcamentoInput | null;
 
   try {
-    if (!input || !input.quantificacao || !input.precos || !input.config) {
-      throw new ValidationError("Informe quantificação, preços e configuração da empresa.");
+    const temMateriais = input?.valor_materiais_direto !== undefined || (input?.quantificacao && input?.precos);
+    if (!input || !temMateriais || !input.config) {
+      throw new ValidationError(
+        "Informe o custo de materiais (valor direto ou quantificação + preços) e a configuração da empresa."
+      );
     }
 
     const resultado = calcularOrcamento(input);

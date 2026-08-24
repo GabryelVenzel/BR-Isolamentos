@@ -124,7 +124,29 @@ export default function PDFPreviewTecnica({ orcamento, imagens = [], configEmpre
 
       <section className="mb-6 break-inside-avoid">
         <h2 className="mb-2 font-montserrat text-sm font-bold uppercase text-brand">
-          {temQuente && temFrio ? "5." : "4."} Especificação técnica por trecho
+          {temQuente && temFrio ? "5." : "4."} Escopo contemplado
+        </h2>
+        {itens.map((item, index) => (
+          <div key={item.id} className="mb-2 text-sm">
+            <p className="font-montserrat font-semibold text-brand">
+              Trecho {index + 1} ({LABEL_TIPO[item.tipo_trabalho]})
+            </p>
+            {(item.escopo_itens?.length ?? 0) > 0 ? (
+              <ul className="ml-4 list-disc text-gray-700">
+                {item.escopo_itens.map((escopo) => (
+                  <li key={escopo.id}>{escopo.nome}</li>
+                ))}
+              </ul>
+            ) : (
+              <p className="ml-4 text-gray-500">{formatarNumero(item.area_m2)} m²</p>
+            )}
+          </div>
+        ))}
+      </section>
+
+      <section className="mb-6 break-inside-avoid">
+        <h2 className="mb-2 font-montserrat text-sm font-bold uppercase text-brand">
+          {temQuente && temFrio ? "6." : "5."} Especificação técnica por trecho
         </h2>
         <table className="w-full border-collapse text-xs">
           <thead>

@@ -19,10 +19,12 @@ import type {
   CalcularOrcamentoInput,
   CalcularOrcamentoResultado,
   ItemDetalhamentoImposto,
+  PrecoConfig,
+  QuantificarResultado,
   TipoMaterialPreco,
 } from "./types";
 
-function precoPorTipo(precos: CalcularOrcamentoInput["precos"], tipo: TipoMaterialPreco): number {
+function precoPorTipo(precos: PrecoConfig[], tipo: TipoMaterialPreco): number {
   const preco = precos.find((p) => p.tipo_material === tipo && p.ativo);
   return preco?.preco_unitario ?? 0;
 }
@@ -35,11 +37,13 @@ export interface DetalhamentoMateriais {
   total: number;
 }
 
-/** Preço dos materiais para uma quantificação — reutilizado tanto no cálculo do
- * orçamento completo quanto para estimar o custo de um único item/trecho no wizard. */
+/** Preço dos materiais para uma quantificação (Método Expert em kg) —
+ * usado só para orçamentos anteriores à migração 010 (ver `calcularOrcamento`
+ * abaixo); orçamentos novos passam `valor_materiais_direto` e não chamam
+ * esta função. */
 export function detalharValorMateriais(
-  quantificacao: CalcularOrcamentoInput["quantificacao"],
-  precos: CalcularOrcamentoInput["precos"]
+  quantificacao: QuantificarResultado,
+  precos: PrecoConfig[]
 ): DetalhamentoMateriais {
   const itens: Array<{ tipo: TipoMaterialPreco; quantidade: number }> = [
     { tipo: "manta", quantidade: quantificacao.manta_kg },
@@ -67,10 +71,14 @@ export function detalharValorMateriais(
 export function calcularOrcamento(input: CalcularOrcamentoInput): CalcularOrcamentoResultado {
   const { quantificacao, precos, config, impostosExtras } = input;
 
-  const { detalhamento: detalhamentoMateriais, total: valorMateriais } = detalharValorMateriais(
-    quantificacao,
-    precos
-  );
+  // Dois caminhos possíveis para o custo de materiais — ver comentário em
+  // `CalcularOrcamentoInput` (lib/types.ts). `valor_materiais_direto` é o
+  // caminho novo (precificação por m², migração 010); `quantificacao`+
+  // `precos` é o Método Expert em kg, mantido para orçamentos antigos.
+  const { detalhamento: detalhamentoMateriais, total: valorMateriais } =
+    input.valor_materiais_direto !== undefined
+      ? { detalhamento: [], total: input.valor_materiais_direto }
+      : detalharValorMateriais(quantificacao ?? { manta_kg: 0, chapa_kg: 0, rebites: 0, parafusos: 0, arame_kg: 0, vedacao_pu: 0, vedacit_un: 0 }, precos ?? []);
   const valorMaoObra = input.horas_mao_obra * config.valor_hora_mao_obra;
   const valorDeslocamento = input.km_deslocamento * config.valor_km_deslocamento;
   const valorHospedagem = input.noites_hospedagem * config.valor_noite_hospedagem;

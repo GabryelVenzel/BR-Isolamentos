@@ -35,10 +35,32 @@ export type StatusOrcamento =
   | "aceito"
   | "rejeitado";
 
+export type TipoItemEscopo = "tubulacao" | "curva" | "plano";
+
+/** Um item do Escopo de um trecho (ex.: "Tubo principal Ø100mm, 15m") — ver
+ * lib/usecases/orcamento/escopo.ts para as fórmulas de metragem. Guardado
+ * como jsonb em `itens_orcamento.escopo_itens` (migração 010): é o
+ * detalhamento que soma até a metragem total do trecho, não precisa de
+ * tabela própria (nenhum outro lugar do sistema consulta um item de escopo
+ * isoladamente). */
+export interface ItemEscopo {
+  id: string;
+  nome: string;
+  tipo: TipoItemEscopo;
+  diametro_mm: number | null;
+  comprimento_m: number | null;
+  quantidade: number | null;
+  metragem_manual_m2: number | null;
+  /** true = usar `metragem_manual_m2`; false = usar a metragem calculada pela fórmula do tipo. */
+  metragem_editada: boolean;
+}
+
 /**
  * Um "trecho" técnico dentro de um orçamento (ex.: linha de vapor quente + linha de
  * água gelada no mesmo projeto = 2 itens). Um orçamento sempre tem 1+ itens; quando
  * todos têm o mesmo tipo_trabalho, o orçamento herda esse tipo — senão é "misto".
+ * Cada trecho tem exatamente 1 tipo_trabalho (não mistura quente/frio dentro
+ * do mesmo trecho — só entre trechos diferentes do mesmo orçamento).
  */
 export interface ItemOrcamento {
   id: number;
@@ -46,9 +68,15 @@ export interface ItemOrcamento {
   ordem: number;
   tipo_trabalho: TipoTrabalho;
 
+  // Escopo (migração 010) — itens que compõem a metragem deste trecho.
+  escopo_itens: ItemEscopo[];
+
   // Especificações técnicas
   material: string;
   acabamento: string | null;
+  /** Só a densidade/espessura escolhida (ex. "96kg/m³") — `material` já tem o nome completo. */
+  especificacao_isolante: string | null;
+  especificacao_acabamento: string | null;
   temperatura_quente: number;
   temperatura_ambiente: number;
   umidade_relativa: number | null;
@@ -66,7 +94,10 @@ export interface ItemOrcamento {
   economia_anual: number | null;
   co2_ton_ano: number | null;
 
-  // Quantificação
+  // Quantificação (Método Expert em kg) — só preenchido em orçamentos
+  // criados ANTES da migração 010; o wizard novo não usa mais (ver decisão 2
+  // em sql-migration-010-orcamento-escopo-materiais.sql). Mantido para
+  // continuar exibindo orçamentos antigos corretamente.
   manta_kg: number | null;
   chapa_kg: number | null;
   rebites: number | null;
@@ -74,6 +105,14 @@ export interface ItemOrcamento {
   arame_kg: number | null;
   vedacao_pu: number | null;
   vedacit_un: number | null;
+
+  // Precificação por m² (migração 010) — preço travado no momento da
+  // criação do trecho (não recalcula sozinho se o catálogo mudar depois).
+  preco_isolante_m2: number | null;
+  preco_acabamento_m2: number | null;
+  horas_mao_obra: number;
+  subtotal_material: number;
+  subtotal_mao_obra: number;
 
   // Custo de materiais só deste item
   valor_materiais: number;
@@ -124,7 +163,19 @@ export interface Orcamento {
   itens?: ItemOrcamento[];
 }
 
+/** Catálogo comercial por m² (migração 010) — ver decisão 2 em
+ * sql-migration-010-orcamento-escopo-materiais.sql. Os 7 tipos antigos em kg
+ * (manta/chapa/rebite/parafuso/arame/vedacao/vedacit, o "Método Expert") não
+ * existem mais em `precos_config` — só continuam como tipo em
+ * `TipoMaterialPreco` porque `lib/orcamento.ts#detalharValorMateriais` ainda
+ * precisa tipar o detalhamento de orçamentos ANTIGOS ao exibi-los. */
 export type TipoMaterialPreco =
+  | "chaparia_inox"
+  | "chaparia_galvanizado"
+  | "chaparia_aluminio"
+  | "isolante_fibra_ceramica"
+  | "isolante_la_rocha"
+  | "isolante_espuma"
   | "manta"
   | "chapa"
   | "rebite"
@@ -133,10 +184,22 @@ export type TipoMaterialPreco =
   | "vedacao"
   | "vedacit";
 
+export type GrupoMaterialPreco = "chaparia" | "isolante";
+
+export function grupoDoTipoMaterial(tipo: TipoMaterialPreco): GrupoMaterialPreco | null {
+  if (tipo.startsWith("chaparia_")) return "chaparia";
+  if (tipo.startsWith("isolante_")) return "isolante";
+  return null;
+}
+
 export interface PrecoConfig {
   id: number;
   tipo_material: TipoMaterialPreco;
   descricao: string;
+  /** Ex.: "0,8mm", "96kg/m³" — só o valor da especificação (migração 010). */
+  especificacao: string | null;
+  /** Sempre "m2" no catálogo novo. */
+  unidade: string;
   preco_unitario: number;
   densidade_kg_m3: number | null;
   ativo: boolean;
@@ -279,8 +342,13 @@ export interface QuantificarResultado {
 }
 
 export interface CalcularOrcamentoInput {
-  quantificacao: QuantificarResultado;
-  precos: PrecoConfig[];
+  // Custo de materiais: OU `quantificacao`+`precos` (Método Expert em kg,
+  // orçamentos anteriores à migração 010), OU `valor_materiais_direto` (soma
+  // dos `subtotal_material` de cada trecho, já precificados por m² — ver
+  // lib/usecases/orcamento/precificarTrecho.ts). Nunca os dois.
+  quantificacao?: QuantificarResultado;
+  precos?: PrecoConfig[];
+  valor_materiais_direto?: number;
   config: ConfigEmpresa;
   impostosExtras: ImpostoConfig[];
   horas_mao_obra: number;
