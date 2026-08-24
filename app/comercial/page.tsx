@@ -9,18 +9,20 @@ import FiltrosKanban, { type FiltrosKanbanState } from "@/components/modules/com
 import LeadsFriosPanel from "@/components/modules/comercial/LeadsFriosPanel";
 import LeadDetailModal from "@/components/modules/comercial/LeadDetailModal";
 import ClientesTab from "@/components/modules/comercial/ClientesTab";
-import RelatoriosTab from "@/components/modules/comercial/RelatoriosTab";
 import ConfiguracoesTab from "@/components/modules/comercial/ConfiguracoesTab";
 import NovoLeadModal from "@/components/comercial/NovoLeadModal";
 import { formatarEtapa, formatarMoeda } from "@/lib/format";
 import type { AgendamentoLeadFrio, EtapaFunil, Lead } from "@/lib/types/domain";
 
-type AbaComercial = "crm" | "clientes" | "relatorios" | "configuracoes";
+// A aba "Relatórios" que existia aqui foi removida — os relatórios
+// comerciais (funil, origem, performance por responsável etc.) agora vivem
+// centralizados em /resumo?tab=comercial, junto com os relatórios de
+// Operacional e Financeiro (ver app/resumo/page.tsx).
+type AbaComercial = "crm" | "clientes" | "configuracoes";
 
 const ABAS: Array<{ valor: AbaComercial; label: string }> = [
   { valor: "crm", label: "CRM" },
   { valor: "clientes", label: "Clientes" },
-  { valor: "relatorios", label: "Relatórios" },
   { valor: "configuracoes", label: "Configurações" },
 ];
 
@@ -197,7 +199,6 @@ function ComercialPageConteudo() {
           <p className="text-sm text-gray-500">
             {aba === "crm" && `${leads.length} lead${leads.length === 1 ? "" : "s"}, ${formatarMoeda(valorTotalAtivo)} em negociação ativa.`}
             {aba === "clientes" && "Cadastro de clientes e histórico de leads."}
-            {aba === "relatorios" && "Insights e indicadores comerciais."}
             {aba === "configuracoes" && "Prazos de reativação, prazo máximo por etapa e responsáveis."}
           </p>
         </div>
@@ -253,7 +254,6 @@ function ComercialPageConteudo() {
       )}
 
       {aba === "clientes" && <ClientesTab />}
-      {aba === "relatorios" && <RelatoriosTab />}
       {aba === "configuracoes" && <ConfiguracoesTab />}
 
       {leadSelecionadoId && (

@@ -23,7 +23,18 @@ interface RelatorioFinanceiro {
   alertas: AlertaFinanceiro[];
 }
 
-export default function RelatoriosFinanceirosPage() {
+/** Aba "Financeira" do dashboard centralizado de Resumo — antes vivia como
+ * aba "Relatórios" dentro do próprio módulo Financeiro; movida pra cá pra
+ * consolidar todos os relatórios num único lugar (ver decisão no topo de
+ * app/resumo/page.tsx). Continua consumindo a mesma /api/financeiro/relatorios
+ * — essa rota NÃO foi removida junto com a página, porque o Dashboard básico
+ * que ficou em /financeiro (app/financeiro/page.tsx) também depende dela
+ * (gráfico de receita/despesa + distribuição de despesas + alertas de
+ * pendência). Os componentes de gráfico (ReceitaDespesaChart,
+ * DistribuicaoCategoriaChart, CustosFixosVariaveisChart) continuam morando em
+ * components/modules/financeiro/graficos pelo mesmo motivo — mover pra cá
+ * quebraria o Dashboard do Financeiro, que não foi removido. */
+export default function DashboardFinanceira() {
   const [relatorio, setRelatorio] = useState<RelatorioFinanceiro | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -64,11 +75,6 @@ export default function RelatoriosFinanceirosPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Relatórios</h1>
-        <p className="text-sm text-gray-500">Análise financeira — receitas, despesas, categorias e margem.</p>
-      </div>
-
       <div className="card grid grid-cols-1 gap-3 sm:grid-cols-2">
         <div>
           <label className="label-field">Período</label>

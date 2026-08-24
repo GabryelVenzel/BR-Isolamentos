@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import FunilServicosChart from "@/components/modules/operacional/graficos/FunilServicosChart";
-import CustoRealOrcadoChart from "@/components/modules/operacional/graficos/CustoRealOrcadoChart";
+import FunilServicosChart from "./graficos/FunilServicosChart";
+import CustoRealOrcadoChart from "./graficos/CustoRealOrcadoChart";
 import { formatarMoeda, formatarNumero } from "@/lib/format";
 import type { RelatorioOperacional } from "@/lib/usecases/operacional";
 
@@ -13,7 +13,12 @@ const LABEL_TIPO: Record<string, string> = {
   isolamentos_fixos: "Isolamentos Fixos",
 };
 
-export default function RelatoriosOperacionalPage() {
+/** Aba "Operação" do dashboard centralizado de Resumo — antes vivia como
+ * aba "Relatórios" dentro do próprio módulo Operacional; movida pra cá pra
+ * consolidar todos os relatórios num único lugar (ver decisão no topo de
+ * app/resumo/page.tsx). Continua consumindo a mesma /api/operacional/relatorios
+ * — só a camada de apresentação mudou de módulo. */
+export default function DashboardOperacao() {
   const [relatorio, setRelatorio] = useState<RelatorioOperacional | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -55,11 +60,6 @@ export default function RelatoriosOperacionalPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Relatórios</h1>
-        <p className="text-sm text-gray-500">Insights operacionais — funil de obras, prazos e custos.</p>
-      </div>
-
       <div className="card grid grid-cols-1 gap-3 sm:grid-cols-3">
         <div>
           <label className="label-field">Período</label>

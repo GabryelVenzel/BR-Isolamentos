@@ -12,7 +12,12 @@ interface Usuario {
   nome: string;
 }
 
-export default function RelatoriosTab() {
+/** Aba "Comercial" do dashboard centralizado de Resumo — antes vivia como
+ * aba "Relatórios" dentro do próprio módulo Comercial; movida pra cá pra
+ * consolidar todos os relatórios num único lugar (ver decisão no topo de
+ * app/resumo/page.tsx). Continua consumindo a mesma /api/comercial/relatorios
+ * — só a camada de apresentação mudou de módulo. */
+export default function DashboardComercial() {
   const [relatorio, setRelatorio] = useState<RelatorioComercial | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);

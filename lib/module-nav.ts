@@ -19,7 +19,6 @@ export const OPERACIONAL_SUBNAV: ModuleSubNavItem[] = [
   { href: "/operacional/fornecedores", label: "Fornecedores" },
   { href: "/operacional/servicos", label: "Serviços" },
   { href: "/operacional/capacidade", label: "Capacidade" },
-  { href: "/operacional/relatorios", label: "Relatórios" },
 ];
 
 export const FINANCEIRO_SUBNAV: ModuleSubNavItem[] = [
@@ -27,6 +26,5 @@ export const FINANCEIRO_SUBNAV: ModuleSubNavItem[] = [
   { href: "/financeiro/lancamentos", label: "Lançamentos" },
   { href: "/financeiro/custos-fixos", label: "Custos Fixos" },
   { href: "/financeiro/categorias", label: "Categorias" },
-  { href: "/financeiro/relatorios", label: "Relatórios" },
   { href: "/financeiro/configuracoes", label: "Configurações" },
 ];
