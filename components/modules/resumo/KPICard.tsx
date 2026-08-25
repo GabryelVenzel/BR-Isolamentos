@@ -61,7 +61,12 @@ export default function KPICard({ titulo, icone, valor, cor, tendencia, href, ch
     >
       <div className="flex items-start justify-between">
         <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{titulo}</p>
-        <span aria-hidden className="text-lg leading-none">
+        {/* pdf-ocultar: html2canvas (motor do export de PDF) renderiza alguns
+            emojis (glifos multi-codepoint como 🔄/💸/💵) de forma corrompida
+            — ver lib/pdf-generator.ts. Como é puramente decorativo
+            (aria-hidden, o título ao lado já diz tudo), é ocultado só
+            durante a captura em vez de arriscar aparecer quebrado no PDF. */}
+        <span aria-hidden className="pdf-ocultar text-lg leading-none">
           {icone}
         </span>
       </div>

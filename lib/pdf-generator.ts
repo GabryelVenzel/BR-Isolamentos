@@ -3,7 +3,11 @@
 // companhia) renderizado na página (client-side only — html2canvas/jsPDF
 // dependem do DOM/canvas do navegador). Usar dentro de um "use client".
 
-const FORMATO_A4 = { orientation: "portrait" as const, unit: "mm" as const, format: "a4" as const };
+const FORMATO_A4 = {
+  orientation: "portrait" as const,
+  unit: "mm" as const,
+  format: "a4" as const,
+};
 // Dimensões A4 (210 x 297mm) com margem real de 10mm em cada lado — antes o
 // conteúdo ia de borda a borda (imgWidth = pageWidth inteiro), o que fazia
 // gráficos/texto colarem no limite físico da página impressa.
@@ -22,7 +26,9 @@ function descerWrapperDeUmFilho(raiz: HTMLElement): HTMLElement {
 }
 
 function hasTextoProprio(el: HTMLElement): boolean {
-  return Array.from(el.childNodes).some((n) => n.nodeType === Node.TEXT_NODE && n.textContent?.trim());
+  return Array.from(el.childNodes).some(
+    (n) => n.nodeType === Node.TEXT_NODE && n.textContent?.trim(),
+  );
 }
 
 /**
@@ -50,6 +56,17 @@ export async function gerarPdfDeElemento(elementId: string): Promise<Blob> {
   }
   const elemento = descerWrapperDeUmFilho(raiz);
 
+  // html2canvas não tira um print real — ele reimplementa a renderização de
+  // texto desenhando glifo por glifo num canvas, com seu próprio processo de
+  // carregamento de fonte. Se ele rodar antes da fonte customizada (Alfaim
+  // 2/Montserrat) estar 100% pronta no navegador, ele desenha com uma fonte
+  // substituta cujas métricas (altura de linha, ascent) não batem com a
+  // caixa calculada pelo CSS real — resultado: texto com a parte de cima
+  // cortada em elementos com overflow-hidden (ex.: os valores dos KPICards,
+  // que usam `truncate`). `document.fonts.ready` garante que a fonte já
+  // carregou antes da captura começar.
+  await document.fonts.ready;
+
   const pdf = new jsPDF(FORMATO_A4);
   const larguraPagina = pdf.internal.pageSize.getWidth();
   const alturaPagina = pdf.internal.pageSize.getHeight();
@@ -57,77 +74,121 @@ export async function gerarPdfDeElemento(elementId: string): Promise<Blob> {
   const alturaUtil = alturaPagina - MARGEM_MM * 2;
 
   const blocos = Array.from(elemento.children).filter(
-    (el): el is HTMLElement => el instanceof HTMLElement && el.offsetHeight > 0
+    (el): el is HTMLElement => el instanceof HTMLElement && el.offsetHeight > 0,
   );
   // Se o elemento não tiver filhos "capturáveis" (ex.: texto solto, sem
   // sub-blocos), captura ele inteiro como um bloco único — mesmo
   // comportamento de antes, só sem a fatia por altura fixa.
   const alvos = blocos.length > 0 ? blocos : [elemento];
 
+  // Alguns emojis (glifos multi-codepoint como 🔄/💸/💵, usados como ícone
+  // decorativo nos KPICards) saem corrompidos no html2canvas — ele não faz o
+  // fallback de fonte completo que o navegador faz de verdade. Como são só
+  // decoração (aria-hidden, ver KPICard.tsx), a correção robusta é escondê-
+  // los DURANTE a captura (não tenta adivinhar quais glifos especificamente
+  // vão quebrar) e devolver a visibilidade normal logo depois, mesmo se a
+  // geração falhar no meio.
+  const iconesOcultos = Array.from(
+    elemento.querySelectorAll<HTMLElement>(".pdf-ocultar"),
+  );
+  iconesOcultos.forEach((el) => {
+    el.style.visibility = "hidden";
+  });
+
   let y = MARGEM_MM;
   let paginaTemConteudo = false;
 
-  for (const bloco of alvos) {
-    // scale 3 (~288 DPI efetivo numa página A4) — html2canvas não tem opção
-    // de "dpi"/"quality" real (não existe esse parâmetro na lib); a única
-    // alavanca de nitidez é renderizar em N vezes o tamanho e deixar o PDF
-    // exibir reduzido. PNG via toDataURL já é sem perda, então não há
-    // "qualidade" adicional a configurar na exportação em si.
-    const canvas = await html2canvas(bloco, { scale: 3, useCORS: true, backgroundColor: "#ffffff" });
-    if (canvas.width === 0 || canvas.height === 0) continue;
+  try {
+    for (const bloco of alvos) {
+      // scale 3 (~288 DPI efetivo numa página A4) — html2canvas não tem opção
+      // de "dpi"/"quality" real (não existe esse parâmetro na lib); a única
+      // alavanca de nitidez é renderizar em N vezes o tamanho e deixar o PDF
+      // exibir reduzido. PNG via toDataURL já é sem perda, então não há
+      // "qualidade" adicional a configurar na exportação em si.
+      const canvas = await html2canvas(bloco, {
+        scale: 3,
+        useCORS: true,
+        backgroundColor: "#ffffff",
+      });
+      if (canvas.width === 0 || canvas.height === 0) continue;
 
-    const alturaImagem = (canvas.height * larguraUtil) / canvas.width;
+      const alturaImagem = (canvas.height * larguraUtil) / canvas.width;
 
-    if (alturaImagem > alturaUtil) {
-      // Bloco sozinho é mais alto que uma página inteira (gráfico grande,
-      // lista longa de alertas...) — antes disso era desenhado do mesmo
-      // jeito e o PDF simplesmente cortava tudo que passasse da borda da
-      // última página ("PDF cortado"). Fatia o CANVAS (não o layout) em
-      // pedaços do tamanho de uma página cada; cada fatia vira uma página
-      // nova, então nada do conteúdo desaparece.
-      if (paginaTemConteudo) {
+      if (alturaImagem > alturaUtil) {
+        // Bloco sozinho é mais alto que uma página inteira (gráfico grande,
+        // lista longa de alertas...) — antes disso era desenhado do mesmo
+        // jeito e o PDF simplesmente cortava tudo que passasse da borda da
+        // última página ("PDF cortado"). Fatia o CANVAS (não o layout) em
+        // pedaços do tamanho de uma página cada; cada fatia vira uma página
+        // nova, então nada do conteúdo desaparece.
+        if (paginaTemConteudo) {
+          pdf.addPage();
+          y = MARGEM_MM;
+        }
+
+        const pxPorMm = canvas.width / larguraUtil;
+        const alturaFatiaPx = Math.floor(alturaUtil * pxPorMm);
+        let offsetPx = 0;
+        let alturaUltimaFatiaMm = 0;
+
+        while (offsetPx < canvas.height) {
+          const fatiaAlturaPx = Math.min(
+            alturaFatiaPx,
+            canvas.height - offsetPx,
+          );
+          const fatia = document.createElement("canvas");
+          fatia.width = canvas.width;
+          fatia.height = fatiaAlturaPx;
+          fatia
+            .getContext("2d")!
+            .drawImage(
+              canvas,
+              0,
+              offsetPx,
+              canvas.width,
+              fatiaAlturaPx,
+              0,
+              0,
+              canvas.width,
+              fatiaAlturaPx,
+            );
+
+          alturaUltimaFatiaMm = fatiaAlturaPx / pxPorMm;
+          pdf.addImage(
+            fatia.toDataURL("image/png"),
+            "PNG",
+            MARGEM_MM,
+            MARGEM_MM,
+            larguraUtil,
+            alturaUltimaFatiaMm,
+          );
+
+          offsetPx += fatiaAlturaPx;
+          if (offsetPx < canvas.height) pdf.addPage();
+        }
+
+        y = MARGEM_MM + alturaUltimaFatiaMm + 4;
+        paginaTemConteudo = true;
+        continue;
+      }
+
+      // Só quebra página se já tem algo desenhado nesta E o bloco não cabe no
+      // espaço restante.
+      if (paginaTemConteudo && y + alturaImagem > MARGEM_MM + alturaUtil) {
         pdf.addPage();
         y = MARGEM_MM;
+        paginaTemConteudo = false;
       }
 
-      const pxPorMm = canvas.width / larguraUtil;
-      const alturaFatiaPx = Math.floor(alturaUtil * pxPorMm);
-      let offsetPx = 0;
-      let alturaUltimaFatiaMm = 0;
-
-      while (offsetPx < canvas.height) {
-        const fatiaAlturaPx = Math.min(alturaFatiaPx, canvas.height - offsetPx);
-        const fatia = document.createElement("canvas");
-        fatia.width = canvas.width;
-        fatia.height = fatiaAlturaPx;
-        fatia
-          .getContext("2d")!
-          .drawImage(canvas, 0, offsetPx, canvas.width, fatiaAlturaPx, 0, 0, canvas.width, fatiaAlturaPx);
-
-        alturaUltimaFatiaMm = fatiaAlturaPx / pxPorMm;
-        pdf.addImage(fatia.toDataURL("image/png"), "PNG", MARGEM_MM, MARGEM_MM, larguraUtil, alturaUltimaFatiaMm);
-
-        offsetPx += fatiaAlturaPx;
-        if (offsetPx < canvas.height) pdf.addPage();
-      }
-
-      y = MARGEM_MM + alturaUltimaFatiaMm + 4;
+      const imgData = canvas.toDataURL("image/png");
+      pdf.addImage(imgData, "PNG", MARGEM_MM, y, larguraUtil, alturaImagem);
+      y += alturaImagem + 4; // 4mm de respiro entre blocos
       paginaTemConteudo = true;
-      continue;
     }
-
-    // Só quebra página se já tem algo desenhado nesta E o bloco não cabe no
-    // espaço restante.
-    if (paginaTemConteudo && y + alturaImagem > MARGEM_MM + alturaUtil) {
-      pdf.addPage();
-      y = MARGEM_MM;
-      paginaTemConteudo = false;
-    }
-
-    const imgData = canvas.toDataURL("image/png");
-    pdf.addImage(imgData, "PNG", MARGEM_MM, y, larguraUtil, alturaImagem);
-    y += alturaImagem + 4; // 4mm de respiro entre blocos
-    paginaTemConteudo = true;
+  } finally {
+    iconesOcultos.forEach((el) => {
+      el.style.visibility = "";
+    });
   }
 
   return pdf.output("blob");
