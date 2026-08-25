@@ -78,9 +78,46 @@ export async function gerarPdfDeElemento(elementId: string): Promise<Blob> {
 
     const alturaImagem = (canvas.height * larguraUtil) / canvas.width;
 
+    if (alturaImagem > alturaUtil) {
+      // Bloco sozinho é mais alto que uma página inteira (gráfico grande,
+      // lista longa de alertas...) — antes disso era desenhado do mesmo
+      // jeito e o PDF simplesmente cortava tudo que passasse da borda da
+      // última página ("PDF cortado"). Fatia o CANVAS (não o layout) em
+      // pedaços do tamanho de uma página cada; cada fatia vira uma página
+      // nova, então nada do conteúdo desaparece.
+      if (paginaTemConteudo) {
+        pdf.addPage();
+        y = MARGEM_MM;
+      }
+
+      const pxPorMm = canvas.width / larguraUtil;
+      const alturaFatiaPx = Math.floor(alturaUtil * pxPorMm);
+      let offsetPx = 0;
+      let alturaUltimaFatiaMm = 0;
+
+      while (offsetPx < canvas.height) {
+        const fatiaAlturaPx = Math.min(alturaFatiaPx, canvas.height - offsetPx);
+        const fatia = document.createElement("canvas");
+        fatia.width = canvas.width;
+        fatia.height = fatiaAlturaPx;
+        fatia
+          .getContext("2d")!
+          .drawImage(canvas, 0, offsetPx, canvas.width, fatiaAlturaPx, 0, 0, canvas.width, fatiaAlturaPx);
+
+        alturaUltimaFatiaMm = fatiaAlturaPx / pxPorMm;
+        pdf.addImage(fatia.toDataURL("image/png"), "PNG", MARGEM_MM, MARGEM_MM, larguraUtil, alturaUltimaFatiaMm);
+
+        offsetPx += fatiaAlturaPx;
+        if (offsetPx < canvas.height) pdf.addPage();
+      }
+
+      y = MARGEM_MM + alturaUltimaFatiaMm + 4;
+      paginaTemConteudo = true;
+      continue;
+    }
+
     // Só quebra página se já tem algo desenhado nesta E o bloco não cabe no
-    // espaço restante — um bloco maior que a página inteira ainda é
-    // desenhado (sem cortar em vários pedaços) para não travar em loop.
+    // espaço restante.
     if (paginaTemConteudo && y + alturaImagem > MARGEM_MM + alturaUtil) {
       pdf.addPage();
       y = MARGEM_MM;
