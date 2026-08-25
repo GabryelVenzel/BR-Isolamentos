@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import PDFPreviewComercial from "@/components/PDFPreviewComercial";
 import PDFPreviewTecnica from "@/components/PDFPreviewTecnica";
@@ -26,11 +26,22 @@ export default function DownloadPdfPage() {
   const [configEmpresa, setConfigEmpresa] = useState<ConfigEmpresa | null>(null);
   const [gerando, setGerando] = useState<"comercial" | "tecnica" | "comercial-word" | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [erroCarregamento, setErroCarregamento] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch(`/api/orcamentos/${id}`)
-      .then((r) => r.json())
-      .then(setOrcamento);
+  const carregar = useCallback(async () => {
+    setErroCarregamento(null);
+    try {
+      const resposta = await fetch(`/api/orcamentos/${id}`);
+      const dados = await resposta.json();
+      if (!resposta.ok) {
+        setErroCarregamento(dados?.error ?? "Não foi possível carregar este orçamento.");
+        return;
+      }
+      setOrcamento(dados);
+    } catch {
+      setErroCarregamento("Erro de conexão ao carregar o orçamento.");
+      return;
+    }
 
     // Telefone/e-mail reais da empresa (cadastrados em Configurar Preços) para
     // o rodapé da proposta — ver components/pdf/PdfFooter.tsx.
@@ -39,12 +50,26 @@ export default function DownloadPdfPage() {
       .then(setConfigEmpresa)
       .catch(() => setConfigEmpresa(null));
 
-    const supabase = createSupabaseBrowserClient();
-    supabase
-      .from("imagens_proposta")
-      .select("url, legenda")
-      .then(({ data }) => setImagens(data ?? []));
+    // As imagens de referência são um "bônus" da proposta — se o Storage/
+    // Supabase falhar aqui (ex.: variáveis de ambiente do navegador
+    // indisponíveis nesse deploy), a página não deve travar por isso: a
+    // proposta continua gerável, só sem as fotos. Antes este bloco chamava
+    // createSupabaseBrowserClient() direto dentro do useEffect, sem
+    // try/catch — se as env vars faltassem, a exceção derrubava a página
+    // inteira (ver app/error.tsx) em vez de só a galeria de imagens.
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase.from("imagens_proposta").select("url, legenda");
+      if (error) throw error;
+      setImagens(data ?? []);
+    } catch {
+      setImagens([]);
+    }
   }, [id]);
+
+  useEffect(() => {
+    carregar();
+  }, [carregar]);
 
   async function baixarComercial() {
     if (!orcamento) return;
@@ -53,8 +78,8 @@ export default function DownloadPdfPage() {
     try {
       const blob = await gerarPdfDeElemento("pdf-preview-comercial");
       baixarPdf(blob, nomeArquivoPdfComercial(orcamento));
-    } catch {
-      setErro("Não foi possível gerar o PDF comercial.");
+    } catch (err) {
+      setErro(`Não foi possível gerar o PDF comercial.${err instanceof Error ? ` (${err.message})` : ""}`);
     } finally {
       setGerando(null);
     }
@@ -67,8 +92,8 @@ export default function DownloadPdfPage() {
     try {
       const blob = await gerarPdfDeElemento("pdf-preview-tecnica");
       baixarPdf(blob, nomeArquivoPdfTecnica(orcamento));
-    } catch {
-      setErro("Não foi possível gerar o PDF técnico.");
+    } catch (err) {
+      setErro(`Não foi possível gerar o PDF técnico.${err instanceof Error ? ` (${err.message})` : ""}`);
     } finally {
       setGerando(null);
     }
@@ -81,11 +106,22 @@ export default function DownloadPdfPage() {
     try {
       const blob = await gerarPropostaComercialDocx(orcamento, configEmpresa);
       baixarPdf(blob, nomeArquivoDocxComercial(orcamento));
-    } catch {
-      setErro("Não foi possível gerar o Word da proposta comercial.");
+    } catch (err) {
+      setErro(`Não foi possível gerar o Word da proposta comercial.${err instanceof Error ? ` (${err.message})` : ""}`);
     } finally {
       setGerando(null);
     }
+  }
+
+  if (erroCarregamento) {
+    return (
+      <div className="card max-w-lg text-sm text-status-error">
+        <p>{erroCarregamento}</p>
+        <button type="button" className="btn-secondary mt-3" onClick={carregar}>
+          Tentar de novo
+        </button>
+      </div>
+    );
   }
 
   if (!orcamento) return <p className="text-sm text-gray-500">Carregando...</p>;

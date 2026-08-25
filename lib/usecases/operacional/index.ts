@@ -10,8 +10,8 @@ export { moverServico } from "./moverServico";
 export { finalizarServico } from "./finalizarServico";
 export { anexarArquivoServico } from "./anexarArquivoServico";
 export { registrarInteracaoServico } from "./registrarInteracaoServico";
-export { calcularCapacidadeDia } from "./capacidade";
-export type { CapacidadeDia, CapacidadeParceiroDia } from "./capacidade";
+export { calcularCapacidadeDia, calcularCapacidadeMes, nivelOcupacao } from "./capacidade";
+export type { CapacidadeDia, CapacidadeParceiroDia, CapacidadeResumoDia, NivelOcupacao } from "./capacidade";
 export {
   calcularCustoRealVsOrcado,
   calcularFunilServicos,

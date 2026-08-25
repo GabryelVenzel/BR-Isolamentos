@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { CLASSES_ABA_ATIVA, CLASSES_ABA_BASE, CLASSES_ABA_INATIVA } from "@/components/TabsNavigation";
 
 export interface ModuleSubNavItem {
   href: string;
@@ -33,16 +34,14 @@ export default function ModuleSubNav({ items }: Props) {
   }, null);
 
   return (
-    <nav className="mb-6 flex flex-wrap gap-2 border-b border-gray-200 pb-4">
+    <nav className="mb-6 flex flex-wrap gap-1 border-b border-gray-200">
       {items.map((item) => {
         const ativo = item === itemAtivo;
         return (
           <Link
             key={item.href}
             href={item.href}
-            className={`rounded-full px-4 py-1.5 font-montserrat text-sm font-semibold transition-colors ${
-              ativo ? "bg-brand text-white" : "bg-brand-light text-brand hover:bg-brand/10"
-            }`}
+            className={`${CLASSES_ABA_BASE} ${ativo ? CLASSES_ABA_ATIVA : CLASSES_ABA_INATIVA}`}
           >
             {item.label}
           </Link>

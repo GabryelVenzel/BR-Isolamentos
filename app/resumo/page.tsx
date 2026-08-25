@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import TabsNavigation from "@/components/TabsNavigation";
 import DashboardGeral from "@/components/modules/resumo/DashboardGeral";
 import DashboardOperacao from "@/components/modules/resumo/DashboardOperacao";
 import DashboardComercial from "@/components/modules/resumo/DashboardComercial";
@@ -76,20 +77,11 @@ function ResumoPageConteudo() {
         <p className="text-sm text-gray-500">{abaAtual.subtitulo}</p>
       </div>
 
-      <div className="flex gap-1 border-b border-gray-200">
-        {ABAS.map((a) => (
-          <button
-            key={a.valor}
-            type="button"
-            onClick={() => trocarAba(a.valor)}
-            className={`rounded-t-lg px-4 py-2 text-sm font-medium transition-colors ${
-              aba === a.valor ? "border-b-2 border-brand bg-brand-light text-brand" : "text-gray-500 hover:bg-gray-50"
-            }`}
-          >
-            {a.label}
-          </button>
-        ))}
-      </div>
+      <TabsNavigation
+        tabs={ABAS.map((a) => ({ valor: a.valor, label: a.label }))}
+        activeTab={aba}
+        onTabChange={trocarAba}
+      />
 
       {aba === "geral" && <DashboardGeral />}
       {aba === "operacao" && <DashboardOperacao />}

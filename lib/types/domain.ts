@@ -305,7 +305,13 @@ export interface Servico {
   numero_orcamento: string | null;
   cliente_id: number | null;
   etapa: EtapaServico;
+  /** @deprecated espelho do primeiro item de `tipos_trabalho` — mantido só
+   * pra não quebrar filtros/relatórios que ainda agrupam por 1 tipo (ver
+   * sql-migration-011-servicos-multiplos-tipos.sql). Usar `tipos_trabalho`. */
   tipo_trabalho: TipoTrabalhoOperacional | null;
+  /** Um serviço pode ter mais de um tipo de trabalho executado ao mesmo
+   * tempo (ex.: Caldeiraria + Isolamentos no mesmo local/dia). */
+  tipos_trabalho: TipoTrabalhoOperacional[];
   valor_orcado: number | null;
   /** Preenchido só na finalização — base da análise "real vs orçado". */
   valor_real: number | null;

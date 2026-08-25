@@ -44,7 +44,9 @@ export default function ServicoCard({ servico, onAbrir, onIniciarArraste, onTerm
       {servico.valor_orcado != null && (
         <p className="font-montserrat text-sm font-bold text-accent">{formatarMoeda(servico.valor_orcado)}</p>
       )}
-      {servico.tipo_trabalho && <p className="text-xs text-gray-500">{LABEL_TIPO[servico.tipo_trabalho]}</p>}
+      {servico.tipos_trabalho.length > 0 && (
+        <p className="text-xs text-gray-500">{servico.tipos_trabalho.map((t) => LABEL_TIPO[t] ?? t).join(", ")}</p>
+      )}
       {servico.data_inicio && (
         <p className="text-xs text-gray-400">
           {formatarData(servico.data_inicio)}

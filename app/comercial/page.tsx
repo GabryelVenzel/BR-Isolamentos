@@ -2,6 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import TabsNavigation from "@/components/TabsNavigation";
 import ToastContainer from "@/components/modules/comercial/ToastContainer";
 import { toast } from "@/components/modules/comercial/toast";
 import KanbanBoard from "@/components/modules/comercial/KanbanBoard";
@@ -27,7 +28,7 @@ const ABAS: Array<{ valor: AbaComercial; label: string }> = [
 ];
 
 const CHAVE_ABA = "br-isolamentos:comercial-aba";
-const FILTROS_INICIAIS: FiltrosKanbanState = { temperatura: "", origem: "", atribuidoA: "", periodo: "" };
+const FILTROS_INICIAIS: FiltrosKanbanState = { busca: "", temperatura: "", origem: "", atribuidoA: "", periodo: "" };
 
 export default function ComercialPage() {
   return (
@@ -187,7 +188,16 @@ function ComercialPageConteudo() {
     .reduce((acc, l) => acc + l.valor_estimado, 0);
 
   const totalLeadsAtrasados = leads.filter((l) => l.etapa_atrasada).length;
-  const leadsExibidos = soAtrasados ? leads.filter((l) => l.etapa_atrasada) : leads;
+  const buscaNormalizada = filtros.busca.trim().toLowerCase();
+  const leadsBuscados = buscaNormalizada
+    ? leads.filter(
+        (l) =>
+          l.numero_lead?.toLowerCase().includes(buscaNormalizada) ||
+          l.orcamento?.numero_orcamento?.toLowerCase().includes(buscaNormalizada) ||
+          l.cliente?.nome?.toLowerCase().includes(buscaNormalizada)
+      )
+    : leads;
+  const leadsExibidos = soAtrasados ? leadsBuscados.filter((l) => l.etapa_atrasada) : leadsBuscados;
 
   return (
     <div className="space-y-6">
@@ -209,20 +219,11 @@ function ComercialPageConteudo() {
         )}
       </div>
 
-      <div className="flex gap-1 border-b border-gray-200">
-        {ABAS.map((a) => (
-          <button
-            key={a.valor}
-            type="button"
-            onClick={() => trocarAba(a.valor)}
-            className={`rounded-t-lg px-4 py-2 text-sm font-medium transition-colors ${
-              aba === a.valor ? "border-b-2 border-brand bg-brand-light text-brand" : "text-gray-500 hover:bg-gray-50"
-            }`}
-          >
-            {a.label}
-          </button>
-        ))}
-      </div>
+      <TabsNavigation
+        tabs={ABAS.map((a) => ({ valor: a.valor, label: a.label }))}
+        activeTab={aba}
+        onTabChange={trocarAba}
+      />
 
       {aba === "crm" && (
         <div className="space-y-4">

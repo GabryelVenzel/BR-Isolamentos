@@ -70,6 +70,12 @@ export default function EditarOrcamentoPage() {
       <div className="card space-y-4">
         <div>
           <label className="label-field">Status</label>
+          <p className="mb-1 text-xs text-gray-400">
+            Enquanto este orçamento estiver vinculado a um lead (Comercial), o status muda
+            sozinho conforme a etapa do lead (Proposta/Negociação → Enviado, Fechado → Aceito,
+            Perdido → Rejeitado). Só ajuste manualmente se este orçamento não estiver vinculado
+            a nenhum lead.
+          </p>
           <select
             className="input-field"
             value={orcamento.status}

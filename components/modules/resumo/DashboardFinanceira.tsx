@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import ReceitaDespesaChart from "@/components/modules/financeiro/graficos/ReceitaDespesaChart";
 import DistribuicaoCategoriaChart from "@/components/modules/financeiro/graficos/DistribuicaoCategoriaChart";
 import CustosFixosVariaveisChart from "@/components/modules/financeiro/graficos/CustosFixosVariaveisChart";
+import { gerarPdfDeElemento, baixarArquivo } from "@/lib/pdf-generator";
 import { formatarMoeda, formatarNumero } from "@/lib/format";
 import type {
   AlertaFinanceiro,
@@ -12,7 +13,6 @@ import type {
   KpisFinanceiro,
   ReceitaDespesaMes,
 } from "@/lib/usecases/financeiro";
-import type { CategoriaLancamento } from "@/lib/types/domain";
 
 interface RelatorioFinanceiro {
   kpis: KpisFinanceiro;
@@ -33,27 +33,22 @@ interface RelatorioFinanceiro {
  * pendência). Os componentes de gráfico (ReceitaDespesaChart,
  * DistribuicaoCategoriaChart, CustosFixosVariaveisChart) continuam morando em
  * components/modules/financeiro/graficos pelo mesmo motivo — mover pra cá
- * quebraria o Dashboard do Financeiro, que não foi removido. */
+ * quebraria o Dashboard do Financeiro, que não foi removido.
+ *
+ * Só o filtro de Período ficou aqui (Categoria, que existia antes, foi
+ * removido por pedido — ver mesmo raciocínio em DashboardOperacao.tsx). */
 export default function DashboardFinanceira() {
   const [relatorio, setRelatorio] = useState<RelatorioFinanceiro | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [periodo, setPeriodo] = useState<"30dias" | "3meses" | "12meses">("12meses");
-  const [categoria, setCategoria] = useState("");
-  const [categorias, setCategorias] = useState<CategoriaLancamento[]>([]);
-
-  useEffect(() => {
-    fetch("/api/financeiro/categorias")
-      .then((r) => r.json())
-      .then((p) => p.success && setCategorias(p.data));
-  }, []);
+  const [exportando, setExportando] = useState(false);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
     setErro(null);
     try {
       const params = new URLSearchParams({ periodo });
-      if (categoria) params.set("categoria", categoria);
 
       const response = await fetch(`/api/financeiro/relatorios?${params.toString()}`);
       const payload = await response.json();
@@ -67,15 +62,25 @@ export default function DashboardFinanceira() {
     } finally {
       setCarregando(false);
     }
-  }, [periodo, categoria]);
+  }, [periodo]);
 
   useEffect(() => {
     carregar();
   }, [carregar]);
 
+  async function exportarPdf() {
+    setExportando(true);
+    try {
+      const blob = await gerarPdfDeElemento("resumo-financeira-export");
+      baixarArquivo(blob, `Resumo_Financeira_${new Date().toISOString().slice(0, 10)}.pdf`);
+    } finally {
+      setExportando(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <div className="card grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <div className="card flex flex-wrap items-end gap-3">
         <div>
           <label className="label-field">Período</label>
           <select className="input-field" value={periodo} onChange={(e) => setPeriodo(e.target.value as never)}>
@@ -84,16 +89,13 @@ export default function DashboardFinanceira() {
             <option value="12meses">Últimos 12 meses</option>
           </select>
         </div>
-        <div>
-          <label className="label-field">Categoria</label>
-          <select className="input-field" value={categoria} onChange={(e) => setCategoria(e.target.value)}>
-            <option value="">Todas</option>
-            {categorias.map((c) => (
-              <option key={c.id} value={c.nome}>
-                {c.nome}
-              </option>
-            ))}
-          </select>
+        <div className="ml-auto flex items-end gap-2">
+          <button type="button" className="btn-secondary" onClick={exportarPdf} disabled={exportando || !relatorio}>
+            {exportando ? "Gerando..." : "📥 Exportar"}
+          </button>
+          <button type="button" className="btn-primary" onClick={carregar} disabled={carregando}>
+            {carregando ? "Atualizando..." : "🔄 Atualizar"}
+          </button>
         </div>
       </div>
 
@@ -107,7 +109,7 @@ export default function DashboardFinanceira() {
           </button>
         </div>
       ) : (
-        <>
+        <div id="resumo-financeira-export" className="space-y-6 bg-gray-50">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
             <div className="card text-center">
               <p className="text-xs uppercase text-gray-500">Receita Total</p>
@@ -148,7 +150,7 @@ export default function DashboardFinanceira() {
               ))}
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );

@@ -4,6 +4,7 @@ import { formatarTemperatura } from "@/lib/format";
 import { ORIGENS_LEAD, type TemperaturaLead } from "@/lib/types/domain";
 
 export interface FiltrosKanbanState {
+  busca: string;
   temperatura: TemperaturaLead | "";
   origem: string;
   atribuidoA: string;
@@ -42,6 +43,16 @@ export default function FiltrosKanban({
 }: Props) {
   return (
     <div className="card space-y-3">
+      <div>
+        <label className="label-field">Buscar</label>
+        <input
+          className="input-field"
+          placeholder="Código do lead (L00001), código do orçamento (O00001) ou cliente..."
+          value={filtros.busca}
+          onChange={(e) => onChange({ busca: e.target.value })}
+        />
+      </div>
+
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <label className="label-field">Temperatura</label>

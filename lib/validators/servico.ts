@@ -18,7 +18,12 @@ export const CreateServicoSchema = z
   .object({
     lead_id: z.string().min(1, "Serviço precisa de um lead vinculado."),
     orcamento_id: z.number().int().positive("Serviço precisa de um orçamento vinculado."),
-    tipo_trabalho: TipoTrabalhoOperacionalSchema,
+    // Um serviço pode ter mais de um tipo de trabalho executado ao mesmo
+    // tempo (ex.: Caldeiraria + Isolamentos no mesmo local/dia) — `tipo_trabalho`
+    // (singular) é mantido só como espelho do primeiro item de
+    // `tipos_trabalho`, para não quebrar filtros/relatórios que ainda
+    // agrupam por um tipo só (ver decisão em sql-migration-011).
+    tipos_trabalho: z.array(TipoTrabalhoOperacionalSchema).min(1, "Selecione ao menos 1 tipo de trabalho."),
     parceiro_principal_id: z.string().min(1, "Selecione o parceiro principal."),
     pessoas_alocadas: z.number().int().positive().nullable().optional(),
     parceiros_alocados: z.array(z.string().min(1)).optional(),
@@ -38,7 +43,7 @@ export const CreateServicoSchema = z
 // (que passa por moverServico, com histórico) nem valor_real/data_fim_real/
 // anexos (que passam por finalizarServico, com validação de checklist).
 export const UpdateServicoSchema = z.object({
-  tipo_trabalho: TipoTrabalhoOperacionalSchema.optional(),
+  tipos_trabalho: z.array(TipoTrabalhoOperacionalSchema).min(1).optional(),
   parceiro_principal_id: z.string().min(1).optional(),
   pessoas_alocadas: z.number().int().positive().nullable().optional(),
   parceiros_alocados: z.array(z.string().min(1)).optional(),

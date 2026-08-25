@@ -75,6 +75,12 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
   const [notas, setNotas] = useState("");
   const [atribuidoA, setAtribuidoA] = useState("");
   const [salvandoDados, setSalvandoDados] = useState(false);
+  // Responsável agora é um <select> dinâmico (não mais texto livre) — fonte:
+  // /api/usuarios, o mesmo roster já usado em Comercial → Configurações →
+  // Responsáveis (ver ResponsaveisSection.tsx). Continua sendo `usuarios`,
+  // não uma tabela `responsaveis_comerciais` nova — decisão confirmada com o
+  // usuário pra não duplicar o cadastro de pessoas.
+  const [usuarios, setUsuarios] = useState<Array<{ email: string; nome: string }>>([]);
 
   // Etapa/temperatura (Seção "Mudar status") — cada uma salva via seu
   // próprio endpoint (moverLead / mudarTemperatura), não pelo PATCH geral.
@@ -134,6 +140,10 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  useEffect(() => {
+    fetch("/api/usuarios").then((r) => r.json()).then(setUsuarios).catch(() => setUsuarios([]));
+  }, []);
 
   async function vincularOrcamento() {
     if (!orcamentoParaVincular) return;
@@ -339,8 +349,15 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
                         <p className="input-field cursor-default bg-gray-50 text-gray-600">{lead.origem ?? "—"}</p>
                       </div>
                       <div>
-                        <label className="label-field">Responsável (e-mail)</label>
-                        <input className="input-field" value={atribuidoA} onChange={(e) => setAtribuidoA(e.target.value)} />
+                        <label className="label-field">Responsável</label>
+                        <select className="input-field" value={atribuidoA} onChange={(e) => setAtribuidoA(e.target.value)}>
+                          <option value="">Sem responsável</option>
+                          {usuarios.map((u) => (
+                            <option key={u.email} value={u.email}>
+                              {u.nome}
+                            </option>
+                          ))}
+                        </select>
                       </div>
                     </div>
                     <div>

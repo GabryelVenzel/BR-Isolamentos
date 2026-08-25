@@ -31,8 +31,14 @@ export default function HistoricoPage() {
     const response = await fetch(`/api/orcamentos?${params.toString()}`);
     if (response.ok) {
       const data: Orcamento[] = await response.json();
-      const filtrados = busca
-        ? data.filter((o) => o.cliente?.nome?.toLowerCase().includes(busca.toLowerCase()))
+      const buscaNormalizada = busca.trim().toLowerCase();
+      const filtrados = buscaNormalizada
+        ? data.filter(
+            (o) =>
+              o.cliente?.nome?.toLowerCase().includes(buscaNormalizada) ||
+              o.numero?.toLowerCase().includes(buscaNormalizada) ||
+              o.numero_orcamento?.toLowerCase().includes(buscaNormalizada)
+          )
         : data;
       setOrcamentos(filtrados);
     }
@@ -60,10 +66,10 @@ export default function HistoricoPage() {
 
       <div className="card grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <label className="label-field">Cliente</label>
+          <label className="label-field">Buscar</label>
           <input
             className="input-field"
-            placeholder="Buscar por nome..."
+            placeholder="Código (O00001, ORC-2026-0001) ou nome do cliente..."
             value={busca}
             onChange={(e) => setBusca(e.target.value)}
           />

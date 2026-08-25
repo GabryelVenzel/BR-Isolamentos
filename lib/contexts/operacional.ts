@@ -36,6 +36,7 @@ import {
   atualizarParceiro,
   atualizarServico,
   calcularCapacidadeDia,
+  calcularCapacidadeMes,
   criarAgendamento,
   criarFornecedor,
   criarParceiro,
@@ -45,6 +46,7 @@ import {
   moverServico,
   registrarInteracaoServico,
   type CapacidadeDia,
+  type CapacidadeResumoDia,
   type RelatorioOperacional,
 } from "../usecases/operacional";
 
@@ -198,6 +200,20 @@ export function createOperacionalContext(supabase: SupabaseClient) {
         servicoRepo.listarAtivosNoDia(data),
       ]);
       return calcularCapacidadeDia(data, parceiros, servicosAtivos);
+    },
+
+    /** Resumo dia-a-dia do mês inteiro (grid de cor do calendário da Agenda) —
+     * uma query pro mês inteiro, não uma por dia. */
+    async obterCapacidadeMes(ano: number, mes: number): Promise<CapacidadeResumoDia[]> {
+      const ultimoDia = new Date(ano, mes, 0).getDate();
+      const dataInicio = `${ano}-${String(mes).padStart(2, "0")}-01`;
+      const dataFim = `${ano}-${String(mes).padStart(2, "0")}-${String(ultimoDia).padStart(2, "0")}`;
+
+      const [parceiros, servicosDoMes] = await Promise.all([
+        parceiroRepo.listar({ ativo: true }),
+        servicoRepo.listarAtivosNoIntervalo(dataInicio, dataFim),
+      ]);
+      return calcularCapacidadeMes(ano, mes, parceiros, servicosDoMes);
     },
 
     // --- Relatórios ---

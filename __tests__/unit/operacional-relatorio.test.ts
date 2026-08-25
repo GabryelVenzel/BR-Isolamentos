@@ -18,6 +18,7 @@ function servico(overrides: Partial<Servico> = {}): Servico {
     cliente_id: null,
     etapa: "planejamento",
     tipo_trabalho: "bancada",
+    tipos_trabalho: ["bancada"],
     valor_orcado: null,
     valor_real: null,
     data_inicio: null,

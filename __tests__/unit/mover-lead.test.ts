@@ -132,6 +132,76 @@ describe("moverLead", () => {
     expect(historicoRepo.create).not.toHaveBeenCalled();
   });
 
+  // Status do orçamento é computado a partir da etapa do lead (não editado
+  // manualmente) — ver STATUS_ORCAMENTO_POR_ETAPA em moverLead.ts.
+  function criarOrcamentoRepoFake() {
+    return { update: jest.fn(async (id: number, dados: unknown) => ({ id, ...(dados as object) })) };
+  }
+
+  it("move pra 'fechado' com orçamento vinculado marca o orçamento como 'aceito'", async () => {
+    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "negociacao", orcamento_id: 42 }));
+    const historicoRepo = criarHistoricoRepoFake();
+    const orcamentoRepo = criarOrcamentoRepoFake();
+
+    await moverLead(
+      { leadId: "lead-1", novaEtapa: "fechado" },
+      { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never, orcamentoRepo: orcamentoRepo as never }
+    );
+
+    expect(orcamentoRepo.update).toHaveBeenCalledWith(42, { status: "aceito" });
+  });
+
+  it("move pra 'perdido' com orçamento vinculado marca o orçamento como 'rejeitado'", async () => {
+    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "negociacao", orcamento_id: 42 }));
+    const historicoRepo = criarHistoricoRepoFake();
+    const orcamentoRepo = criarOrcamentoRepoFake();
+
+    await moverLead(
+      { leadId: "lead-1", novaEtapa: "perdido" },
+      { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never, orcamentoRepo: orcamentoRepo as never }
+    );
+
+    expect(orcamentoRepo.update).toHaveBeenCalledWith(42, { status: "rejeitado" });
+  });
+
+  it("reabrir um lead 'fechado' de volta pra 'negociacao' reverte o orçamento pra 'enviado'", async () => {
+    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "fechado", orcamento_id: 42 }));
+    const historicoRepo = criarHistoricoRepoFake();
+    const orcamentoRepo = criarOrcamentoRepoFake();
+
+    await moverLead(
+      { leadId: "lead-1", novaEtapa: "negociacao" },
+      { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never, orcamentoRepo: orcamentoRepo as never }
+    );
+
+    expect(orcamentoRepo.update).toHaveBeenCalledWith(42, { status: "enviado" });
+  });
+
+  it("não tenta atualizar orçamento quando o lead não tem um vinculado", async () => {
+    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "negociacao", orcamento_id: null }));
+    const historicoRepo = criarHistoricoRepoFake();
+    const orcamentoRepo = criarOrcamentoRepoFake();
+
+    await moverLead(
+      { leadId: "lead-1", novaEtapa: "fechado" },
+      { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never, orcamentoRepo: orcamentoRepo as never }
+    );
+
+    expect(orcamentoRepo.update).not.toHaveBeenCalled();
+  });
+
+  it("não quebra quando orcamentoRepo não é passado (compatibilidade)", async () => {
+    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "negociacao", orcamento_id: 42 }));
+    const historicoRepo = criarHistoricoRepoFake();
+
+    const resultado = await moverLead(
+      { leadId: "lead-1", novaEtapa: "fechado" },
+      { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never }
+    );
+
+    expect(resultado.etapa).toBe("fechado");
+  });
+
   it("lança NotFoundError quando o lead não existe", async () => {
     const leadRepo = { findById: jest.fn(async () => null), update: jest.fn() };
     const historicoRepo = criarHistoricoRepoFake();

@@ -1,152 +1,111 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import NovoAgendamentoModal from "@/components/operacional/NovoAgendamentoModal";
-import { classesStatusAgendamento, formatarData, formatarStatusAgendamento } from "@/lib/format";
-import type { Agendamento, Parceiro, StatusAgendamento } from "@/lib/types/domain";
+import CalendarioCapacidade from "@/components/operacional/CalendarioCapacidade";
+import ModalCapacidadeDia from "@/components/operacional/ModalCapacidadeDia";
+import type { CapacidadeResumoDia } from "@/lib/usecases/operacional";
 
-const PROXIMOS_STATUS: Record<StatusAgendamento, StatusAgendamento[]> = {
-  agendado: ["em_progresso", "cancelado"],
-  em_progresso: ["concluido", "cancelado"],
-  concluido: [],
-  cancelado: [],
-};
+const MESES = [
+  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
+  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
+];
 
-export default function OperacionalPage() {
-  const [agendamentos, setAgendamentos] = useState<Agendamento[]>([]);
-  const [parceiros, setParceiros] = useState<Parceiro[]>([]);
+function hojeSaoPaulo(): { ano: number; mes: number } {
+  const partes = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "numeric" })
+    .formatToParts(new Date());
+  const ano = Number(partes.find((p) => p.type === "year")?.value);
+  const mes = Number(partes.find((p) => p.type === "month")?.value);
+  return { ano, mes };
+}
+
+/** Aba "Agenda" — antes uma lista de agendamentos avulsos (tabela
+ * `agendamentos`, criados manualmente vinculados a um orçamento), agora um
+ * CALENDÁRIO VISUAL de capacidade (tipo Google Calendar): um quadrado por
+ * dia mostrando disponível/mobilizado, colorido por nível de ocupação,
+ * clicável para o detalhe por parceiro. A aba "Capacidade" que existia
+ * separada foi removida — este calendário é exatamente ela, só que com
+ * navegação por mês em vez de escolher uma data avulsa (ver
+ * components/operacional/CalendarioCapacidade.tsx e ModalCapacidadeDia.tsx).
+ *
+ * A criação manual de "agendamentos" (tabela/API antigas) não tem mais tela
+ * própria aqui: o calendário passou a ser alimentado pelos SERVIÇOS
+ * (data_inicio/data_fim_prevista, já editáveis no detalhe do serviço em
+ * Operacional → Serviços), que é a fonte de verdade de "o que está agendado"
+ * hoje no sistema — manter as duas telas (agendamentos avulsos E serviços
+ * com data) fragmentaria a agenda em duas fontes conflitantes. */
+export default function AgendaPage() {
+  const [{ ano, mes }, setAnoMes] = useState(hojeSaoPaulo);
+  const [dias, setDias] = useState<CapacidadeResumoDia[]>([]);
   const [carregando, setCarregando] = useState(true);
-  const [mostrarNovo, setMostrarNovo] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [diaSelecionado, setDiaSelecionado] = useState<string | null>(null);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
     setErro(null);
     try {
-      const [respAgenda, respParceiros] = await Promise.all([
-        fetch("/api/operacional/agendamentos"),
-        fetch("/api/operacional/parceiros?ativo=true"),
-      ]);
-      const [payloadAgenda, payloadParceiros] = await Promise.all([respAgenda.json(), respParceiros.json()]);
-
-      if (!payloadAgenda.success) {
-        setErro(payloadAgenda.error ?? "Erro ao carregar a agenda.");
-        return;
+      const response = await fetch(`/api/operacional/capacidade/mes?ano=${ano}&mes=${mes}`);
+      const payload = await response.json();
+      if (payload.success) {
+        setDias(payload.data);
+      } else {
+        setErro(payload.error ?? "Erro ao carregar a agenda.");
       }
-      setAgendamentos(payloadAgenda.data);
-      if (payloadParceiros.success) setParceiros(payloadParceiros.data);
+    } catch {
+      setErro("Erro de conexão ao carregar a agenda.");
     } finally {
       setCarregando(false);
     }
-  }, []);
+  }, [ano, mes]);
 
   useEffect(() => {
     carregar();
   }, [carregar]);
 
-  async function mudarStatus(id: string, status: StatusAgendamento) {
-    const response = await fetch(`/api/operacional/agendamentos/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ status }),
+  function mudarMes(delta: number) {
+    setAnoMes((atual) => {
+      const data = new Date(atual.ano, atual.mes - 1 + delta, 1);
+      return { ano: data.getFullYear(), mes: data.getMonth() + 1 };
     });
-    const payload = await response.json();
-    if (payload.success) {
-      setAgendamentos((prev) => prev.map((a) => (a.id === id ? payload.data : a)));
-    }
   }
-
-  function nomeParceiro(id: string): string {
-    return parceiros.find((p) => p.id === id)?.nome ?? "—";
-  }
-
-  const grupos = new Map<string, Agendamento[]>();
-  for (const agendamento of agendamentos) {
-    const chave = agendamento.data_inicio;
-    grupos.set(chave, [...(grupos.get(chave) ?? []), agendamento]);
-  }
-  const datasOrdenadas = Array.from(grupos.keys()).sort();
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Operacional</h1>
-          <p className="text-sm text-gray-500">Agenda de execução em campo.</p>
+        <div className="flex items-center gap-3">
+          <button type="button" className="btn-secondary px-3" onClick={() => mudarMes(-1)} aria-label="Mês anterior">
+            ◀
+          </button>
+          <h1 className="w-40 text-center text-xl font-bold">
+            {MESES[mes - 1]} {ano}
+          </h1>
+          <button type="button" className="btn-secondary px-3" onClick={() => mudarMes(1)} aria-label="Próximo mês">
+            ▶
+          </button>
         </div>
-        <button type="button" className="btn-primary" onClick={() => setMostrarNovo(true)}>
-          + Novo Agendamento
-        </button>
+        <div className="flex gap-2">
+          <button type="button" className="btn-secondary" onClick={carregar} disabled={carregando}>
+            {carregando ? "Atualizando..." : "🔄 Atualizar"}
+          </button>
+        </div>
       </div>
 
-      {erro && <p className="text-sm text-status-error">{erro}</p>}
-
-      {carregando ? (
-        <p className="text-sm text-gray-500">Carregando...</p>
-      ) : datasOrdenadas.length === 0 ? (
-        <div className="card text-center text-sm text-gray-500">Nenhum agendamento na agenda.</div>
-      ) : (
-        <div className="space-y-6">
-          {datasOrdenadas.map((data) => (
-            <div key={data}>
-              <h2 className="mb-2 font-montserrat text-sm font-bold uppercase text-brand">{formatarData(data)}</h2>
-              <div className="space-y-3">
-                {(grupos.get(data) ?? []).map((agendamento) => (
-                  <div key={agendamento.id} className="card">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div>
-                        <p className="font-montserrat font-semibold text-brand">
-                          {agendamento.orcamento
-                            ? `${agendamento.orcamento.numero} — ${agendamento.orcamento.cliente?.nome ?? "—"}`
-                            : "Sem orçamento vinculado"}
-                        </p>
-                        {agendamento.local && <p className="text-sm text-gray-500">{agendamento.local}</p>}
-                        {agendamento.parceiros_alocados.length > 0 && (
-                          <p className="mt-1 text-sm text-gray-600">
-                            Parceiros: {agendamento.parceiros_alocados.map(nomeParceiro).join(", ")}
-                          </p>
-                        )}
-                        {agendamento.horas_estimadas != null && (
-                          <p className="text-xs text-gray-400">{agendamento.horas_estimadas}h estimadas</p>
-                        )}
-                        {agendamento.notas && <p className="mt-1 text-sm text-gray-600">{agendamento.notas}</p>}
-                      </div>
-                      <div className="flex flex-col items-end gap-2">
-                        <span className={`badge ${classesStatusAgendamento(agendamento.status)}`}>
-                          {formatarStatusAgendamento(agendamento.status)}
-                        </span>
-                        <div className="flex gap-2">
-                          {PROXIMOS_STATUS[agendamento.status].map((status) => (
-                            <button
-                              key={status}
-                              type="button"
-                              className={status === "cancelado" ? "btn-danger" : "btn-accent"}
-                              onClick={() => mudarStatus(agendamento.id, status)}
-                            >
-                              {formatarStatusAgendamento(status)}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ))}
+      {erro && (
+        <div className="card text-sm text-status-error">
+          <p>{erro}</p>
+          <button type="button" className="btn-secondary mt-3" onClick={carregar}>
+            Tentar de novo
+          </button>
         </div>
       )}
 
-      {mostrarNovo && (
-        <NovoAgendamentoModal
-          parceiros={parceiros}
-          onFechar={() => setMostrarNovo(false)}
-          onCriado={() => {
-            setMostrarNovo(false);
-            carregar();
-          }}
-        />
+      {carregando && dias.length === 0 ? (
+        <p className="text-sm text-gray-500">Carregando...</p>
+      ) : (
+        !erro && <CalendarioCapacidade ano={ano} mes={mes} dias={dias} onClickDia={setDiaSelecionado} />
       )}
+
+      {diaSelecionado && <ModalCapacidadeDia data={diaSelecionado} onFechar={() => setDiaSelecionado(null)} />}
     </div>
   );
 }

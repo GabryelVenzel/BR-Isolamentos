@@ -79,3 +79,58 @@ export function calcularCapacidadeDia(data: string, parceiros: Parceiro[], servi
     porParceiro,
   };
 }
+
+export type NivelOcupacao = "livre" | "atencao" | "critico";
+
+export interface CapacidadeResumoDia {
+  data: string;
+  totalDisponivel: number;
+  totalMobilizado: number;
+  totalLivre: number;
+  nivel: NivelOcupacao;
+}
+
+/** Cor do dia no calendário mensal (Agenda) — conforme % mobilizado do dia:
+ * "livre" até 70%, "atencao" 70–90%, "critico" acima de 90% (faixas do
+ * pedido original). Sem parceiro nenhum cadastrado = "livre" (nada pra
+ * mobilizar, não é um alerta). */
+export function nivelOcupacao(totalDisponivel: number, totalMobilizado: number): NivelOcupacao {
+  if (totalDisponivel <= 0) return "livre";
+  const percentual = (totalMobilizado / totalDisponivel) * 100;
+  if (percentual > 90) return "critico";
+  if (percentual >= 70) return "atencao";
+  return "livre";
+}
+
+/** Todos os dias de um mês (1..N) com o resumo de capacidade — usado pelo
+ * calendário visual da Agenda (grid de dias coloridos). `servicosDoMes` já
+ * deve vir filtrado pro intervalo do mês inteiro (ver
+ * ServicoRepository#listarAtivosNoIntervalo) — o filtro por dia específico é
+ * feito aqui, em memória, reaproveitando `calcularCapacidadeDia` dia a dia
+ * sem uma query por dia. */
+export function calcularCapacidadeMes(
+  ano: number,
+  mes: number,
+  parceiros: Parceiro[],
+  servicosDoMes: Servico[]
+): CapacidadeResumoDia[] {
+  const ultimoDia = new Date(ano, mes, 0).getDate();
+  const resultado: CapacidadeResumoDia[] = [];
+
+  for (let dia = 1; dia <= ultimoDia; dia++) {
+    const dataIso = `${ano}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+    const servicosAtivosNoDia = servicosDoMes.filter(
+      (s) => s.data_inicio && s.data_inicio <= dataIso && (!s.data_fim_prevista || s.data_fim_prevista >= dataIso)
+    );
+    const { totalDisponivel, totalMobilizado, totalLivre } = calcularCapacidadeDia(dataIso, parceiros, servicosAtivosNoDia);
+    resultado.push({
+      data: dataIso,
+      totalDisponivel,
+      totalMobilizado,
+      totalLivre,
+      nivel: nivelOcupacao(totalDisponivel, totalMobilizado),
+    });
+  }
+
+  return resultado;
+}

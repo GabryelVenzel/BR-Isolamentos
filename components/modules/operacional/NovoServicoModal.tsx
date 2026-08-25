@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "./toast";
+import MultiSelectTiposTrabalho, { TIPOS_TRABALHO_OPCOES } from "./MultiSelectTiposTrabalho";
 import { formatarMoeda } from "@/lib/format";
 import type { Lead, Parceiro, TipoTrabalhoOperacional } from "@/lib/types/domain";
 
@@ -15,13 +16,6 @@ interface Props {
   onCriado: () => void;
 }
 
-const TIPOS: Array<{ valor: TipoTrabalhoOperacional; label: string }> = [
-  { valor: "bancada", label: "Bancada" },
-  { valor: "caldeiraria", label: "Caldeiraria" },
-  { valor: "isolamentos_removiveis", label: "Isolamentos Removíveis" },
-  { valor: "isolamentos_fixos", label: "Isolamentos Fixos" },
-];
-
 /** Cria um serviço (S00001) a partir de um lead fechado — código,
  * lead/orçamento/cliente/valor orçado vêm todos do lead vinculado, não são
  * pedidos de novo (é o ponto da rastreabilidade Lead→Orçamento→Serviço). */
@@ -31,7 +25,7 @@ export default function NovoServicoModal({ leadIdInicial, onFechar, onCriado }: 
   const [leadSelecionado, setLeadSelecionado] = useState<Lead | null>(null);
   const [parceiros, setParceiros] = useState<Parceiro[]>([]);
 
-  const [tipoTrabalho, setTipoTrabalho] = useState<TipoTrabalhoOperacional | "">("");
+  const [tiposTrabalho, setTiposTrabalho] = useState<TipoTrabalhoOperacional[]>([]);
   const [parceiroPrincipalId, setParceiroPrincipalId] = useState("");
   const [pessoasAlocadas, setPessoasAlocadas] = useState("");
   const [dataInicio, setDataInicio] = useState("");
@@ -73,8 +67,8 @@ export default function NovoServicoModal({ leadIdInicial, onFechar, onCriado }: 
       setErro("Este lead não tem orçamento vinculado — vincule um orçamento antes de criar o serviço.");
       return;
     }
-    if (!tipoTrabalho) {
-      setErro("Selecione o tipo de trabalho.");
+    if (tiposTrabalho.length === 0) {
+      setErro("Selecione pelo menos 1 tipo de trabalho.");
       return;
     }
     if (!parceiroPrincipalId) {
@@ -95,7 +89,7 @@ export default function NovoServicoModal({ leadIdInicial, onFechar, onCriado }: 
         body: JSON.stringify({
           lead_id: leadId,
           orcamento_id: leadSelecionado.orcamento_id,
-          tipo_trabalho: tipoTrabalho,
+          tipos_trabalho: tiposTrabalho,
           parceiro_principal_id: parceiroPrincipalId,
           pessoas_alocadas: pessoasAlocadas ? Number(pessoasAlocadas) : null,
           data_inicio: dataInicio,
@@ -157,20 +151,14 @@ export default function NovoServicoModal({ leadIdInicial, onFechar, onCriado }: 
             </div>
           )}
 
+          <div>
+            <label className="label-field">
+              Tipos de trabalho<span className="text-status-error"> *</span>
+            </label>
+            <MultiSelectTiposTrabalho value={tiposTrabalho} onChange={setTiposTrabalho} options={TIPOS_TRABALHO_OPCOES} />
+          </div>
+
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="label-field">
-                Tipo de trabalho<span className="text-status-error"> *</span>
-              </label>
-              <select className="input-field" value={tipoTrabalho} onChange={(e) => setTipoTrabalho(e.target.value as TipoTrabalhoOperacional)}>
-                <option value="">Selecione...</option>
-                {TIPOS.map((t) => (
-                  <option key={t.valor} value={t.valor}>
-                    {t.label}
-                  </option>
-                ))}
-              </select>
-            </div>
             <div>
               <label className="label-field">
                 Parceiro principal<span className="text-status-error"> *</span>

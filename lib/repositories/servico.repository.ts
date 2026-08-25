@@ -48,6 +48,24 @@ export class ServicoRepository extends BaseRepository<Servico> {
     return (linhas ?? []) as unknown as Servico[];
   }
 
+  /** Serviços ativos (não finalizados) cujo período `[data_inicio,
+   * data_fim_prevista]` cruza com `[dataInicio, dataFim]` — usado pelo
+   * calendário mensal de capacidade (ver lib/usecases/operacional/capacidade.ts
+   * #calcularCapacidadeMes): busca o mês inteiro numa única query, em vez de
+   * uma query por dia (até 31), e o cálculo por dia é feito em memória a
+   * partir dessa lista. */
+  async listarAtivosNoIntervalo(dataInicio: string, dataFim: string): Promise<Servico[]> {
+    const { data: linhas, error } = await this.queryBuilder()
+      .select(this.select)
+      .neq("etapa", "finalizado")
+      .not("data_inicio", "is", null)
+      .lte("data_inicio", dataFim)
+      .or(`data_fim_prevista.is.null,data_fim_prevista.gte.${dataInicio}`);
+
+    if (error) throw error;
+    return (linhas ?? []) as unknown as Servico[];
+  }
+
   /** Todos os serviços com `parceiro_principal_id = parceiroId` — usado pelo
    * "Ver histórico" da aba Capacidade/Parceiros. */
   async listarPorParceiro(parceiroId: string): Promise<Servico[]> {

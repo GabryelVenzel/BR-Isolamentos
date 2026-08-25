@@ -322,8 +322,10 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
                       <span className="text-gray-500">Cliente:</span> {servico.cliente?.nome ?? "—"}
                     </p>
                     <p>
-                      <span className="text-gray-500">Tipo de trabalho:</span>{" "}
-                      {servico.tipo_trabalho ? LABEL_TIPO_TRABALHO[servico.tipo_trabalho] : "—"}
+                      <span className="text-gray-500">Tipos de trabalho:</span>{" "}
+                      {servico.tipos_trabalho.length > 0
+                        ? servico.tipos_trabalho.map((t) => LABEL_TIPO_TRABALHO[t] ?? t).join(", ")
+                        : "—"}
                     </p>
                     <p>
                       <span className="text-gray-500">Valor orçado:</span>{" "}

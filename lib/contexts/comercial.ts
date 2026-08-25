@@ -55,6 +55,7 @@ export function createComercialContext(supabase: SupabaseClient) {
   const orcamentoRepo = new OrcamentoRepository(supabase);
 
   const reposMudancaEtapa = { leadRepo, historicoRepo };
+  const reposMoverLead = { leadRepo, historicoRepo, orcamentoRepo };
   const reposVincularOrcamento = { leadRepo, orcamentoRepo, historicoRepo };
   const reposTemperatura = { leadRepo, historicoRepo, agendamentoFrioRepo, configReativacaoRepo };
   const reposReativacao = { leadRepo, historicoRepo, agendamentoFrioRepo };
@@ -100,7 +101,7 @@ export function createComercialContext(supabase: SupabaseClient) {
     },
 
     moverLead(leadId: string, novaEtapa: EtapaFunil, usuarioEmail?: string | null): Promise<Lead> {
-      return moverLead({ leadId, novaEtapa }, reposMudancaEtapa, usuarioEmail);
+      return moverLead({ leadId, novaEtapa }, reposMoverLead, usuarioEmail);
     },
 
     mudarTemperatura(

@@ -16,5 +16,8 @@ export async function atualizarServico(
   if (!existente) throw new NotFoundError(`Serviço ${id} não encontrado.`);
 
   const validados = parseOrThrow(UpdateServicoSchema, dados);
-  return repos.servicoRepo.update(id, validados as Partial<Servico>);
+  const patch: Partial<Servico> = { ...validados };
+  // Mesmo espelho de criarServico.ts — ver sql-migration-011.
+  if (validados.tipos_trabalho) patch.tipo_trabalho = validados.tipos_trabalho[0];
+  return repos.servicoRepo.update(id, patch);
 }

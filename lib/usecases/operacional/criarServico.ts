@@ -33,7 +33,11 @@ export async function criarServico(
     orcamento_id: dados.orcamento_id,
     numero_orcamento: orcamento.numero_orcamento,
     cliente_id: lead.cliente_id,
-    tipo_trabalho: dados.tipo_trabalho,
+    tipos_trabalho: dados.tipos_trabalho,
+    // Espelha o primeiro tipo selecionado — mantém compatibilidade com
+    // filtros/relatórios que ainda agrupam por um tipo só (ver decisão em
+    // sql-migration-011-servicos-multiplos-tipos.sql).
+    tipo_trabalho: dados.tipos_trabalho[0],
     valor_orcado: orcamento.valor_final,
     parceiro_principal_id: dados.parceiro_principal_id,
     pessoas_alocadas: dados.pessoas_alocadas ?? null,

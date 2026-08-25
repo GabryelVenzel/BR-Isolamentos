@@ -34,25 +34,31 @@ export default function LeadCardKanban({ lead, onAbrir, onIniciarArraste, onTerm
         atrasado ? "border-status-error" : "border-gray-200"
       } ${arrastando ? "opacity-40" : ""}`}
     >
-      <div className="mb-1 flex items-start justify-between gap-2">
-        <p className="font-montserrat text-sm font-semibold text-brand">{lead.cliente?.nome ?? "—"}</p>
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        {lead.numero_lead && <span className="font-montserrat text-[11px] font-bold text-gray-400">{lead.numero_lead}</span>}
         <span className={`badge shrink-0 ${classesTemperatura(lead.temperatura)}`}>
           {formatarTemperatura(lead.temperatura)}
         </span>
       </div>
+
+      <p className="mb-1 font-montserrat text-sm font-semibold leading-tight text-brand">{lead.cliente?.nome ?? "—"}</p>
+
       {lead.valor_estimado > 0 && (
-        <p className="font-montserrat text-sm font-bold text-accent">{formatarMoeda(lead.valor_estimado)}</p>
+        <p className="mb-1.5 font-montserrat text-base font-bold text-accent">{formatarMoeda(lead.valor_estimado)}</p>
       )}
-      {lead.origem && <p className="mt-1 truncate text-xs text-gray-500">📍 {lead.origem}</p>}
-      {lead.atribuido_a && <p className="truncate text-xs text-gray-500">👤 {lead.atribuido_a}</p>}
-      <div className="mt-1 flex items-center justify-between gap-2">
-        <p className="text-xs text-gray-400">📅 {formatarData(lead.created_at)}</p>
-        {lead.dias_na_etapa_atual !== undefined && (
-          <p className={`text-xs font-medium ${atrasado ? "text-status-error" : "text-gray-400"}`}>
-            {atrasado ? "⚠️ " : "⏱ "}
-            {Math.floor(lead.dias_na_etapa_atual)}d nesta etapa
-          </p>
-        )}
+
+      <div className="space-y-0.5 border-t border-gray-100 pt-1.5">
+        {lead.origem && <p className="truncate text-xs text-gray-500">📍 {lead.origem}</p>}
+        {lead.atribuido_a && <p className="truncate text-xs text-gray-500">👤 {lead.atribuido_a}</p>}
+        <div className="flex items-center justify-between gap-2 pt-0.5">
+          <p className="text-xs text-gray-400">📅 {formatarData(lead.created_at)}</p>
+          {lead.dias_na_etapa_atual !== undefined && (
+            <p className={`text-xs font-medium ${atrasado ? "text-status-error" : "text-gray-400"}`}>
+              {atrasado ? "⚠️ " : "⏱ "}
+              {Math.floor(lead.dias_na_etapa_atual)}d nesta etapa
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );

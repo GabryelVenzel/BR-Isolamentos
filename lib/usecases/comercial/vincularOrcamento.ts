@@ -25,6 +25,12 @@ export async function vincularOrcamento(
     valor_estimado: orcamento.valor_final,
   } as Partial<Lead>);
 
+  // Status do orçamento passa a ser computado a partir do lead vinculado —
+  // "Enviado" no momento em que entra em jogo numa negociação (vinculado a
+  // um lead), sem exigir uma troca manual de status na tela de Orçamento
+  // (ver também moverLead.ts para os status seguintes: aceito/rejeitado).
+  await repos.orcamentoRepo.update(orcamentoId, { status: "enviado" });
+
   await repos.historicoRepo.create({
     lead_id: leadId,
     tipo_mudanca: "vinculo_orcamento",

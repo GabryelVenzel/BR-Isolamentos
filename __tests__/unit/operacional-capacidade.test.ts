@@ -1,4 +1,4 @@
-import { calcularCapacidadeDia } from "@/lib/usecases/operacional";
+import { calcularCapacidadeDia, calcularCapacidadeMes, nivelOcupacao } from "@/lib/usecases/operacional";
 import type { Parceiro, Servico } from "@/lib/types/domain";
 
 function parceiro(overrides: Partial<Parceiro> = {}): Parceiro {
@@ -42,6 +42,7 @@ function servico(overrides: Partial<Servico> = {}): Servico {
     cliente_id: null,
     etapa: "execucao",
     tipo_trabalho: "bancada",
+    tipos_trabalho: ["bancada"],
     valor_orcado: null,
     valor_real: null,
     data_inicio: "2026-08-01",
@@ -105,5 +106,56 @@ describe("calcularCapacidadeDia", () => {
   it("parceiro sem total_pessoas cadastrado conta como capacidade zero", () => {
     const resultado = calcularCapacidadeDia("2026-08-10", [parceiro({ total_pessoas: null })], []);
     expect(resultado.porParceiro[0].totalPessoas).toBe(0);
+  });
+});
+
+describe("nivelOcupacao", () => {
+  it("livre até 70% mobilizado", () => {
+    expect(nivelOcupacao(15, 0)).toBe("livre");
+    expect(nivelOcupacao(15, 10)).toBe("livre"); // 66.7%
+  });
+
+  it("atencao entre 70% e 90% mobilizado", () => {
+    expect(nivelOcupacao(15, 11)).toBe("atencao"); // 73.3%
+    expect(nivelOcupacao(15, 13)).toBe("atencao"); // 86.7%
+  });
+
+  it("critico acima de 90% mobilizado", () => {
+    expect(nivelOcupacao(15, 14)).toBe("critico"); // 93.3%
+    expect(nivelOcupacao(15, 15)).toBe("critico");
+  });
+
+  it("sem capacidade nenhuma (totalDisponivel 0) é livre, não um alerta falso", () => {
+    expect(nivelOcupacao(0, 0)).toBe("livre");
+  });
+});
+
+describe("calcularCapacidadeMes", () => {
+  it("gera um resumo por cada dia do mês", () => {
+    const resultado = calcularCapacidadeMes(2026, 8, [parceiro()], []);
+    expect(resultado).toHaveLength(31); // agosto tem 31 dias
+    expect(resultado[0].data).toBe("2026-08-01");
+    expect(resultado[30].data).toBe("2026-08-31");
+  });
+
+  it("só conta o serviço nos dias dentro do seu período de execução", () => {
+    const resultado = calcularCapacidadeMes(
+      2026,
+      8,
+      [parceiro()],
+      [servico({ data_inicio: "2026-08-10", data_fim_prevista: "2026-08-12", pessoas_alocadas: 5 })]
+    );
+    const dia9 = resultado.find((d) => d.data === "2026-08-09");
+    const dia11 = resultado.find((d) => d.data === "2026-08-11");
+    const dia13 = resultado.find((d) => d.data === "2026-08-13");
+
+    expect(dia9?.totalMobilizado).toBe(0);
+    expect(dia11?.totalMobilizado).toBe(5);
+    expect(dia13?.totalMobilizado).toBe(0);
+  });
+
+  it("respeita o número de dias de fevereiro (mês menor)", () => {
+    const resultado = calcularCapacidadeMes(2026, 2, [parceiro()], []);
+    expect(resultado).toHaveLength(28); // 2026 não é bissexto
   });
 });

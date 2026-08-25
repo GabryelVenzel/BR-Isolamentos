@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import FunilServicosChart from "./graficos/FunilServicosChart";
 import CustoRealOrcadoChart from "./graficos/CustoRealOrcadoChart";
+import { gerarPdfDeElemento, baixarArquivo } from "@/lib/pdf-generator";
 import { formatarMoeda, formatarNumero } from "@/lib/format";
 import type { RelatorioOperacional } from "@/lib/usecases/operacional";
 
@@ -17,19 +18,21 @@ const LABEL_TIPO: Record<string, string> = {
  * aba "Relatórios" dentro do próprio módulo Operacional; movida pra cá pra
  * consolidar todos os relatórios num único lugar (ver decisão no topo de
  * app/resumo/page.tsx). Continua consumindo a mesma /api/operacional/relatorios
- * — só a camada de apresentação mudou de módulo. */
+ * — só a camada de apresentação mudou de módulo.
+ *
+ * Só o filtro de Período ficou aqui (Tipo de Trabalho e Responsável, que
+ * existiam antes, foram removidos por pedido — o Resumo é visão executiva
+ * rápida; quem quiser esse recorte detalhado usa a aba Relatórios dentro do
+ * próprio módulo Operacional). "Este ano"/"Personalizado" não foram
+ * adicionados aqui como no filtro de Período da aba Geral — exigiriam
+ * estender `/api/operacional/relatorios`, que só aceita 7dias/30dias/mes/
+ * todos hoje; fora do escopo desta rodada de padronização visual. */
 export default function DashboardOperacao() {
   const [relatorio, setRelatorio] = useState<RelatorioOperacional | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [periodo, setPeriodo] = useState<"" | "7dias" | "30dias" | "mes">("");
-  const [tipoTrabalho, setTipoTrabalho] = useState("");
-  const [usuarios, setUsuarios] = useState<Array<{ email: string; nome: string }>>([]);
-  const [responsavel, setResponsavel] = useState("");
-
-  useEffect(() => {
-    fetch("/api/usuarios").then((r) => r.json()).then(setUsuarios).catch(() => setUsuarios([]));
-  }, []);
+  const [exportando, setExportando] = useState(false);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -37,8 +40,6 @@ export default function DashboardOperacao() {
     try {
       const params = new URLSearchParams();
       if (periodo) params.set("periodo", periodo);
-      if (tipoTrabalho) params.set("tipo_trabalho", tipoTrabalho);
-      if (responsavel) params.set("responsavel_email", responsavel);
 
       const response = await fetch(`/api/operacional/relatorios?${params.toString()}`);
       const payload = await response.json();
@@ -52,15 +53,25 @@ export default function DashboardOperacao() {
     } finally {
       setCarregando(false);
     }
-  }, [periodo, tipoTrabalho, responsavel]);
+  }, [periodo]);
 
   useEffect(() => {
     carregar();
   }, [carregar]);
 
+  async function exportarPdf() {
+    setExportando(true);
+    try {
+      const blob = await gerarPdfDeElemento("resumo-operacao-export");
+      baixarArquivo(blob, `Resumo_Operacao_${new Date().toISOString().slice(0, 10)}.pdf`);
+    } finally {
+      setExportando(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
-      <div className="card grid grid-cols-1 gap-3 sm:grid-cols-3">
+      <div className="card flex flex-wrap items-end gap-3">
         <div>
           <label className="label-field">Período</label>
           <select className="input-field" value={periodo} onChange={(e) => setPeriodo(e.target.value as never)}>
@@ -70,30 +81,17 @@ export default function DashboardOperacao() {
             <option value="mes">Este mês</option>
           </select>
         </div>
-        <div>
-          <label className="label-field">Tipo de trabalho</label>
-          <select className="input-field" value={tipoTrabalho} onChange={(e) => setTipoTrabalho(e.target.value)}>
-            <option value="">Todos</option>
-            {Object.entries(LABEL_TIPO).map(([valor, label]) => (
-              <option key={valor} value={valor}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="label-field">Responsável</label>
-          <select className="input-field" value={responsavel} onChange={(e) => setResponsavel(e.target.value)}>
-            <option value="">Todos</option>
-            {usuarios.map((u) => (
-              <option key={u.email} value={u.email}>
-                {u.nome}
-              </option>
-            ))}
-          </select>
+        <div className="ml-auto flex items-end gap-2">
+          <button type="button" className="btn-secondary" onClick={exportarPdf} disabled={exportando || !relatorio}>
+            {exportando ? "Gerando..." : "📥 Exportar"}
+          </button>
+          <button type="button" className="btn-primary" onClick={carregar} disabled={carregando}>
+            {carregando ? "Atualizando..." : "🔄 Atualizar"}
+          </button>
         </div>
       </div>
 
+      <div id="resumo-operacao-export" className="space-y-6 bg-gray-50">
       {carregando ? (
         <p className="text-sm text-gray-500">Carregando...</p>
       ) : erro || !relatorio ? (
@@ -194,6 +192,7 @@ export default function DashboardOperacao() {
           )}
         </>
       )}
+      </div>
     </div>
   );
 }

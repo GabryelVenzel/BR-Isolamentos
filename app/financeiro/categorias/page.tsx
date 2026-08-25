@@ -6,10 +6,19 @@ import { toast } from "@/components/modules/financeiro/toast";
 import ModalCategoria from "@/components/modules/financeiro/ModalCategoria";
 import type { CategoriaLancamento } from "@/lib/types/domain";
 
+/** Categorias + Configurações do módulo Financeiro numa aba só — as duas
+ * telas eram pequenas o bastante (uma tabela de categorias, um único campo
+ * de ciclo financeiro) pra não justificar duas paradas de navegação
+ * separadas. `/financeiro/configuracoes` (rota antiga) redireciona pra cá —
+ * ver app/financeiro/configuracoes/page.tsx. */
 export default function CategoriasPage() {
   const [categorias, setCategorias] = useState<CategoriaLancamento[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [editando, setEditando] = useState<CategoriaLancamento | "novo" | null>(null);
+
+  const [diaInicioCiclo, setDiaInicioCiclo] = useState("1");
+  const [carregandoConfig, setCarregandoConfig] = useState(true);
+  const [salvandoConfig, setSalvandoConfig] = useState(false);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -25,6 +34,32 @@ export default function CategoriasPage() {
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  useEffect(() => {
+    fetch("/api/financeiro/configuracoes")
+      .then((r) => r.json())
+      .then((p) => p.success && setDiaInicioCiclo(String(p.data.dia_inicio_ciclo)))
+      .finally(() => setCarregandoConfig(false));
+  }, []);
+
+  async function salvarConfig() {
+    setSalvandoConfig(true);
+    try {
+      const response = await fetch("/api/financeiro/configuracoes", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dia_inicio_ciclo: Number(diaInicioCiclo) }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        toast.erro(payload.error ?? "Não foi possível salvar a configuração.");
+        return;
+      }
+      toast.sucesso("Configuração atualizada.");
+    } finally {
+      setSalvandoConfig(false);
+    }
+  }
 
   async function excluir(categoria: CategoriaLancamento) {
     if (!confirm(`Excluir a categoria "${categoria.nome}"?`)) return;
@@ -58,8 +93,8 @@ export default function CategoriasPage() {
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Categorias</h1>
-          <p className="text-sm text-gray-500">Gerenciar categorias de lançamentos de forma centralizada.</p>
+          <h1 className="text-2xl font-bold">Categorias &amp; Configurações</h1>
+          <p className="text-sm text-gray-500">Categorias de lançamentos e configurações do módulo Financeiro.</p>
         </div>
         <button type="button" className="btn-primary" onClick={() => setEditando("novo")}>
           + Nova Categoria
@@ -136,6 +171,44 @@ export default function CategoriasPage() {
             carregar();
           }}
         />
+      )}
+
+      <div>
+        <h2 className="text-lg font-bold">Configurações</h2>
+        <p className="text-sm text-gray-500">Ciclo financeiro e moeda padrão.</p>
+      </div>
+
+      {carregandoConfig ? (
+        <p className="text-sm text-gray-500">Carregando...</p>
+      ) : (
+        <div className="card max-w-md space-y-4">
+          <div>
+            <h3 className="font-montserrat text-sm font-bold uppercase text-brand">Ciclo Financeiro</h3>
+            <p className="mt-1 text-xs text-gray-500">
+              Dia do mês em que o "mês financeiro" começa. Hoje os relatórios e o dashboard usam o calendário civil
+              (dia 1 a 31) — essa configuração fica guardada, mas ainda não é aplicada aos cálculos existentes.
+            </p>
+          </div>
+          <div>
+            <label className="label-field">Dia de início do ciclo</label>
+            <input
+              type="number"
+              min={1}
+              max={28}
+              className="input-field max-w-[8rem]"
+              value={diaInicioCiclo}
+              onChange={(e) => setDiaInicioCiclo(e.target.value)}
+            />
+          </div>
+          <button type="button" className="btn-primary" onClick={salvarConfig} disabled={salvandoConfig}>
+            {salvandoConfig ? "Salvando..." : "Salvar"}
+          </button>
+
+          <div className="border-t border-gray-100 pt-4">
+            <h3 className="font-montserrat text-sm font-bold uppercase text-brand">Moeda</h3>
+            <p className="mt-1 text-sm text-gray-500">Real brasileiro (R$) — fixo, não há outra moeda suportada.</p>
+          </div>
+        </div>
       )}
     </div>
   );
