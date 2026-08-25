@@ -3,8 +3,6 @@
 // companhia) renderizado na página (client-side only — html2canvas/jsPDF
 // dependem do DOM/canvas do navegador). Usar dentro de um "use client".
 
-import type { Orcamento } from "./types";
-
 const FORMATO_A4 = { orientation: "portrait" as const, unit: "mm" as const, format: "a4" as const };
 // Dimensões A4 (210 x 297mm) com margem real de 10mm em cada lado — antes o
 // conteúdo ia de borda a borda (imgWidth = pageWidth inteiro), o que fazia
@@ -91,14 +89,6 @@ export async function gerarPdfDeElemento(elementId: string): Promise<Blob> {
   }
 
   return pdf.output("blob");
-}
-
-export function nomeArquivoPdfComercial(orcamento: Orcamento): string {
-  return `Proposta_Comercial_${orcamento.numero}.pdf`;
-}
-
-export function nomeArquivoPdfTecnica(orcamento: Orcamento): string {
-  return `Proposta_Tecnica_${orcamento.numero}.pdf`;
 }
 
 /** Dispara o download de qualquer `Blob` (PDF, CSV, ...) — o nome "baixarPdf"

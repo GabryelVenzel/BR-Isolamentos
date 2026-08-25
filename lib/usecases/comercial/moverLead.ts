@@ -33,9 +33,13 @@ const STATUS_ORCAMENTO_POR_ETAPA: Partial<Record<EtapaFunil, StatusOrcamento>> =
  * fixa via `TRANSICOES_FUNIL` — removido de propósito, não é um descuido.
  *
  * ÚNICA exceção a essa regra (pedido explícito da integração
- * Lead→Orçamento→Serviço): mover pra "proposta" exige um orçamento já
- * vinculado (ver lib/usecases/comercial/vincularOrcamento.ts) — sem isso o
- * card de "Proposta" ficaria sem nenhum valor/documento por trás.
+ * Lead→Orçamento→Serviço): mover pra "negociação" exige um orçamento já
+ * vinculado (ver lib/usecases/comercial/vincularOrcamento.ts) — sem isso a
+ * negociação ficaria sem nenhum valor/documento por trás. O bloqueio ANTES
+ * era em "proposta" (Contato→Proposta) — mudou pra "negociação" (Proposta→
+ * Negociação) por pedido explícito: um lead pode entrar em Proposta sem
+ * ainda ter um orçamento formal (a proposta pode estar sendo elaborada),
+ * mas não pode avançar pra negociar sem um orçamento de fato vinculado.
  *
  * Toda mudança de etapa grava uma entrada em `historico_mudancas_leads`
  * (a timeline "Caminho do lead" do LeadDetailModal) e atualiza
@@ -53,8 +57,8 @@ export async function moverLead(
 
   if (lead.etapa === novaEtapa) return lead;
 
-  if (novaEtapa === "proposta" && !lead.orcamento_id) {
-    throw new ConflictError("Vincule um orçamento a este lead antes de movê-lo para Proposta.");
+  if (novaEtapa === "negociacao" && !lead.orcamento_id) {
+    throw new ConflictError("Orçamento obrigatório para iniciar negociação.");
   }
 
   const atualizado = await repos.leadRepo.update(leadId, {

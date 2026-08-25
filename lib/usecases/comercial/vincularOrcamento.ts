@@ -3,10 +3,15 @@ import type { HistoricoMudancaLeadRepository, LeadRepository, OrcamentoRepositor
 import type { HistoricoMudancaLead, Lead } from "../../types/domain";
 import { VincularOrcamentoSchema, parseOrThrow } from "../../validators";
 
-/** Vincula um orçamento a um lead — pré-requisito pra mover o lead pra
- * etapa "proposta" (ver moverLead.ts). Ao vincular, `valor_estimado` do lead
- * passa a refletir `orcamento.valor_final` (regra do pedido: "o valor do
- * card do lead muda para o valor do orçamento"). */
+/** Vincula um orçamento a um lead — pré-requisito pra mover o lead pra etapa
+ * "negociação" (ver moverLead.ts). `valor_estimado` do lead NÃO é mais
+ * alterado aqui — decisão revertida por pedido explícito: `valor_estimado`
+ * (estimativa inicial, editável só em Dados do Lead) e `orcamento.valor_final`
+ * (valor formal do orçamento vinculado, já visível separadamente na aba
+ * Dados) agora são propositalmente independentes, pra permitir comparar os
+ * dois depois do projeto — a versão anterior deste código sincronizava os
+ * dois automaticamente ao vincular, o que era o comportamento pedido numa
+ * sessão anterior e foi agora explicitamente invertido. */
 export async function vincularOrcamento(
   input: unknown,
   repos: { leadRepo: LeadRepository; orcamentoRepo: OrcamentoRepository; historicoRepo: HistoricoMudancaLeadRepository },
@@ -22,7 +27,6 @@ export async function vincularOrcamento(
 
   const atualizado = await repos.leadRepo.update(leadId, {
     orcamento_id: orcamentoId,
-    valor_estimado: orcamento.valor_final,
   } as Partial<Lead>);
 
   // Status do orçamento passa a ser computado a partir do lead vinculado —

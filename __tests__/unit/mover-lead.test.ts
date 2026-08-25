@@ -73,7 +73,10 @@ describe("moverLead", () => {
   });
 
   it("grava uma entrada no histórico a cada mudança de etapa, com o e-mail de quem moveu", async () => {
-    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "contato" }));
+    // orcamento_id preenchido só pra não esbarrar na regra de bloqueio de
+    // "negociacao" sem orçamento (ver Problema 2) — este teste é sobre o
+    // registro de histórico, não sobre essa regra.
+    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "contato", orcamento_id: 42 }));
     const historicoRepo = criarHistoricoRepoFake();
 
     await moverLead(
@@ -93,21 +96,8 @@ describe("moverLead", () => {
     );
   });
 
-  it("bloqueia mover pra 'proposta' sem orçamento vinculado (única exceção à regra de transição livre)", async () => {
+  it("permite mover pra 'proposta' SEM orçamento vinculado (bloqueio mudou pra 'negociação')", async () => {
     const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "contato", orcamento_id: null }));
-    const historicoRepo = criarHistoricoRepoFake();
-
-    await expect(
-      moverLead(
-        { leadId: "lead-1", novaEtapa: "proposta" },
-        { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never }
-      )
-    ).rejects.toBeInstanceOf(ConflictError);
-    expect(leadRepo.update).not.toHaveBeenCalled();
-  });
-
-  it("permite mover pra 'proposta' quando já tem orçamento vinculado", async () => {
-    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "contato", orcamento_id: 42 }));
     const historicoRepo = criarHistoricoRepoFake();
 
     const resultado = await moverLead(
@@ -116,6 +106,31 @@ describe("moverLead", () => {
     );
 
     expect(resultado.etapa).toBe("proposta");
+  });
+
+  it("bloqueia mover pra 'negociação' sem orçamento vinculado (única exceção à regra de transição livre)", async () => {
+    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "proposta", orcamento_id: null }));
+    const historicoRepo = criarHistoricoRepoFake();
+
+    await expect(
+      moverLead(
+        { leadId: "lead-1", novaEtapa: "negociacao" },
+        { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never }
+      )
+    ).rejects.toBeInstanceOf(ConflictError);
+    expect(leadRepo.update).not.toHaveBeenCalled();
+  });
+
+  it("permite mover pra 'negociação' quando já tem orçamento vinculado", async () => {
+    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "proposta", orcamento_id: 42 }));
+    const historicoRepo = criarHistoricoRepoFake();
+
+    const resultado = await moverLead(
+      { leadId: "lead-1", novaEtapa: "negociacao" },
+      { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never }
+    );
+
+    expect(resultado.etapa).toBe("negociacao");
   });
 
   it("é idempotente: mover para a etapa atual não grava histórico nem atualiza", async () => {

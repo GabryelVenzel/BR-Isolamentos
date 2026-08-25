@@ -140,7 +140,7 @@ describe("reativarLeadFrio", () => {
     reativado_em: null,
   };
 
-  it("volta temperatura para Morno e etapa para Contato, qualquer que fosse a etapa anterior", async () => {
+  it("volta temperatura para Morno e etapa para Prospecção (primeira etapa), qualquer que fosse a etapa anterior", async () => {
     const leadRepo = criarLeadRepoFake(lead({ etapa: "negociacao", temperatura: "frio" }));
     const historicoRepo = criarHistoricoRepoFake();
     const agendamentoFrioRepo = criarAgendamentoRepoFake(agendamentoBase);
@@ -153,7 +153,7 @@ describe("reativarLeadFrio", () => {
     );
 
     expect(resultado.temperatura).toBe("morno");
-    expect(resultado.etapa).toBe("contato");
+    expect(resultado.etapa).toBe("prospeccao");
     expect(agendamentoFrioRepo.marcarReativado).toHaveBeenCalledWith("a1");
     expect(historicoRepo.create).toHaveBeenCalledWith(
       expect.objectContaining({ tipo_mudanca: "reativacao_manual", usuario_email: "socio@brisolamentos.com" })

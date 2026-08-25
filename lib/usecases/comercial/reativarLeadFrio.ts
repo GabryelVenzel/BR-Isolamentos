@@ -3,8 +3,9 @@ import type { AgendamentoLeadFrioRepository, HistoricoMudancaLeadRepository, Lea
 import type { HistoricoMudancaLead, Lead } from "../../types/domain";
 
 /** Reativa um lead frio: volta a temperatura para "Morno" e a etapa para
- * "Contato" (qualquer que fosse a etapa em que congelou — regra do pedido:
- * "Muda etapa para Contato", não "volta para a etapa anterior"). Chamado
+ * "Prospecção" — a PRIMEIRA etapa do funil (qualquer que fosse a etapa em
+ * que congelou; regra do pedido: "volta para PRIMEIRA ABA do CRM, não para
+ * a aba onde estava"). Chamado
  * tanto pelo botão manual "Reativar agora" (`manual = true`) quanto pelo
  * sweep sob demanda que reativa agendamentos vencidos (`manual = false`, ver
  * verificarReativacoesPendentes.ts) — o único efeito colateral diferente
@@ -34,7 +35,7 @@ export async function reativarLeadFrio(
   const leadAtualizado = await repos.leadRepo.update(lead.id, {
     temperatura: "morno",
     temperatura_anterior: temperaturaAnterior,
-    etapa: "contato",
+    etapa: "prospeccao",
     etapa_anterior: etapaAnterior,
   } as Partial<Lead>);
 
@@ -44,7 +45,7 @@ export async function reativarLeadFrio(
     lead_id: lead.id,
     tipo_mudanca: manual ? "reativacao_manual" : "reativacao_automatica",
     etapa_anterior: etapaAnterior,
-    etapa_nova: "contato",
+    etapa_nova: "prospeccao",
     temperatura_anterior: temperaturaAnterior,
     temperatura_nova: "morno",
     usuario_email: usuarioEmail,

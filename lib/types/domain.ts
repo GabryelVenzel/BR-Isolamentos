@@ -115,6 +115,24 @@ export interface InteracaoLead {
   created_at: string;
 }
 
+/** Documento anexado a um lead (RG/CPF do cliente, contratos, fotos,
+ * documentação técnica...) — ver `anexos_lead`, migração 012. Uma linha por
+ * arquivo (não um array jsonb): permite excluir/consultar um anexo direto
+ * por id. */
+export interface AnexoLead {
+  id: string;
+  lead_id: string;
+  nome_arquivo: string;
+  /** Extensão/mime simplificado: "pdf", "docx", "xlsx", "jpg"... — usado só
+   * pra escolher o ícone na UI, não validado contra uma lista fechada. */
+  tipo_arquivo: string;
+  tamanho_bytes: number;
+  storage_path: string;
+  url: string;
+  data_adicao: string;
+  adicionado_por: string | null;
+}
+
 export type TipoMudancaLead =
   | "criacao"
   | "mudanca_etapa"

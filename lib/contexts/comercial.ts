@@ -9,6 +9,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   AgendamentoLeadFrioRepository,
+  AnexoLeadRepository,
   ClienteRepository,
   ConfigPrazoEtapasRepository,
   ConfigReativacaoLeadsFriosRepository,
@@ -20,6 +21,7 @@ import {
 } from "../repositories";
 import type {
   AgendamentoLeadFrio,
+  AnexoLead,
   ClienteResumo,
   ConfigPrazoEtapas,
   ConfigReativacaoLeadsFrios,
@@ -30,6 +32,7 @@ import type {
   TemperaturaLead,
 } from "../types/domain";
 import {
+  anexarArquivoLead,
   anexarPrazoEtapa,
   atualizarLead,
   cancelarAgendamentoFrio,
@@ -47,6 +50,7 @@ import {
 export function createComercialContext(supabase: SupabaseClient) {
   const leadRepo = new LeadRepository(supabase);
   const interacaoRepo = new InteracaoLeadRepository(supabase);
+  const anexoLeadRepo = new AnexoLeadRepository(supabase);
   const historicoRepo = new HistoricoMudancaLeadRepository(supabase);
   const agendamentoFrioRepo = new AgendamentoLeadFrioRepository(supabase);
   const configReativacaoRepo = new ConfigReativacaoLeadsFriosRepository(supabase);
@@ -63,6 +67,7 @@ export function createComercialContext(supabase: SupabaseClient) {
   return {
     leadRepo,
     interacaoRepo,
+    anexoLeadRepo,
     historicoRepo,
     agendamentoFrioRepo,
     configReativacaoRepo,
@@ -134,6 +139,20 @@ export function createComercialContext(supabase: SupabaseClient) {
 
     registrarInteracao(dados: unknown): Promise<InteracaoLead> {
       return registrarInteracao(dados, { leadRepo, interacaoRepo });
+    },
+
+    // --- Anexos (documentos do lead) ---
+
+    listarAnexos(leadId: string): Promise<AnexoLead[]> {
+      return anexoLeadRepo.listarPorLead(leadId);
+    },
+
+    anexarArquivoLead(dados: unknown): Promise<AnexoLead> {
+      return anexarArquivoLead(dados, { leadRepo, anexoLeadRepo });
+    },
+
+    removerAnexoLead(anexoId: string): Promise<void> {
+      return anexoLeadRepo.delete(anexoId);
     },
 
     // --- Histórico de mudanças (timeline "Caminho do lead") ---

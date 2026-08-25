@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "./toast";
+import AnexosLead from "./AnexosLead";
 import NovoServicoModal from "@/components/modules/operacional/NovoServicoModal";
 import {
   classesTemperatura,
@@ -342,6 +343,9 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
                           value={valorEstimado}
                           onChange={(e) => setValorEstimado(e.target.value)}
                         />
+                        <p className="mt-1 text-xs text-gray-400">
+                          Independente do orçamento vinculado — não muda sozinho ao vincular/trocar um orçamento.
+                        </p>
                       </div>
                       <div>
                         <label className="label-field">Origem</label>
@@ -380,7 +384,7 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
                       </p>
                     ) : (
                       <p className="text-xs text-gray-500">
-                        Nenhum orçamento vinculado ainda — obrigatório para mover o lead pra &quot;Proposta&quot;.
+                        Nenhum orçamento vinculado ainda — obrigatório para mover o lead pra &quot;Negociação&quot;.
                       </p>
                     )}
                     <div className="flex items-center gap-2">
@@ -413,6 +417,10 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
                         </button>
                       </div>
                     )}
+                  </div>
+
+                  <div className="border-t border-gray-100 pt-4">
+                    <AnexosLead leadId={leadId} />
                   </div>
 
                   <div className="space-y-3 border-t border-gray-100 pt-4">

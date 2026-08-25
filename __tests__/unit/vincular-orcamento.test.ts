@@ -77,10 +77,10 @@ describe("vincularOrcamento", () => {
     expect(orcamentoRepo.update).toHaveBeenCalledWith(42, { status: "enviado" });
   });
 
-  it("também atualiza o valor_estimado do lead para o valor_final do orçamento", async () => {
+  it("NÃO altera valor_estimado do lead — independente do valor_final do orçamento (revertido por pedido)", async () => {
     const leadRepo = {
-      findById: jest.fn(async () => leadFake({ valor_estimado: 0 })),
-      update: jest.fn(async (_id: string, dados: Partial<Lead>) => ({ ...leadFake(), ...dados })),
+      findById: jest.fn(async () => leadFake({ valor_estimado: 1000 })),
+      update: jest.fn(async (_id: string, dados: Partial<Lead>) => ({ ...leadFake({ valor_estimado: 1000 }), ...dados })),
     };
     const orcamentoRepo = {
       findById: jest.fn(async () => orcamentoFake({ valor_final: 15000 })),
@@ -93,7 +93,8 @@ describe("vincularOrcamento", () => {
       { leadRepo: leadRepo as never, orcamentoRepo: orcamentoRepo as never, historicoRepo: historicoRepo as never }
     );
 
-    expect(resultado.valor_estimado).toBe(15000);
+    expect(resultado.valor_estimado).toBe(1000);
+    expect(leadRepo.update).toHaveBeenCalledWith("lead-1", { orcamento_id: 42 });
   });
 
   it("lança NotFoundError se o orçamento não existe", async () => {

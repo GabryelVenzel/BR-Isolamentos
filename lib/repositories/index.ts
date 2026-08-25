@@ -7,6 +7,7 @@ export type { FiltrosOrcamento } from "./orcamento.repository";
 export { LeadRepository } from "./lead.repository";
 export type { FiltrosLead } from "./lead.repository";
 export { InteracaoLeadRepository } from "./interacao-lead.repository";
+export { AnexoLeadRepository } from "./anexo-lead.repository";
 export { HistoricoMudancaLeadRepository } from "./historico-mudanca-lead.repository";
 export { AgendamentoLeadFrioRepository } from "./agendamento-lead-frio.repository";
 export { ConfigReativacaoLeadsFriosRepository } from "./config-reativacao-leads-frios.repository";

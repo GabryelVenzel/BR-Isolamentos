@@ -91,6 +91,20 @@ export const CreateInteracaoLeadSchema = z.object({
   data_interacao: z.string().datetime().nullable().optional(),
 });
 
+// Upload em si acontece no navegador (Supabase Storage, bucket
+// "leads-anexos") — este schema só valida o registro que sobra depois,
+// mesmo padrão de AnexarArquivoServicoSchema.
+const LIMITE_ANEXO_BYTES = 10 * 1024 * 1024; // 10 MB, conforme pedido
+export const CreateAnexoLeadSchema = z.object({
+  lead_id: z.string().min(1),
+  nome_arquivo: z.string().trim().min(1),
+  tipo_arquivo: z.string().trim().min(1),
+  tamanho_bytes: z.number().int().positive().max(LIMITE_ANEXO_BYTES, "Arquivo maior que 10 MB."),
+  storage_path: z.string().trim().min(1),
+  url: z.string().trim().min(1),
+  adicionado_por: z.string().trim().email().nullable().optional(),
+});
+
 export type CreateLeadInput = z.infer<typeof CreateLeadSchema>;
 export type UpdateLeadInput = z.infer<typeof UpdateLeadSchema>;
 export type MoverLeadInput = z.infer<typeof MoverLeadSchema>;
@@ -100,3 +114,4 @@ export type CancelarAgendamentoFrioInput = z.infer<typeof CancelarAgendamentoFri
 export type AtualizarConfigReativacaoInput = z.infer<typeof AtualizarConfigReativacaoSchema>;
 export type AtualizarConfigPrazoEtapasInput = z.infer<typeof AtualizarConfigPrazoEtapasSchema>;
 export type CreateInteracaoLeadInput = z.infer<typeof CreateInteracaoLeadSchema>;
+export type CreateAnexoLeadInput = z.infer<typeof CreateAnexoLeadSchema>;

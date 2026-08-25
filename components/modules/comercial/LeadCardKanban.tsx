@@ -19,6 +19,13 @@ interface Props {
  * sempre funciona e abre o mesmo controle. */
 export default function LeadCardKanban({ lead, onAbrir, onIniciarArraste, onTerminarArraste, arrastando }: Props) {
   const atrasado = lead.etapa_atrasada === true;
+  // "Retorno de agendamento" não é uma coluna nova — é derivado dos campos
+  // que reativarLeadFrio.ts já grava (temperatura "morno" vindo de "frio" é
+  // uma assinatura única desse fluxo específico: nenhum outro caminho do
+  // sistema faz essa combinação exata). Continua marcado até o responsável
+  // mudar a temperatura de novo (aí deixa de ser "recém-retornado" de
+  // verdade) — sem precisar de coluna/migração nova só pra esse indicador.
+  const retornouDeAgendamento = lead.temperatura === "morno" && lead.temperatura_anterior === "frio";
 
   return (
     <div
@@ -40,6 +47,12 @@ export default function LeadCardKanban({ lead, onAbrir, onIniciarArraste, onTerm
           {formatarTemperatura(lead.temperatura)}
         </span>
       </div>
+
+      {retornouDeAgendamento && (
+        <span className="badge mb-1 inline-block bg-secondary-light text-brand" title="Voltou de reativação agendada — não é um lead 100% novo.">
+          🔄 Retorno de Agendamento
+        </span>
+      )}
 
       <p className="mb-1 font-montserrat text-sm font-semibold leading-tight text-brand">{lead.cliente?.nome ?? "—"}</p>
 

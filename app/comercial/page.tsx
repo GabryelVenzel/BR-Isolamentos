@@ -197,7 +197,15 @@ function ComercialPageConteudo() {
           l.cliente?.nome?.toLowerCase().includes(buscaNormalizada)
       )
     : leads;
-  const leadsExibidos = soAtrasados ? leadsBuscados.filter((l) => l.etapa_atrasada) : leadsBuscados;
+  // Leads frios ficam fora do Kanban normal por padrão — só aparecem via
+  // "Mostrar leads frios em reativação" (LeadsFriosPanel) ou escolhendo
+  // "Frio" explicitamente no filtro de Temperatura acima. Um lead frio
+  // "sumir" do board até seu retorno automático é o comportamento pedido —
+  // não é um lead perdido, é um lead com reativação já agendada (ver
+  // lib/usecases/comercial/mudarTemperatura.ts).
+  const leadsSemFriosOcultos =
+    filtros.temperatura === "frio" ? leadsBuscados : leadsBuscados.filter((l) => l.temperatura !== "frio");
+  const leadsExibidos = soAtrasados ? leadsSemFriosOcultos.filter((l) => l.etapa_atrasada) : leadsSemFriosOcultos;
 
   return (
     <div className="space-y-6">
