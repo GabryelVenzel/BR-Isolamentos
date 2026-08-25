@@ -94,17 +94,6 @@ export class LeadRepository extends BaseRepository<Lead> {
    * mudança nunca preenchem esse campo, então este alerta tende a esvaziar
    * com o tempo. Não removido aqui porque a decisão de aposentar o alerta é
    * do módulo Resumo, fora do escopo deste pedido (que era só do Comercial). */
-  async listarComAcaoAtrasada(): Promise<Lead[]> {
-    const hoje = new Date().toISOString().slice(0, 10);
-    const { data, error } = await this.queryBuilder()
-      .select(this.select)
-      .not("etapa", "in", "(fechado,perdido)")
-      .not("data_proxima_acao", "is", null)
-      .lt("data_proxima_acao", hoje);
-    if (error) throw error;
-    return (data ?? []) as unknown as Lead[];
-  }
-
   /** Contagem total de leads (todas as etapas) — usado como denominador
    * alternativo de conversão histórica, se precisar no futuro. */
   async contarTodos(): Promise<number> {

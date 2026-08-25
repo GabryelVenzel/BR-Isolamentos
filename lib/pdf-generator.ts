@@ -1,45 +1,93 @@
-// Geração de PDF a partir de um componente de preview (PDFPreviewComercial ou
-// PDFPreviewTecnica) renderizado na página (client-side only — html2canvas/jsPDF
+// Geração de PDF a partir de um componente de preview (PDFPreviewComercial,
+// PDFPreviewTecnica, ou os exports de aba do Resumo — DashboardGeral.tsx e
+// companhia) renderizado na página (client-side only — html2canvas/jsPDF
 // dependem do DOM/canvas do navegador). Usar dentro de um "use client".
 
 import type { Orcamento } from "./types";
 
+const FORMATO_A4 = { orientation: "portrait" as const, unit: "mm" as const, format: "a4" as const };
+// Dimensões A4 (210 x 297mm) com margem real de 10mm em cada lado — antes o
+// conteúdo ia de borda a borda (imgWidth = pageWidth inteiro), o que fazia
+// gráficos/texto colarem no limite físico da página impressa.
+const MARGEM_MM = 10;
+
+/** Sobe na árvore de um único filho por vez enquanto o nó só tem UM filho
+ * elemento (ex.: `<div id="pdf-preview-tecnica"><PDFPreviewTecnica /></div>`
+ * — o alvo real de captura é o filho, não o wrapper) — evita que o chamador
+ * precise se preocupar em colocar o id no elemento "certo". */
+function descerWrapperDeUmFilho(raiz: HTMLElement): HTMLElement {
+  let atual = raiz;
+  while (atual.children.length === 1 && !hasTextoProprio(atual)) {
+    atual = atual.children[0] as HTMLElement;
+  }
+  return atual;
+}
+
+function hasTextoProprio(el: HTMLElement): boolean {
+  return Array.from(el.childNodes).some((n) => n.nodeType === Node.TEXT_NODE && n.textContent?.trim());
+}
+
+/**
+ * Gera o PDF capturando cada FILHO DIRETO do elemento como uma imagem
+ * separada, em vez de tirar um print único da página inteira e fatiar por
+ * altura fixa (o bug original: cortava gráficos/cards bem no meio sempre
+ * que a fatia de `pageHeight` caía no meio de um elemento, produzindo
+ * "gráficos cortados nas margens"). Cada filho direto já é uma unidade
+ * visual completa nos componentes que usam isto — uma linha de grid
+ * (`grid grid-cols-2 gap-4`), um `<section>` da proposta, um `.card` — então
+ * capturá-los individualmente garante que a quebra de página só acontece
+ * ENTRE unidades, nunca no meio de uma. Layouts internos (ex.: 2 gráficos
+ * lado a lado num grid) são preservados porque o grid inteiro é capturado
+ * como uma imagem só, não filho a filho dentro dele.
+ */
 export async function gerarPdfDeElemento(elementId: string): Promise<Blob> {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
     import("html2canvas"),
     import("jspdf"),
   ]);
 
-  const elemento = document.getElementById(elementId);
-  if (!elemento) {
+  const raiz = document.getElementById(elementId);
+  if (!raiz) {
     throw new Error(`Elemento #${elementId} não encontrado para gerar o PDF.`);
   }
+  const elemento = descerWrapperDeUmFilho(raiz);
 
-  const canvas = await html2canvas(elemento, {
-    scale: 2,
-    useCORS: true,
-    backgroundColor: "#ffffff",
-  });
+  const pdf = new jsPDF(FORMATO_A4);
+  const larguraPagina = pdf.internal.pageSize.getWidth();
+  const alturaPagina = pdf.internal.pageSize.getHeight();
+  const larguraUtil = larguraPagina - MARGEM_MM * 2;
+  const alturaUtil = alturaPagina - MARGEM_MM * 2;
 
-  const imgData = canvas.toDataURL("image/png");
-  const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+  const blocos = Array.from(elemento.children).filter(
+    (el): el is HTMLElement => el instanceof HTMLElement && el.offsetHeight > 0
+  );
+  // Se o elemento não tiver filhos "capturáveis" (ex.: texto solto, sem
+  // sub-blocos), captura ele inteiro como um bloco único — mesmo
+  // comportamento de antes, só sem a fatia por altura fixa.
+  const alvos = blocos.length > 0 ? blocos : [elemento];
 
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
-  const imgWidth = pageWidth;
-  const imgHeight = (canvas.height * imgWidth) / canvas.width;
+  let y = MARGEM_MM;
+  let paginaTemConteudo = false;
 
-  let heightLeft = imgHeight;
-  let position = 0;
+  for (const bloco of alvos) {
+    const canvas = await html2canvas(bloco, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+    if (canvas.width === 0 || canvas.height === 0) continue;
 
-  pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-  heightLeft -= pageHeight;
+    const alturaImagem = (canvas.height * larguraUtil) / canvas.width;
 
-  while (heightLeft > 0) {
-    position = heightLeft - imgHeight;
-    pdf.addPage();
-    pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight;
+    // Só quebra página se já tem algo desenhado nesta E o bloco não cabe no
+    // espaço restante — um bloco maior que a página inteira ainda é
+    // desenhado (sem cortar em vários pedaços) para não travar em loop.
+    if (paginaTemConteudo && y + alturaImagem > MARGEM_MM + alturaUtil) {
+      pdf.addPage();
+      y = MARGEM_MM;
+      paginaTemConteudo = false;
+    }
+
+    const imgData = canvas.toDataURL("image/png");
+    pdf.addImage(imgData, "PNG", MARGEM_MM, y, larguraUtil, alturaImagem);
+    y += alturaImagem + 4; // 4mm de respiro entre blocos
+    paginaTemConteudo = true;
   }
 
   return pdf.output("blob");

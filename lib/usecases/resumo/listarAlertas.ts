@@ -1,6 +1,7 @@
 import type { LancamentoFinanceiroRepository, LeadRepository, ParceiroRepository } from "../../repositories";
 import type { AlertaResumo } from "../../types/resumo";
 import { formatarMoeda } from "../../format";
+import { calcularLeadsDormindo } from "../comercial";
 
 export interface ReposAlertas {
   lancamentoRepo: LancamentoFinanceiroRepository;
@@ -18,6 +19,21 @@ const LIMITE_UTILIZACAO_PARCEIRO = 90;
  * cash flow) — passada aqui já pronta (`diasNegativosProjecao`) em vez de
  * recalculada, pra não duplicar a query de projeção quando as duas rodam
  * juntas (ver lib/contexts/resumo.ts).
+ *
+ * "Leads sem contato" usa `calcularLeadsDormindo` (mesma função que já
+ * alimenta o painel "Leads Dormindo" em Resumo → Comercial — ver
+ * lib/usecases/comercial/relatorio.ts) — sem contato (`data_ultima_interacao`,
+ * ou `created_at` se nunca teve) há 7+ dias. ANTES este alerta usava
+ * `leadRepo.listarComAcaoAtrasada()` (`data_proxima_acao < hoje`), um campo
+ * que a UI de edição do lead parou de gravar faz tempo (ver comentário em
+ * components/modules/comercial/LeadDetailModal.tsx: "esse acompanhamento
+ * passou a ser feito via Interações, não mais um campo solto no cadastro") —
+ * o alerta ficava mostrando leads com base num dado órfão, sem nenhuma tela
+ * pra sequer ver/resolver de novo (daí o bug reportado: alerta aparecia, mas
+ * não havia nada de fato atrasado do ponto de vista de quem usa o sistema
+ * hoje). O link também mudou: pra Resumo → Comercial (`/resumo?tab=comercial`),
+ * que já tem o painel "Leads Dormindo" com a lista — não pra `/comercial`
+ * (Kanban), que não tem um filtro equivalente pra esse recorte específico.
  */
 export async function listarAlertas(
   repos: ReposAlertas,
@@ -25,11 +41,12 @@ export async function listarAlertas(
 ): Promise<AlertaResumo[]> {
   const alertas: AlertaResumo[] = [];
 
-  const [aReceber, leadsAtrasados, capacidade] = await Promise.all([
+  const [aReceber, todosLeads, capacidade] = await Promise.all([
     repos.lancamentoRepo.listarAReceber(),
-    repos.leadRepo.listarComAcaoAtrasada(),
+    repos.leadRepo.listar(),
     repos.parceiroRepo.capacidadeView(),
   ]);
+  const leadsDormindo = calcularLeadsDormindo(todosLeads);
 
   const hojeISO = new Date().toISOString().slice(0, 10);
   const vencidas = aReceber.filter((l) => l.data < hojeISO);
@@ -44,13 +61,13 @@ export async function listarAlertas(
     });
   }
 
-  if (leadsAtrasados.length > 0) {
+  if (leadsDormindo.length > 0) {
     alertas.push({
       id: "leads-sem-contato",
       severidade: "atencao",
-      mensagem: `${leadsAtrasados.length} lead${leadsAtrasados.length > 1 ? "s" : ""} com ação atrasada`,
-      href: "/comercial",
-      acaoLabel: "Ir para Comercial",
+      mensagem: `${leadsDormindo.length} lead${leadsDormindo.length > 1 ? "s" : ""} sem contato há 7+ dias`,
+      href: "/resumo?tab=comercial",
+      acaoLabel: "Ver leads dormindo",
     });
   }
 

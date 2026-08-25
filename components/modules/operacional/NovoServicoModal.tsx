@@ -30,7 +30,10 @@ export default function NovoServicoModal({ leadIdInicial, onFechar, onCriado }: 
   const [pessoasAlocadas, setPessoasAlocadas] = useState("");
   const [dataInicio, setDataInicio] = useState("");
   const [dataFimPrevista, setDataFimPrevista] = useState("");
-  const [descricao, setDescricao] = useState("");
+  // Campo "Descrição" removido — duplicava "Notas" (mesma finalidade, dois
+  // campos de texto livre confundiam). `servicos.descricao` continua no
+  // schema por compatibilidade com serviços já criados antes desta mudança,
+  // só não é mais preenchido por aqui.
   const [notas, setNotas] = useState("");
 
   const [salvando, setSalvando] = useState(false);
@@ -94,7 +97,6 @@ export default function NovoServicoModal({ leadIdInicial, onFechar, onCriado }: 
           pessoas_alocadas: pessoasAlocadas ? Number(pessoasAlocadas) : null,
           data_inicio: dataInicio,
           data_fim_prevista: dataFimPrevista || null,
-          descricao: descricao || null,
           notas: notas || null,
         }),
       });
@@ -188,10 +190,6 @@ export default function NovoServicoModal({ leadIdInicial, onFechar, onCriado }: 
             </div>
           </div>
 
-          <div>
-            <label className="label-field">Descrição</label>
-            <input className="input-field" value={descricao} onChange={(e) => setDescricao(e.target.value)} />
-          </div>
           <div>
             <label className="label-field">Notas</label>
             <textarea className="input-field" rows={2} value={notas} onChange={(e) => setNotas(e.target.value)} />
