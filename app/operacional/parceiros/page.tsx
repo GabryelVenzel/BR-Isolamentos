@@ -101,7 +101,7 @@ export default function ParceirosPage() {
                   <td className="px-4 py-2 text-gray-500">{p.telefone ?? "—"}</td>
                   <td className="px-4 py-2 text-gray-500">{p.cnpj ?? "—"}</td>
                   <td className="px-4 py-2 text-gray-500">
-                    {p.tipos_trabalho.length > 0 ? p.tipos_trabalho.map((t) => LABEL_TIPO[t] ?? t).join(", ") : "—"}
+                    {(p.tipos_trabalho ?? []).length > 0 ? p.tipos_trabalho.map((t) => LABEL_TIPO[t] ?? t).join(", ") : "—"}
                   </td>
                   <td className="px-4 py-2 text-right text-gray-500">
                     {p.total_pessoas != null ? `${formatarNumero(p.total_pessoas, 0)} pessoas` : "—"}

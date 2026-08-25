@@ -150,9 +150,13 @@ export default function LancamentosPage() {
                     )}
                   </td>
                   <td className="px-4 py-2 text-right">
-                    {lancamento.anexos.length > 0 && (
-                      <span className="mr-2 text-xs text-gray-500" title={`${lancamento.anexos.length} anexo(s)`}>
-                        📎 {lancamento.anexos.length}
+                    {/* `?? []` — se a migração 009 (coluna `anexos`) ainda não
+                        rodou nesse banco, o campo vem `undefined` da API, não
+                        um array vazio; sem essa guarda, `.length` quebrava a
+                        tela inteira ("Cannot read properties of undefined"). */}
+                    {(lancamento.anexos ?? []).length > 0 && (
+                      <span className="mr-2 text-xs text-gray-500" title={`${(lancamento.anexos ?? []).length} anexo(s)`}>
+                        📎 {(lancamento.anexos ?? []).length}
                       </span>
                     )}
                     <button type="button" className="mr-2 hover:opacity-70" title="Editar" onClick={() => setEditando(lancamento)}>

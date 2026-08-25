@@ -12,12 +12,31 @@ interface ImagemProposta {
 
 const BUCKET = "propostas-imagens";
 
+interface Props {
+  /** Chamado depois de qualquer mudança na galeria (upload/remoção/legenda)
+   * — quem usa este componente embutido numa tela que também mostra essas
+   * imagens (ex.: app/orcamento/[id]/download-pdf/page.tsx, na prévia da
+   * Proposta Técnica) usa isso pra recarregar a própria lista, já que este
+   * componente gerencia seu estado internamente. */
+  onChange?: () => void;
+}
+
 /**
  * Fotos institucionais reutilizadas em todas as Propostas Técnicas (ver
  * components/PDFPreviewTecnica.tsx). Fica vazio até o usuário subir as primeiras fotos
  * reais da empresa — nenhuma imagem é inventada/baixada da internet.
- */
-export default function GaleriaImagensProposta() {
+ *
+ * Vive na tela de Gerar Proposta (não mais em Configurar Preços — preço e
+ * fotos são assuntos diferentes) porque é ali que as imagens são
+ * efetivamente usadas/visualizadas na prévia, não faz sentido gerenciá-las
+ * numa tela de configuração financeira. Não lê a pasta local
+ * `3-FotosEvideos` diretamente: é uma pasta do disco do desenvolvedor, fora
+ * de `public/` e fora do controle de versão — o app publicado na Vercel não
+ * tem acesso a ela (serverless não enxerga o disco local de quem
+ * desenvolveu). O Supabase Storage é o único jeito de fotos ficarem
+ * disponíveis pro app já publicado, então o mecanismo de upload continua
+ * sendo este, só que relocado. */
+export default function GaleriaImagensProposta({ onChange }: Props) {
   const [imagens, setImagens] = useState<ImagemProposta[]>([]);
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -26,6 +45,7 @@ export default function GaleriaImagensProposta() {
     const supabase = createSupabaseBrowserClient();
     const { data } = await supabase.from("imagens_proposta").select("*").order("criado_em", { ascending: false });
     setImagens(data ?? []);
+    onChange?.();
   }
 
   useEffect(() => {
@@ -70,12 +90,14 @@ export default function GaleriaImagensProposta() {
     await supabase.storage.from(BUCKET).remove([imagem.storage_path]);
     await supabase.from("imagens_proposta").delete().eq("id", imagem.id);
     setImagens((prev) => prev.filter((i) => i.id !== imagem.id));
+    onChange?.();
   }
 
   async function atualizarLegenda(imagem: ImagemProposta, legenda: string) {
     const supabase = createSupabaseBrowserClient();
     await supabase.from("imagens_proposta").update({ legenda }).eq("id", imagem.id);
     setImagens((prev) => prev.map((i) => (i.id === imagem.id ? { ...i, legenda } : i)));
+    onChange?.();
   }
 
   return (

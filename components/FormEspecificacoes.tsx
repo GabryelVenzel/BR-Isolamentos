@@ -3,17 +3,21 @@
 import { useEffect, useState } from "react";
 import { useWizardStore } from "@/lib/store";
 import { somarMetragemEscopo } from "@/lib/usecases/orcamento";
-import { formatarNumero } from "@/lib/format";
+import { COMBUSTIVEIS as COMBUSTIVEIS_INFO } from "@/lib/calculadora-termica";
+import { formatarMoeda, formatarNumero } from "@/lib/format";
 import type { CombustivelTipo, PrecoConfig } from "@/lib/types";
 
-const COMBUSTIVEIS: Array<{ value: CombustivelTipo; label: string }> = [
-  { value: "eletricidade", label: "Eletricidade (kWh)" },
-  { value: "vapor", label: "Vapor (ton)" },
-  { value: "gas_natural", label: "Gás Natural (m³)" },
-  { value: "glp", label: "GLP (kg)" },
-  { value: "oleo_diesel", label: "Óleo Diesel (L)" },
-  { value: "oleo_bpf", label: "Óleo Combustível BPF (kg)" },
-  { value: "lenha_eucalipto", label: "Lenha de Eucalipto (ton)" },
+// Mesma lista/ordem de components/modules/engenharia/EconomiaSection.tsx —
+// os rótulos/unidades vêm de lib/calculadora-termica.ts#COMBUSTIVEIS (única
+// fonte), não duplicados aqui como um array próprio.
+const COMBUSTIVEL_OPCOES: CombustivelTipo[] = [
+  "eletricidade",
+  "gas_natural",
+  "glp",
+  "oleo_diesel",
+  "oleo_bpf",
+  "vapor",
+  "lenha_eucalipto",
 ];
 
 /** Tela 3 (refatorada) — um trecho é SEMPRE quente OU frio, nunca os dois
@@ -32,6 +36,26 @@ export default function FormEspecificacoes() {
       .then((r) => r.json())
       .then((lista: PrecoConfig[]) => setPrecos(lista.filter((p) => p.ativo)));
   }, []);
+
+  // Pré-preenche o preço de referência do combustível assim que o trecho
+  // vira "quente" (mesmo mecanismo — e mesma tabela — que a calculadora
+  // rápida de Engenharia já usa em EconomiaSection.tsx: lib/calculadora-termica.ts#COMBUSTIVEIS,
+  // única fonte de verdade pros dois lugares). Sem isso o campo ficava vazio
+  // até o usuário digitar um valor do zero, mesmo já existindo uma
+  // referência validada disponível.
+  useEffect(() => {
+    if (especificacoes.tipo_trabalho === "quente" && especificacoes.custo_combustivel === null) {
+      setEspecificacoes({ custo_combustivel: COMBUSTIVEIS_INFO[especificacoes.combustivel].v });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [especificacoes.tipo_trabalho]);
+
+  function selecionarCombustivel(combustivel: CombustivelTipo) {
+    // Pré-preenche o preço com o valor de referência — o usuário pode
+    // ajustar em seguida pra refletir o contrato real (mesmo comportamento
+    // de EconomiaSection.tsx).
+    setEspecificacoes({ combustivel, custo_combustivel: COMBUSTIVEIS_INFO[combustivel].v });
+  }
 
   const isQuente = especificacoes.tipo_trabalho === "quente";
   const isolantes = precos.filter((p) => p.tipo_material.startsWith("isolante_"));
@@ -178,11 +202,11 @@ export default function FormEspecificacoes() {
               <select
                 className="input-field"
                 value={especificacoes.combustivel}
-                onChange={(e) => setEspecificacoes({ combustivel: e.target.value as CombustivelTipo })}
+                onChange={(e) => selecionarCombustivel(e.target.value as CombustivelTipo)}
               >
-                {COMBUSTIVEIS.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
+                {COMBUSTIVEL_OPCOES.map((c) => (
+                  <option key={c} value={c}>
+                    {COMBUSTIVEIS_INFO[c].label} ({COMBUSTIVEIS_INFO[c].unidade})
                   </option>
                 ))}
               </select>
@@ -196,6 +220,10 @@ export default function FormEspecificacoes() {
                 value={especificacoes.custo_combustivel ?? ""}
                 onChange={(e) => setEspecificacoes({ custo_combustivel: e.target.value ? Number(e.target.value) : null })}
               />
+              <p className="mt-1 text-xs text-gray-400">
+                Referência: {formatarMoeda(COMBUSTIVEIS_INFO[especificacoes.combustivel].v)}/
+                {COMBUSTIVEIS_INFO[especificacoes.combustivel].unidade} — ajuste conforme o contrato real.
+              </p>
             </div>
             <div>
               <label className="label-field">Horas de operação/dia*</label>

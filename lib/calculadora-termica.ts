@@ -236,19 +236,27 @@ interface CombustivelInfo {
 // CALCULADORA-TERMICA.py original) — reflete a convenção de neutralidade de carbono
 // da biomassa e reduz bastante o "CO2 evitado" reportado para clientes com caldeira a
 // lenha. Adotado por pedido explícito do usuário.
+// `v` (preço de referência) de eletricidade/gás natural/GLP/óleo diesel
+// atualizado conforme valores documentais mais recentes informados pelo
+// usuário (R$0,85/kWh, R$7,50/m³, R$4,50/kg, R$5,50/L) — os outros campos
+// (pc/ef/fatorEmissao) não mudaram, continuam a mesma fonte pesquisada
+// original. `v` é só uma REFERÊNCIA pré-preenchida no formulário (Engenharia
+// e Orçamento, ambos lendo esta mesma tabela — ver EconomiaSection.tsx e
+// components/FormEspecificacoes.tsx), sempre editável pelo usuário conforme
+// o contrato/tarifa real de cada projeto.
 export const COMBUSTIVEIS: Record<CombustivelTipo, CombustivelInfo> = {
   vapor: { v: 150.0, pc: 628.0, ef: 1.0, fatorEmissao: 134.0, unidade: "ton", label: "Vapor" },
-  eletricidade: { v: 0.75, pc: 1.0, ef: 1.0, fatorEmissao: 0.0358, unidade: "kWh", label: "Eletricidade" },
-  gas_natural: { v: 3.6, pc: 9.65, ef: 0.75, fatorEmissao: 2.0, unidade: "m³", label: "Gás Natural" },
+  eletricidade: { v: 0.85, pc: 1.0, ef: 1.0, fatorEmissao: 0.0358, unidade: "kWh", label: "Eletricidade" },
+  gas_natural: { v: 7.5, pc: 9.65, ef: 0.75, fatorEmissao: 2.0, unidade: "m³", label: "Gás Natural" },
   glp: {
-    v: 6.8,
+    v: 4.5,
     pc: 12.78,
     ef: 0.78,
     fatorEmissao: 3.0,
     unidade: "kg",
     label: "GLP (Gás Liquefeito de Petróleo)",
   },
-  oleo_diesel: { v: 6.1, pc: 10.11, ef: 0.82, fatorEmissao: 2.63, unidade: "L", label: "Óleo Diesel" },
+  oleo_diesel: { v: 5.5, pc: 10.11, ef: 0.82, fatorEmissao: 2.63, unidade: "L", label: "Óleo Diesel" },
   oleo_bpf: { v: 3.5, pc: 11.34, ef: 0.8, fatorEmissao: 3.15, unidade: "kg", label: "Óleo Combustível BPF" },
   lenha_eucalipto: {
     v: 200.0,

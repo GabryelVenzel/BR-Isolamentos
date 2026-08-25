@@ -75,6 +75,19 @@ export const AnexarArquivoServicoSchema = z.object({
   url: z.string().trim().min(1, "URL do arquivo não pode ser vazia."),
 });
 
+// `url` só é obrigatória pra remover de `fotos_url` (array — precisa saber
+// QUAL das fotos remover); foto_principal_url/pdf_relatorio_url são um
+// único valor cada, então remover é só limpar pra null.
+export const RemoverArquivoServicoSchema = z
+  .object({
+    campo: z.enum(["foto_principal_url", "pdf_relatorio_url", "fotos_url"]),
+    url: z.string().trim().min(1).optional(),
+  })
+  .refine((d) => d.campo !== "fotos_url" || !!d.url, {
+    message: "Informe a URL da foto a remover.",
+    path: ["url"],
+  });
+
 export const CreateInteracaoServicoSchema = z.object({
   servico_id: z.string().min(1),
   tipo: z.enum(["nota", "foto", "chamada", "email", "reuniao"]),
@@ -87,4 +100,5 @@ export type UpdateServicoInput = z.infer<typeof UpdateServicoSchema>;
 export type MoverServicoInput = z.infer<typeof MoverServicoSchema>;
 export type FinalizarServicoInput = z.infer<typeof FinalizarServicoSchema>;
 export type AnexarArquivoServicoInput = z.infer<typeof AnexarArquivoServicoSchema>;
+export type RemoverArquivoServicoInput = z.infer<typeof RemoverArquivoServicoSchema>;
 export type CreateInteracaoServicoInput = z.infer<typeof CreateInteracaoServicoSchema>;

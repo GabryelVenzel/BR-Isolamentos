@@ -31,6 +31,7 @@ import type {
 } from "../types/domain";
 import {
   anexarArquivoServico,
+  removerArquivoServico,
   atualizarAgendamento,
   atualizarFornecedor,
   atualizarParceiro,
@@ -170,6 +171,10 @@ export function createOperacionalContext(supabase: SupabaseClient) {
 
     anexarArquivoServico(servicoId: string, dados: unknown, usuarioEmail?: string | null): Promise<Servico> {
       return anexarArquivoServico(servicoId, dados, reposServico, usuarioEmail);
+    },
+
+    removerArquivoServico(servicoId: string, dados: unknown, usuarioEmail?: string | null): Promise<Servico> {
+      return removerArquivoServico(servicoId, dados, reposServico, usuarioEmail);
     },
 
     removerServico(id: string): Promise<void> {

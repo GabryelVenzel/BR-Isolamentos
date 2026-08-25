@@ -44,7 +44,10 @@ export default function ServicoCard({ servico, onAbrir, onIniciarArraste, onTerm
       {servico.valor_orcado != null && (
         <p className="font-montserrat text-sm font-bold text-accent">{formatarMoeda(servico.valor_orcado)}</p>
       )}
-      {servico.tipos_trabalho.length > 0 && (
+      {/* `?? []` — protege contra a coluna `tipos_trabalho` (migração 011)
+          ainda não existir nesse banco (API devolve undefined, não array
+          vazio, até a migração rodar). */}
+      {(servico.tipos_trabalho ?? []).length > 0 && (
         <p className="text-xs text-gray-500">{servico.tipos_trabalho.map((t) => LABEL_TIPO[t] ?? t).join(", ")}</p>
       )}
       {servico.data_inicio && (

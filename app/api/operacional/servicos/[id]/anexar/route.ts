@@ -33,3 +33,27 @@ export async function POST(request: Request, { params }: Params) {
     return NextResponse.json(apiError(message), { status: statusCode });
   }
 }
+
+/** DELETE: desassocia a URL de um anexo do serviço — o arquivo em si já foi
+ * removido do Storage pelo chamador antes desta chamada (ver
+ * ServicoDetailModal.tsx). Corpo: `{ campo, url? }` (`url` obrigatória só
+ * para `fotos_url`, que é um array). */
+export async function DELETE(request: Request, { params }: Params) {
+  const supabase = createSupabaseServerClient();
+  const ctx = createOperacionalContext(supabase);
+  const body = await request.json().catch(() => null);
+
+  try {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const servico = await ctx.removerArquivoServico(params.id, body, user?.email ?? null);
+    logger.info("Arquivo removido do serviço", { id: params.id, campo: body?.campo });
+    return NextResponse.json(apiSuccess(servico));
+  } catch (error) {
+    logger.error("Falha ao remover arquivo do serviço", error, { id: params.id });
+    const { message, statusCode } = toHttpError(error);
+    return NextResponse.json(apiError(message), { status: statusCode });
+  }
+}

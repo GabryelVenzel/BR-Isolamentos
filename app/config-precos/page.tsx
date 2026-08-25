@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import FormPrecos from "@/components/FormPrecos";
 import FormConfigEmpresa from "@/components/FormConfigEmpresa";
 import FormImpostos from "@/components/FormImpostos";
-import GaleriaImagensProposta from "@/components/GaleriaImagensProposta";
 import type { ConfigEmpresa, ImpostoConfig, PrecoConfig } from "@/lib/types";
 
 export default function ConfigPrecosPage() {
@@ -59,7 +58,6 @@ export default function ConfigPrecosPage() {
       ) : (
         <p className="text-sm text-gray-500">Carregando...</p>
       )}
-      <GaleriaImagensProposta />
     </div>
   );
 }

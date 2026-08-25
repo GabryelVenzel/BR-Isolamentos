@@ -157,6 +157,23 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
     }
   }
 
+  /** Nome legível a partir da URL pública do Storage — o caminho é
+   * `${numero_servico}/${Date.now()}-${nome_original}` (ver enviarArquivo
+   * abaixo), então tirar o prefixo numérico devolve o nome original que o
+   * usuário reconhece. Não há tamanho (bytes) persistido em lugar nenhum —
+   * só a URL final é gravada no serviço, o File.size do navegador nunca foi
+   * salvo — por isso a UI não mostra tamanho, só o nome do arquivo. */
+  function nomeArquivo(url: string): string {
+    const ultimoSegmento = decodeURIComponent(url.split("/").pop() ?? "");
+    return ultimoSegmento.replace(/^\d+-/, "") || ultimoSegmento;
+  }
+
+  function caminhoStorage(url: string): string | null {
+    const marcador = `/${BUCKET}/`;
+    const indice = url.indexOf(marcador);
+    return indice === -1 ? null : decodeURIComponent(url.slice(indice + marcador.length));
+  }
+
   async function enviarArquivo(event: ChangeEvent<HTMLInputElement>, campo: "foto_principal_url" | "pdf_relatorio_url" | "fotos_url") {
     const arquivo = event.target.files?.[0];
     if (!arquivo || !servico) return;
@@ -191,6 +208,37 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
     } finally {
       setEnviandoArquivo(null);
       event.target.value = "";
+    }
+  }
+
+  async function removerArquivo(campo: "foto_principal_url" | "pdf_relatorio_url" | "fotos_url", url: string) {
+    if (!confirm("Remover este anexo?")) return;
+    setEnviandoArquivo(campo);
+    try {
+      const caminho = caminhoStorage(url);
+      if (caminho) {
+        const supabase = createSupabaseBrowserClient();
+        // Melhor esforço — se o arquivo já não existir no Storage por algum
+        // motivo, não bloqueia a remoção da referência no serviço.
+        await supabase.storage.from(BUCKET).remove([caminho]).catch(() => undefined);
+      }
+
+      const response = await fetch(`/api/operacional/servicos/${servicoId}/anexar`, {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ campo, url }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        toast.erro(payload.error ?? "Não foi possível remover o anexo.");
+        return;
+      }
+
+      toast.sucesso("Anexo removido.");
+      setServico(payload.data);
+      onServicoMudou();
+    } finally {
+      setEnviandoArquivo(null);
     }
   }
 
@@ -323,7 +371,7 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
                     </p>
                     <p>
                       <span className="text-gray-500">Tipos de trabalho:</span>{" "}
-                      {servico.tipos_trabalho.length > 0
+                      {(servico.tipos_trabalho ?? []).length > 0
                         ? servico.tipos_trabalho.map((t) => LABEL_TIPO_TRABALHO[t] ?? t).join(", ")
                         : "—"}
                     </p>
@@ -389,50 +437,105 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
                     </div>
                   )}
 
-                  <div className="space-y-3 border-t border-gray-100 pt-4">
+                  <div className="space-y-4 border-t border-gray-100 pt-4">
                     <h3 className="font-montserrat text-xs font-bold uppercase text-brand">
-                      Anexos {servico.etapa !== "finalizado" && "(obrigatórios para finalizar)"}
+                      📎 Anexos {servico.etapa !== "finalizado" && "(obrigatórios para finalizar)"}
                     </h3>
 
-                    <div>
-                      <label className="label-field">Foto principal {temFotoPrincipal && "✅"}</label>
-                      <input type="file" accept="image/*" disabled={enviandoArquivo !== null} onChange={(e) => enviarArquivo(e, "foto_principal_url")} />
-                      {servico.foto_principal_url && (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={servico.foto_principal_url} alt="Foto principal" className="mt-2 h-24 rounded-lg object-cover" />
-                      )}
-                    </div>
-
-                    <div>
-                      <label className="label-field">Fotos adicionais ({servico.fotos_url.length})</label>
-                      <input type="file" accept="image/*" disabled={enviandoArquivo !== null} onChange={(e) => enviarArquivo(e, "fotos_url")} />
-                      {servico.fotos_url.length > 0 && (
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          {servico.fotos_url.map((url) => (
-                            // eslint-disable-next-line @next/next/no-img-element
-                            <img key={url} src={url} alt="Foto adicional" className="h-16 w-16 rounded-lg object-cover" />
-                          ))}
+                    <div className="rounded-card border border-gray-200 p-3">
+                      <p className="mb-2 text-sm font-semibold text-gray-700">📸 Foto principal</p>
+                      {servico.foto_principal_url ? (
+                        <div className="flex items-center justify-between gap-3 rounded-lg border border-accent-light bg-accent-light/40 p-2">
+                          <div className="flex items-center gap-2 overflow-hidden">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={servico.foto_principal_url} alt="Foto principal" className="h-10 w-10 shrink-0 rounded object-cover" />
+                            <span className="truncate text-xs text-accent-dark">✅ {nomeArquivo(servico.foto_principal_url)}</span>
+                          </div>
+                          <div className="flex shrink-0 gap-2">
+                            <a href={servico.foto_principal_url} target="_blank" rel="noreferrer" title="Visualizar" className="hover:opacity-70">
+                              👁️
+                            </a>
+                            <button
+                              type="button"
+                              title="Remover"
+                              className="hover:opacity-70"
+                              disabled={enviandoArquivo !== null}
+                              onClick={() => removerArquivo("foto_principal_url", servico.foto_principal_url!)}
+                            >
+                              🗑️
+                            </button>
+                          </div>
                         </div>
+                      ) : (
+                        <label className="flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-gray-300 p-3 text-sm text-gray-500 hover:border-brand">
+                          <input type="file" accept="image/*" className="hidden" disabled={enviandoArquivo !== null} onChange={(e) => enviarArquivo(e, "foto_principal_url")} />
+                          📤 {enviandoArquivo === "foto_principal_url" ? "Enviando..." : "Escolher foto"}
+                        </label>
                       )}
                     </div>
 
-                    <div>
-                      <label className="label-field">PDF relatório {temPdf && "✅"}</label>
-                      <input type="file" accept="application/pdf" disabled={enviandoArquivo !== null} onChange={(e) => enviarArquivo(e, "pdf_relatorio_url")} />
-                      {servico.pdf_relatorio_url && (
-                        <a href={servico.pdf_relatorio_url} target="_blank" rel="noreferrer" className="mt-1 block text-xs text-brand hover:underline">
-                          Ver PDF anexado
-                        </a>
+                    <div className="rounded-card border border-gray-200 p-3">
+                      <p className="mb-2 text-sm font-semibold text-gray-700">🖼️ Fotos adicionais ({servico.fotos_url.length}/10)</p>
+                      <div className="space-y-1.5">
+                        {servico.fotos_url.map((url) => (
+                          <div key={url} className="flex items-center justify-between gap-3 rounded-lg border border-brand-light bg-brand-light/30 p-2">
+                            <span className="truncate text-xs text-brand">✅ {nomeArquivo(url)}</span>
+                            <div className="flex shrink-0 gap-2">
+                              <a href={url} target="_blank" rel="noreferrer" title="Visualizar" className="hover:opacity-70">
+                                👁️
+                              </a>
+                              <button type="button" title="Remover" className="hover:opacity-70" disabled={enviandoArquivo !== null} onClick={() => removerArquivo("fotos_url", url)}>
+                                🗑️
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      {servico.fotos_url.length < 10 && (
+                        <label className="mt-1.5 flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-gray-300 p-2 text-xs text-gray-500 hover:border-brand">
+                          <input type="file" accept="image/*" className="hidden" disabled={enviandoArquivo !== null} onChange={(e) => enviarArquivo(e, "fotos_url")} />
+                          📤 {enviandoArquivo === "fotos_url" ? "Enviando..." : "Adicionar mais fotos"}
+                        </label>
                       )}
                     </div>
-                    {enviandoArquivo && <p className="text-xs text-gray-500">Enviando...</p>}
+
+                    <div className="rounded-card border border-gray-200 p-3">
+                      <p className="mb-2 text-sm font-semibold text-gray-700">📄 PDF relatório</p>
+                      {servico.pdf_relatorio_url ? (
+                        <div className="flex items-center justify-between gap-3 rounded-lg border border-accent-light bg-accent-light/40 p-2">
+                          <span className="truncate text-xs text-accent-dark">✅ {nomeArquivo(servico.pdf_relatorio_url)}</span>
+                          <div className="flex shrink-0 gap-2">
+                            <a href={servico.pdf_relatorio_url} target="_blank" rel="noreferrer" title="Visualizar" className="hover:opacity-70">
+                              👁️
+                            </a>
+                            <button
+                              type="button"
+                              title="Remover"
+                              className="hover:opacity-70"
+                              disabled={enviandoArquivo !== null}
+                              onClick={() => removerArquivo("pdf_relatorio_url", servico.pdf_relatorio_url!)}
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <label className="flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-gray-300 p-3 text-sm text-gray-500 hover:border-brand">
+                          <input type="file" accept="application/pdf" className="hidden" disabled={enviandoArquivo !== null} onChange={(e) => enviarArquivo(e, "pdf_relatorio_url")} />
+                          📤 {enviandoArquivo === "pdf_relatorio_url" ? "Enviando..." : "Escolher PDF"}
+                        </label>
+                      )}
+                    </div>
                   </div>
 
                   {servico.etapa !== "finalizado" && (
                     <div className="space-y-2 rounded-card border-l-4 border-l-secondary bg-secondary-light/40 p-4">
-                      <h3 className="font-montserrat text-xs font-bold uppercase text-brand">Finalizar Serviço</h3>
-                      <p className="text-xs text-gray-600">{temFotoPrincipal ? "✅" : "❌"} Foto principal</p>
-                      <p className="text-xs text-gray-600">{temPdf ? "✅" : "❌"} PDF relatório</p>
+                      <h3 className="font-montserrat text-xs font-bold uppercase text-brand">✅ Requisitos para Finalizar</h3>
+                      <p className={`text-xs ${temFotoPrincipal ? "text-accent-dark" : "text-gray-400"}`}>
+                        {temFotoPrincipal ? "✅" : "⬜"} Foto principal anexada
+                      </p>
+                      <p className={`text-xs ${temPdf ? "text-accent-dark" : "text-gray-400"}`}>{temPdf ? "✅" : "⬜"} PDF relatório anexado</p>
+                      <p className={`text-xs ${valorReal ? "text-accent-dark" : "text-gray-400"}`}>{valorReal ? "✅" : "⬜"} Valor real preenchido</p>
                       <div>
                         <label className="label-field">
                           Valor real<span className="text-status-error"> *</span>
@@ -446,7 +549,7 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
                         disabled={!podeFinalizar || finalizando}
                         title={!podeFinalizar ? "Anexe foto principal, PDF relatório e informe o valor real" : undefined}
                       >
-                        {finalizando ? "Finalizando..." : "Confirmar finalização"}
+                        {finalizando ? "Finalizando..." : "✨ Confirmar finalização"}
                       </button>
                     </div>
                   )}

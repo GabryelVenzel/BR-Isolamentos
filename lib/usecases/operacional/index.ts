@@ -9,6 +9,7 @@ export { atualizarServico } from "./atualizarServico";
 export { moverServico } from "./moverServico";
 export { finalizarServico } from "./finalizarServico";
 export { anexarArquivoServico } from "./anexarArquivoServico";
+export { removerArquivoServico } from "./removerArquivoServico";
 export { registrarInteracaoServico } from "./registrarInteracaoServico";
 export { calcularCapacidadeDia, calcularCapacidadeMes, nivelOcupacao } from "./capacidade";
 export type { CapacidadeDia, CapacidadeParceiroDia, CapacidadeResumoDia, NivelOcupacao } from "./capacidade";

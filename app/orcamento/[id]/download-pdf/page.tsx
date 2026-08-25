@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import PDFPreviewComercial from "@/components/PDFPreviewComercial";
 import PDFPreviewTecnica from "@/components/PDFPreviewTecnica";
+import GaleriaImagensProposta from "@/components/GaleriaImagensProposta";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import {
   baixarPdf,
@@ -28,6 +29,27 @@ export default function DownloadPdfPage() {
   const [erro, setErro] = useState<string | null>(null);
   const [erroCarregamento, setErroCarregamento] = useState<string | null>(null);
 
+  // As imagens de referência são um "bônus" da proposta — se o Storage/
+  // Supabase falhar aqui (ex.: variáveis de ambiente do navegador
+  // indisponíveis nesse deploy), a página não deve travar por isso: a
+  // proposta continua gerável, só sem as fotos. Antes este bloco chamava
+  // createSupabaseBrowserClient() direto dentro do useEffect, sem
+  // try/catch — se as env vars faltassem, a exceção derrubava a página
+  // inteira (ver app/error.tsx) em vez de só a galeria de imagens. Extraída
+  // como função própria (não só inline em `carregar`) pra poder ser
+  // rechamada pelo `onChange` de <GaleriaImagensProposta> abaixo, sem
+  // recarregar o orçamento inteiro de novo.
+  const carregarImagens = useCallback(async () => {
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const { data, error } = await supabase.from("imagens_proposta").select("url, legenda");
+      if (error) throw error;
+      setImagens(data ?? []);
+    } catch {
+      setImagens([]);
+    }
+  }, []);
+
   const carregar = useCallback(async () => {
     setErroCarregamento(null);
     try {
@@ -50,22 +72,8 @@ export default function DownloadPdfPage() {
       .then(setConfigEmpresa)
       .catch(() => setConfigEmpresa(null));
 
-    // As imagens de referência são um "bônus" da proposta — se o Storage/
-    // Supabase falhar aqui (ex.: variáveis de ambiente do navegador
-    // indisponíveis nesse deploy), a página não deve travar por isso: a
-    // proposta continua gerável, só sem as fotos. Antes este bloco chamava
-    // createSupabaseBrowserClient() direto dentro do useEffect, sem
-    // try/catch — se as env vars faltassem, a exceção derrubava a página
-    // inteira (ver app/error.tsx) em vez de só a galeria de imagens.
-    try {
-      const supabase = createSupabaseBrowserClient();
-      const { data, error } = await supabase.from("imagens_proposta").select("url, legenda");
-      if (error) throw error;
-      setImagens(data ?? []);
-    } catch {
-      setImagens([]);
-    }
-  }, [id]);
+    await carregarImagens();
+  }, [id, carregarImagens]);
 
   useEffect(() => {
     carregar();
@@ -150,6 +158,19 @@ export default function DownloadPdfPage() {
           lib/docx-generator.ts pra decisão de escopo. */}
 
       {erro && <p className="text-sm text-red-600">{erro}</p>}
+
+      {/* Fotos de referência usadas na Proposta Técnica — antes ficava em
+          Configurar Preços, mudou pra cá (ver comentário em
+          components/GaleriaImagensProposta.tsx): é aqui que elas aparecem
+          na prévia logo abaixo, faz mais sentido gerenciar onde se usa. */}
+      <details className="card">
+        <summary className="cursor-pointer font-montserrat text-sm font-bold uppercase text-brand">
+          🖼️ Imagens de referência ({imagens.length})
+        </summary>
+        <div className="mt-4">
+          <GaleriaImagensProposta onChange={carregarImagens} />
+        </div>
+      </details>
 
       <div>
         <h2 className="mb-2 text-sm font-semibold text-gray-500">Prévia — Proposta Técnica</h2>
