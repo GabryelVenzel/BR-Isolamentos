@@ -68,7 +68,12 @@ export async function gerarPdfDeElemento(elementId: string): Promise<Blob> {
   let paginaTemConteudo = false;
 
   for (const bloco of alvos) {
-    const canvas = await html2canvas(bloco, { scale: 2, useCORS: true, backgroundColor: "#ffffff" });
+    // scale 3 (~288 DPI efetivo numa página A4) — html2canvas não tem opção
+    // de "dpi"/"quality" real (não existe esse parâmetro na lib); a única
+    // alavanca de nitidez é renderizar em N vezes o tamanho e deixar o PDF
+    // exibir reduzido. PNG via toDataURL já é sem perda, então não há
+    // "qualidade" adicional a configurar na exportação em si.
+    const canvas = await html2canvas(bloco, { scale: 3, useCORS: true, backgroundColor: "#ffffff" });
     if (canvas.width === 0 || canvas.height === 0) continue;
 
     const alturaImagem = (canvas.height * larguraUtil) / canvas.width;
