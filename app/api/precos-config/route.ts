@@ -3,7 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function GET() {
   const supabase = createSupabaseServerClient();
-  const { data, error } = await supabase.from("precos_config").select("*").order("tipo_material");
+  const { data, error } = await supabase.from("precos_config").select("*").order("tipo_material").order("ordem");
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });

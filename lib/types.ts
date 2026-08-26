@@ -182,6 +182,7 @@ export type TipoMaterialPreco =
   // antigo) — preço em unidade própria (kg/centena/frasco), não m².
   | "acessorio_arame"
   | "acessorio_parafuso"
+  | "acessorio_rebite"
   | "acessorio_silicone"
   | "manta"
   | "chapa"
@@ -211,6 +212,10 @@ export interface PrecoConfig {
   preco_unitario: number;
   densidade_kg_m3: number | null;
   ativo: boolean;
+  /** Posição dentro do grupo (`tipo_material`) — chaparia fina→grossa,
+   * isolante menor→maior densidade (migração 017). Não editável na tela de
+   * preços, só controla a ordem de exibição. */
+  ordem: number;
   ultima_atualizacao: string;
 }
 

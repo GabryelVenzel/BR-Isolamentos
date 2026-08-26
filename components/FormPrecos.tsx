@@ -1,30 +1,54 @@
 "use client";
 
 import { Fragment, useState } from "react";
-import type { PrecoConfig } from "@/lib/types";
+import type { PrecoConfig, TipoMaterialPreco } from "@/lib/types";
 
 interface Props {
   precos: PrecoConfig[];
   onSalvar: (precos: PrecoConfig[]) => Promise<void>;
 }
 
+// Grupos individuais (um cabeçalho por tipo) — chaparia e isolante continuam
+// separados por tipo/família, cada um com sua própria seção. "Materiais
+// Adicionais" é diferente: os 4 tipos `acessorio_*` são combinados numa
+// ÚNICA seção (ver `chaveGrupo`/`LABEL_GRUPO["acessorio"]` abaixo) — pedido
+// explícito, não faz sentido um cabeçalho por item ali.
 const LABEL_GRUPO: Record<string, string> = {
-  chaparia_inox: "Chaparia Inox",
-  chaparia_galvanizado: "Chaparia Galvanizada",
   chaparia_aluminio: "Chaparia Alumínio",
-  isolante_fibra_ceramica: "Isolante — Fibra Cerâmica",
+  chaparia_galvanizado: "Chaparia Galvanizada",
+  chaparia_inox: "Chaparia Inox",
   isolante_la_rocha: "Isolante — Lã de Rocha",
+  isolante_fibra_ceramica: "Isolante — Fibra Cerâmica",
   isolante_espuma: "Isolante — Espuma Elastomérica",
-  acessorio_arame: "Materiais Adicionais — Arame",
-  acessorio_parafuso: "Materiais Adicionais — Parafusos",
-  acessorio_silicone: "Materiais Adicionais — Silicone/Vedação",
+  acessorio: "Materiais Adicionais",
 };
 
+// Ordem fixa das seções na tela (não é a ordem alfabética de `tipo_material`
+// que viria da API) — chaparias por tipo, depois isolantes, Materiais
+// Adicionais por último (migração 017).
+const ORDEM_GRUPOS = [
+  "chaparia_aluminio",
+  "chaparia_galvanizado",
+  "chaparia_inox",
+  "isolante_la_rocha",
+  "isolante_fibra_ceramica",
+  "isolante_espuma",
+  "acessorio",
+];
+
+/** Chaparia/isolante viram grupo por `tipo_material` (uma seção por tipo);
+ * qualquer `acessorio_*` vira o grupo combinado "acessorio". */
+function chaveGrupo(tipo: TipoMaterialPreco): string {
+  return tipo.startsWith("acessorio_") ? "acessorio" : tipo;
+}
+
 /** Catálogo comercial (migração 010) — chaparia (Inox/Galvanizado/Alumínio)
- * e isolante (Fibra Cerâmica/Lã de Rocha/Espuma), preço por m². "Materiais
- * Adicionais" (Arame/Parafusos/Silicone, migração 016) usa unidade própria
- * (kg/centena/frasco — ver `item.unidade`), por isso a coluna de preço
- * mostra a unidade de cada linha em vez de um cabeçalho fixo "R$/m²". */
+ * e isolante (Fibra Cerâmica/Lã de Rocha/Espuma), preço por m², cada
+ * espessura/densidade em ordem crescente (`ordem`, migração 017). "Materiais
+ * Adicionais" (Arame/Parafusos/Rebite/Silicone, migrações 016/017) usa
+ * unidade própria (kg/centena/frasco — ver `item.unidade`), por isso a
+ * coluna de preço mostra a unidade de cada linha em vez de um cabeçalho fixo
+ * "R$/m²". */
 export default function FormPrecos({ precos, onSalvar }: Props) {
   const [itens, setItens] = useState<PrecoConfig[]>(precos);
   const [salvando, setSalvando] = useState(false);
@@ -47,7 +71,14 @@ export default function FormPrecos({ precos, onSalvar }: Props) {
     }
   }
 
-  const grupos = Array.from(new Set(itens.map((i) => i.tipo_material)));
+  const grupos = Array.from(new Set(itens.map((i) => chaveGrupo(i.tipo_material)))).sort((a, b) => {
+    const posA = ORDEM_GRUPOS.indexOf(a);
+    const posB = ORDEM_GRUPOS.indexOf(b);
+    if (posA === -1 && posB === -1) return a.localeCompare(b);
+    if (posA === -1) return 1;
+    if (posB === -1) return -1;
+    return posA - posB;
+  });
 
   return (
     <div className="card space-y-4">
@@ -75,7 +106,8 @@ export default function FormPrecos({ precos, onSalvar }: Props) {
                   </td>
                 </tr>
                 {itens
-                  .filter((item) => item.tipo_material === grupo)
+                  .filter((item) => chaveGrupo(item.tipo_material) === grupo)
+                  .sort((a, b) => a.ordem - b.ordem)
                   .map((item) => (
                     <tr key={item.id}>
                       <td className="py-2 pr-4">{item.descricao}</td>
