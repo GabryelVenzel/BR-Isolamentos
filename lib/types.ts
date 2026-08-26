@@ -176,6 +176,13 @@ export type TipoMaterialPreco =
   | "isolante_fibra_ceramica"
   | "isolante_la_rocha"
   | "isolante_espuma"
+  // Materiais adicionais (migração 016) — arame/parafusos/silicone de
+  // volta no catálogo comercial, mas como tipos NOVOS (não reaproveitam
+  // `arame`/`parafuso`/`vedacit` abaixo, que são só do Método Expert
+  // antigo) — preço em unidade própria (kg/centena/frasco), não m².
+  | "acessorio_arame"
+  | "acessorio_parafuso"
+  | "acessorio_silicone"
   | "manta"
   | "chapa"
   | "rebite"
@@ -184,11 +191,12 @@ export type TipoMaterialPreco =
   | "vedacao"
   | "vedacit";
 
-export type GrupoMaterialPreco = "chaparia" | "isolante";
+export type GrupoMaterialPreco = "chaparia" | "isolante" | "acessorio";
 
 export function grupoDoTipoMaterial(tipo: TipoMaterialPreco): GrupoMaterialPreco | null {
   if (tipo.startsWith("chaparia_")) return "chaparia";
   if (tipo.startsWith("isolante_")) return "isolante";
+  if (tipo.startsWith("acessorio_")) return "acessorio";
   return null;
 }
 
@@ -228,6 +236,10 @@ export interface ConfigEmpresa {
   simples_nacional_rbt12: number;
 
   margem_lucro_padrao: number;
+  /** @deprecated Removido da tela Configurar Preços (pedido explícito, ver
+   * migração 016) — `calcularOrcamento` não usa mais este valor como
+   * fallback, sempre 0% quando o orçamento não informa `desconto_percentual_
+   * extra` explicitamente. Coluna mantida no schema por compatibilidade. */
   desconto_competitivo: number;
 
   valor_hora_mao_obra: number;
@@ -235,8 +247,11 @@ export interface ConfigEmpresa {
   valor_noite_hospedagem: number;
   valor_frete_por_tonelada: number;
 
-  // Assunção documentada: gramas de Vedacit consumidos por junta de vedação P.U.
-  // Não há esse dado nas planilhas originais — validar com a operação real.
+  /** @deprecated Removido da tela Configurar Preços (pedido explícito, ver
+   * migração 016) — só alimentava `lib/quantificador.ts` (Método Expert),
+   * que não é mais chamado por nenhuma tela atual (`/api/quantificar`
+   * ficou órfão desde a migração 010). Coluna mantida no schema por
+   * compatibilidade com orçamentos antigos que ainda exibem `vedacit_un`. */
   vedacit_gramas_por_junta: number;
 }
 

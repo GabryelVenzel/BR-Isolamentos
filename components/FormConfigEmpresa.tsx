@@ -14,10 +14,12 @@ const CAMPOS_CUSTOS: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo: s
   { nome: "valor_frete_por_tonelada", label: "Frete", sufixo: "R$/tonelada" },
 ];
 
+// "Desconto competitivo padrão" e "Vedacit por junta" removidos deste
+// formulário (pedido explícito) — ver ConfigEmpresa.desconto_competitivo/
+// vedacit_gramas_por_junta (@deprecated, lib/types.ts) pra o porquê de cada
+// um. As colunas continuam no banco, só não são mais editáveis aqui.
 const CAMPOS_MARGEM: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo: string }> = [
   { nome: "margem_lucro_padrao", label: "Margem de lucro padrão", sufixo: "% do preço de venda" },
-  { nome: "desconto_competitivo", label: "Desconto competitivo padrão", sufixo: "% do preço de venda" },
-  { nome: "vedacit_gramas_por_junta", label: "Vedacit por junta (estimativa a validar)", sufixo: "g" },
 ];
 
 export default function FormConfigEmpresa({ config }: Props) {
@@ -136,7 +138,7 @@ export default function FormConfigEmpresa({ config }: Props) {
       </div>
 
       <div>
-        <h3 className="mb-2 text-sm font-semibold text-gray-600">Margem e quantificação</h3>
+        <h3 className="mb-2 text-sm font-semibold text-gray-600">Margem</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {CAMPOS_MARGEM.map((campo) => (
             <div key={campo.nome}>

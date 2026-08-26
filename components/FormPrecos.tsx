@@ -15,12 +15,16 @@ const LABEL_GRUPO: Record<string, string> = {
   isolante_fibra_ceramica: "Isolante — Fibra Cerâmica",
   isolante_la_rocha: "Isolante — Lã de Rocha",
   isolante_espuma: "Isolante — Espuma Elastomérica",
+  acessorio_arame: "Materiais Adicionais — Arame",
+  acessorio_parafuso: "Materiais Adicionais — Parafusos",
+  acessorio_silicone: "Materiais Adicionais — Silicone/Vedação",
 };
 
-/** Catálogo comercial por m² (migração 010) — chaparia (Inox/Galvanizado/
- * Alumínio) e isolante (Fibra Cerâmica/Lã de Rocha/Espuma), cada um com 3
- * variantes de espessura/densidade. Preço sempre em R$/m² — não existe mais
- * a opção "por kg" (Método Expert antigo, descontinuado — ver migração 010). */
+/** Catálogo comercial (migração 010) — chaparia (Inox/Galvanizado/Alumínio)
+ * e isolante (Fibra Cerâmica/Lã de Rocha/Espuma), preço por m². "Materiais
+ * Adicionais" (Arame/Parafusos/Silicone, migração 016) usa unidade própria
+ * (kg/centena/frasco — ver `item.unidade`), por isso a coluna de preço
+ * mostra a unidade de cada linha em vez de um cabeçalho fixo "R$/m²". */
 export default function FormPrecos({ precos, onSalvar }: Props) {
   const [itens, setItens] = useState<PrecoConfig[]>(precos);
   const [salvando, setSalvando] = useState(false);
@@ -49,7 +53,7 @@ export default function FormPrecos({ precos, onSalvar }: Props) {
     <div className="card space-y-4">
       <div>
         <h2 className="text-lg font-semibold">Preços de materiais</h2>
-        <p className="text-sm text-gray-500">Catálogo comercial por m² — isolante e chaparia. Sem detalhamento de fixadores/vedação.</p>
+        <p className="text-sm text-gray-500">Isolante e chaparia (preço por m²) + materiais adicionais (arame, parafusos, silicone — preço por unidade própria).</p>
       </div>
 
       <div className="overflow-x-auto">
@@ -58,7 +62,7 @@ export default function FormPrecos({ precos, onSalvar }: Props) {
             <tr>
               <th className="py-2 pr-4">Material</th>
               <th className="py-2 pr-4">Especificação</th>
-              <th className="py-2 pr-4">Preço (R$/m²)</th>
+              <th className="py-2 pr-4">Preço</th>
               <th className="py-2 pr-4">Ativo</th>
             </tr>
           </thead>
@@ -77,13 +81,17 @@ export default function FormPrecos({ precos, onSalvar }: Props) {
                       <td className="py-2 pr-4">{item.descricao}</td>
                       <td className="py-2 pr-4 text-gray-500">{item.especificacao ?? "—"}</td>
                       <td className="py-2 pr-4">
-                        <input
-                          type="number"
-                          step="0.01"
-                          className="input-field w-32"
-                          value={item.preco_unitario}
-                          onChange={(e) => atualizarCampo(item.id, "preco_unitario", Number(e.target.value))}
-                        />
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-gray-400">R$</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            className="input-field w-28"
+                            value={item.preco_unitario}
+                            onChange={(e) => atualizarCampo(item.id, "preco_unitario", Number(e.target.value))}
+                          />
+                          <span className="text-xs text-gray-400">/ {item.unidade === "m2" ? "m²" : item.unidade}</span>
+                        </div>
                       </td>
                       <td className="py-2 pr-4">
                         <input

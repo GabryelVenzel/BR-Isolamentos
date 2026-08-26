@@ -51,7 +51,11 @@ export default function EditarOrcamentoPage() {
         return;
       }
 
-      router.push(`/orcamento/${id}`);
+      // Volta pro Histórico de Orçamentos (de onde "Editar" é acionado — ver
+      // components/TableOrcamentos.tsx), não pra tela de resumo/detalhe do
+      // orçamento (bug reportado: usuário editava e caía num lugar que não
+      // era de onde tinha vindo).
+      router.push("/historico");
     } finally {
       setSalvando(false);
     }
@@ -120,7 +124,7 @@ export default function EditarOrcamentoPage() {
       {erro && <p className="text-sm text-red-600">{erro}</p>}
 
       <div className="flex justify-end gap-3">
-        <button type="button" className="btn-secondary" onClick={() => router.push(`/orcamento/${id}`)}>
+        <button type="button" className="btn-secondary" onClick={() => router.push("/historico")}>
           Cancelar
         </button>
         <button type="button" className="btn-primary" onClick={salvar} disabled={salvando}>

@@ -115,7 +115,11 @@ export function calcularOrcamento(input: CalcularOrcamentoInput): CalcularOrcame
 
   const percentualImpostos = detalhamentoImpostosBase.reduce((acc, i) => acc + i.percentual, 0);
   const percentualMargem = config.margem_lucro_padrao;
-  const descontoPercentual = input.desconto_percentual_extra ?? config.desconto_competitivo;
+  // "Desconto competitivo padrão" saiu da tela Configurar Preços (pedido
+  // explícito) — sem desconto extra informado no orçamento, o padrão passa
+  // a ser 0%, não mais um valor configurável escondido (ver
+  // ConfigEmpresa.desconto_competitivo, @deprecated).
+  const descontoPercentual = input.desconto_percentual_extra ?? 0;
 
   const percentualTotal = percentualImpostos + percentualMargem;
   if (percentualTotal >= 100) {
