@@ -14,7 +14,7 @@ interface Props {
 }
 
 function formatarTamanho(bytes: number): string {
-  return bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)}KB` : `${(bytes / 1024 / 1024).toFixed(1)}MB`;
+  return bytes < 1024 * 1024 ? `${Math.round(bytes / 1024)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 }
 
 /** Upload de PDFs direto do navegador pro Supabase Storage — mesmo padrão de
@@ -22,7 +22,11 @@ function formatarTamanho(bytes: number): string {
  * components/modules/operacional/ServicoDetailModal.tsx. Controla um array
  * de `AnexoLancamento` local; o componente pai inclui esse array no payload
  * de criar/editar o lançamento (não precisa de uma rota de upload própria,
- * `anexos` é só mais um campo do lançamento). */
+ * `anexos` é só mais um campo do lançamento).
+ *
+ * Visual: grid de cards (mesmo padrão de AnexosLead.tsx/ParceiroAnexos.tsx/
+ * FornecedorAnexos.tsx) em vez do `<input type="file">` cru + lista de texto
+ * de antes — pedido explícito de consistência visual entre os módulos. */
 export default function AnexosUpload({ anexos, onChange }: Props) {
   const [enviando, setEnviando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -82,28 +86,50 @@ export default function AnexosUpload({ anexos, onChange }: Props) {
   }
 
   return (
-    <div className="space-y-2 rounded-card border border-gray-200 p-3">
-      <p className="text-xs font-semibold uppercase text-gray-500">Anexar PDFs (opcional)</p>
-      <input type="file" accept="application/pdf" multiple disabled={enviando} onChange={selecionarArquivos} />
+    <div className="rounded-card border border-gray-200 p-4">
+      <h3 className="mb-3 font-montserrat text-xs font-bold uppercase text-brand">
+        📎 Anexos (opcional) — {anexos.length}/{MAXIMO_ARQUIVOS}
+      </h3>
 
       {anexos.length > 0 && (
-        <ul className="space-y-1">
+        <div className="mb-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           {anexos.map((anexo) => (
-            <li key={anexo.url} className="flex items-center justify-between text-xs">
-              <a href={anexo.url} target="_blank" rel="noreferrer" className="truncate text-brand hover:underline">
-                📄 {anexo.nome} ({formatarTamanho(anexo.tamanho)})
-              </a>
-              <button type="button" className="text-status-error hover:underline" onClick={() => remover(anexo.url)}>
-                ❌ Remover
-              </button>
-            </li>
+            <div key={anexo.url} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
+              <div className="flex items-start gap-2">
+                <span className="text-xl">📄</span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-gray-800" title={anexo.nome}>
+                    {anexo.nome}
+                  </p>
+                  <p className="text-xs text-gray-400">{formatarTamanho(anexo.tamanho)}</p>
+                </div>
+              </div>
+              <div className="mt-2 flex gap-3 text-xs">
+                <a href={anexo.url} target="_blank" rel="noreferrer" className="text-brand hover:underline">
+                  👁️ Ver
+                </a>
+                <a href={anexo.url} download={anexo.nome} className="text-brand hover:underline">
+                  ⬇️ Download
+                </a>
+                <button type="button" className="text-status-error hover:underline" onClick={() => remover(anexo.url)}>
+                  🗑️ Remover
+                </button>
+              </div>
+            </div>
           ))}
-        </ul>
+        </div>
+      )}
+      {anexos.length === 0 && <p className="mb-3 text-sm text-gray-400">Nenhum anexo ainda.</p>}
+
+      {anexos.length < MAXIMO_ARQUIVOS && (
+        <label className="flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-gray-300 p-3 text-sm text-gray-500 hover:border-brand">
+          <input type="file" accept="application/pdf" multiple disabled={enviando} className="hidden" onChange={selecionarArquivos} />
+          📤 {enviando ? "Enviando..." : "Adicionar Anexo"}
+        </label>
       )}
 
-      {enviando && <p className="text-xs text-gray-500">Enviando...</p>}
-      {erro && <p className="text-xs text-status-error">{erro}</p>}
-      <p className="text-xs text-gray-400">Tipos aceitos: PDF · Máximo 10MB por arquivo · Até {MAXIMO_ARQUIVOS} arquivos.</p>
+      {erro && <p className="mt-2 text-xs text-status-error">{erro}</p>}
+      <p className="mt-1 text-xs text-gray-400">PDF — até 10MB por arquivo, até {MAXIMO_ARQUIVOS} anexos.</p>
     </div>
   );
 }
