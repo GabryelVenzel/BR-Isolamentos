@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "./toast";
 import MultiSelectTiposTrabalho, { TIPOS_TRABALHO_OPCOES } from "./MultiSelectTiposTrabalho";
 import { formatarMoeda } from "@/lib/format";
-import type { Lead, Parceiro, TipoTrabalhoOperacional } from "@/lib/types/domain";
+import type { Lead, TipoTrabalhoOperacional } from "@/lib/types/domain";
 
 interface Props {
   /** Se já vier de um lead específico (fluxo "Lead fechado → Criar
@@ -18,16 +18,18 @@ interface Props {
 
 /** Cria um serviço (S00001) a partir de um lead fechado — código,
  * lead/orçamento/cliente/valor orçado vêm todos do lead vinculado, não são
- * pedidos de novo (é o ponto da rastreabilidade Lead→Orçamento→Serviço). */
+ * pedidos de novo (é o ponto da rastreabilidade Lead→Orçamento→Serviço).
+ * Parceiros NÃO são pedidos aqui — são adicionados depois em Detalhes → aba
+ * Parceiros (pedido explícito, ver ServicoDetailModal.tsx e
+ * sql-migration-013). Responsável passou a ser obrigatório na criação. */
 export default function NovoServicoModal({ leadIdInicial, onFechar, onCriado }: Props) {
   const [leadsFechados, setLeadsFechados] = useState<Lead[]>([]);
   const [leadId, setLeadId] = useState(leadIdInicial ?? "");
   const [leadSelecionado, setLeadSelecionado] = useState<Lead | null>(null);
-  const [parceiros, setParceiros] = useState<Parceiro[]>([]);
+  const [usuarios, setUsuarios] = useState<Array<{ email: string; nome: string }>>([]);
 
   const [tiposTrabalho, setTiposTrabalho] = useState<TipoTrabalhoOperacional[]>([]);
-  const [parceiroPrincipalId, setParceiroPrincipalId] = useState("");
-  const [pessoasAlocadas, setPessoasAlocadas] = useState("");
+  const [responsavelEmail, setResponsavelEmail] = useState("");
   const [dataInicio, setDataInicio] = useState("");
   const [dataFimPrevista, setDataFimPrevista] = useState("");
   // Campo "Descrição" removido — duplicava "Notas" (mesma finalidade, dois
@@ -40,9 +42,10 @@ export default function NovoServicoModal({ leadIdInicial, onFechar, onCriado }: 
   const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/operacional/parceiros?ativo=true")
+    fetch("/api/usuarios")
       .then((r) => r.json())
-      .then((p) => p.success && setParceiros(p.data));
+      .then(setUsuarios)
+      .catch(() => setUsuarios([]));
 
     if (!leadIdInicial) {
       fetch("/api/comercial/leads?etapa=fechado")
@@ -74,8 +77,8 @@ export default function NovoServicoModal({ leadIdInicial, onFechar, onCriado }: 
       setErro("Selecione pelo menos 1 tipo de trabalho.");
       return;
     }
-    if (!parceiroPrincipalId) {
-      setErro("Selecione o parceiro principal.");
+    if (!responsavelEmail) {
+      setErro("Selecione o responsável.");
       return;
     }
     if (!dataInicio) {
@@ -93,8 +96,7 @@ export default function NovoServicoModal({ leadIdInicial, onFechar, onCriado }: 
           lead_id: leadId,
           orcamento_id: leadSelecionado.orcamento_id,
           tipos_trabalho: tiposTrabalho,
-          parceiro_principal_id: parceiroPrincipalId,
-          pessoas_alocadas: pessoasAlocadas ? Number(pessoasAlocadas) : null,
+          responsavel_email: responsavelEmail,
           data_inicio: dataInicio,
           data_fim_prevista: dataFimPrevista || null,
           notas: notas || null,
@@ -163,20 +165,16 @@ export default function NovoServicoModal({ leadIdInicial, onFechar, onCriado }: 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="label-field">
-                Parceiro principal<span className="text-status-error"> *</span>
+                Responsável<span className="text-status-error"> *</span>
               </label>
-              <select className="input-field" value={parceiroPrincipalId} onChange={(e) => setParceiroPrincipalId(e.target.value)}>
+              <select className="input-field" value={responsavelEmail} onChange={(e) => setResponsavelEmail(e.target.value)}>
                 <option value="">Selecione...</option>
-                {parceiros.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.nome}
+                {usuarios.map((u) => (
+                  <option key={u.email} value={u.email}>
+                    {u.nome}
                   </option>
                 ))}
               </select>
-            </div>
-            <div>
-              <label className="label-field">Pessoas alocadas</label>
-              <input type="number" min={1} className="input-field" value={pessoasAlocadas} onChange={(e) => setPessoasAlocadas(e.target.value)} />
             </div>
             <div>
               <label className="label-field">
@@ -189,6 +187,8 @@ export default function NovoServicoModal({ leadIdInicial, onFechar, onCriado }: 
               <input type="date" className="input-field" value={dataFimPrevista} onChange={(e) => setDataFimPrevista(e.target.value)} />
             </div>
           </div>
+
+          <p className="text-xs text-gray-400">👥 Parceiros são adicionados depois de criar o serviço, na aba Parceiros.</p>
 
           <div>
             <label className="label-field">Notas</label>

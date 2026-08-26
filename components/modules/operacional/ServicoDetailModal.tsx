@@ -2,11 +2,13 @@
 
 import { useCallback, useEffect, useState, type ChangeEvent } from "react";
 import { toast } from "./toast";
+import ModalAdicionarParceiroServico from "./ModalAdicionarParceiroServico";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatarDataHora, formatarMoeda } from "@/lib/format";
-import type { HistoricoServico, InteracaoServico, Servico, TipoInteracaoServico } from "@/lib/types/domain";
+import type { HistoricoServico, InteracaoServico, Servico, ServicoParceiroExecucao, TipoInteracaoServico } from "@/lib/types/domain";
 
 const BUCKET = "servicos-anexos";
+const LIMITE_FOTOS = 20;
 
 const LABEL_TIPO_TRABALHO: Record<string, string> = {
   bancada: "Bancada",
@@ -57,20 +59,28 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
   const [notas, setNotas] = useState("");
   const [dataInicio, setDataInicio] = useState("");
   const [dataFimPrevista, setDataFimPrevista] = useState("");
+  const [responsavelEmail, setResponsavelEmail] = useState("");
+  const [usuarios, setUsuarios] = useState<Array<{ email: string; nome: string }>>([]);
   const [salvandoDados, setSalvandoDados] = useState(false);
 
-  const [etapaSelecionada, setEtapaSelecionada] = useState<"planejamento" | "execucao">("planejamento");
-  const [salvandoEtapa, setSalvandoEtapa] = useState(false);
-
-  const [valorReal, setValorReal] = useState("");
   const [finalizando, setFinalizando] = useState(false);
   const [enviandoArquivo, setEnviandoArquivo] = useState<string | null>(null);
+
+  const [mostrarAdicionarParceiro, setMostrarAdicionarParceiro] = useState(false);
+  const [removendoParceiroId, setRemovendoParceiroId] = useState<string | null>(null);
 
   const [novaInteracaoTipo, setNovaInteracaoTipo] = useState<TipoInteracaoServico>("nota");
   const [novaInteracaoDescricao, setNovaInteracaoDescricao] = useState("");
   const [salvandoInteracao, setSalvandoInteracao] = useState(false);
 
   const [erro, setErro] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/usuarios")
+      .then((r) => r.json())
+      .then(setUsuarios)
+      .catch(() => setUsuarios([]));
+  }, []);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -93,7 +103,7 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
         setNotas(s.notas ?? "");
         setDataInicio(s.data_inicio ?? "");
         setDataFimPrevista(s.data_fim_prevista ?? "");
-        if (s.etapa !== "finalizado") setEtapaSelecionada(s.etapa);
+        setResponsavelEmail(s.responsavel_email ?? "");
       } else {
         setErro(payloadServico.error ?? "Erro ao carregar o serviço.");
       }
@@ -120,6 +130,7 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
           notas: notas || null,
           data_inicio: dataInicio || undefined,
           data_fim_prevista: dataFimPrevista || null,
+          responsavel_email: responsavelEmail || undefined,
         }),
       });
       const payload = await response.json();
@@ -135,25 +146,27 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
     }
   }
 
-  async function salvarEtapa() {
-    if (!servico || servico.etapa === etapaSelecionada) return;
-    setSalvandoEtapa(true);
+  async function adicionarParceiro(_execucao: ServicoParceiroExecucao) {
+    setMostrarAdicionarParceiro(false);
+    await carregar();
+    onServicoMudou();
+  }
+
+  async function removerParceiro(execucaoId: string) {
+    if (!confirm("Remover este parceiro do serviço?")) return;
+    setRemovendoParceiroId(execucaoId);
     try {
-      const response = await fetch(`/api/operacional/servicos/${servicoId}/mover`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ novaEtapa: etapaSelecionada }),
-      });
+      const response = await fetch(`/api/operacional/servicos/${servicoId}/parceiros/${execucaoId}`, { method: "DELETE" });
       const payload = await response.json();
       if (!response.ok || !payload.success) {
-        toast.erro(payload.error ?? "Não foi possível mover o serviço.");
+        toast.erro(payload.error ?? "Não foi possível remover o parceiro.");
         return;
       }
-      toast.sucesso(`Serviço movido para ${LABEL_ETAPA[etapaSelecionada]}.`);
+      toast.sucesso("Parceiro removido do serviço.");
       await carregar();
       onServicoMudou();
     } finally {
-      setSalvandoEtapa(false);
+      setRemovendoParceiroId(null);
     }
   }
 
@@ -243,16 +256,12 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
   }
 
   async function confirmarFinalizacao() {
-    if (!valorReal) {
-      toast.erro("Informe o valor real do serviço.");
-      return;
-    }
     setFinalizando(true);
     try {
       const response = await fetch(`/api/operacional/servicos/${servicoId}/finalizar`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ valor_real: Number(valorReal) }),
+        body: JSON.stringify({}),
       });
       const payload = await response.json();
       if (!response.ok || !payload.success) {
@@ -301,9 +310,9 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
     }
   }
 
-  const temFotoPrincipal = !!servico?.foto_principal_url;
+  const temFotos = (servico?.fotos_url.length ?? 0) > 0;
   const temPdf = !!servico?.pdf_relatorio_url;
-  const podeFinalizar = temFotoPrincipal && temPdf && !!valorReal;
+  const podeFinalizar = temFotos && temPdf;
 
   return (
     <div className="fixed inset-0 z-[60] flex justify-end bg-brand/60" onClick={onFechar}>
@@ -384,15 +393,6 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
                         <span className="text-gray-500">Valor real:</span> {formatarMoeda(servico.valor_real)}
                       </p>
                     )}
-                    <p>
-                      <span className="text-gray-500">Parceiro principal:</span> {servico.parceiro_principal?.nome ?? "—"}
-                      {servico.pessoas_alocadas != null && ` (${servico.pessoas_alocadas} pessoas)`}
-                    </p>
-                    {servico.responsavel_email && (
-                      <p>
-                        <span className="text-gray-500">Responsável:</span> {servico.responsavel_email}
-                      </p>
-                    )}
                   </div>
 
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -409,6 +409,17 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
                         onChange={(e) => setDataFimPrevista(e.target.value)}
                       />
                     </div>
+                    <div className="sm:col-span-2">
+                      <label className="label-field">Responsável</label>
+                      <select className="input-field" value={responsavelEmail} onChange={(e) => setResponsavelEmail(e.target.value)}>
+                        <option value="">Selecione...</option>
+                        {usuarios.map((u) => (
+                          <option key={u.email} value={u.email}>
+                            {u.nome}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                   <div>
                     <label className="label-field">Notas</label>
@@ -418,24 +429,47 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
                     {salvandoDados ? "Salvando..." : "Salvar"}
                   </button>
 
-                  {servico.etapa !== "finalizado" && (
-                    <div className="space-y-3 border-t border-gray-100 pt-4">
-                      <h3 className="font-montserrat text-xs font-bold uppercase text-brand">Mudar etapa</h3>
-                      <div className="flex items-center gap-3">
-                        <select
-                          className="input-field max-w-xs"
-                          value={etapaSelecionada}
-                          onChange={(e) => setEtapaSelecionada(e.target.value as "planejamento" | "execucao")}
-                        >
-                          <option value="planejamento">Planejamento</option>
-                          <option value="execucao">Execução</option>
-                        </select>
-                        <button type="button" className="btn-accent" onClick={salvarEtapa} disabled={salvandoEtapa}>
-                          {salvandoEtapa ? "Salvando..." : "Salvar etapa"}
-                        </button>
-                      </div>
+                  {/* Mudar etapa: removido daqui — Kanban (drag&drop) é a
+                      ÚNICA forma de mudar etapa (pedido explícito, evita
+                      redundância entre esta tela e o Kanban). */}
+
+                  <div className="space-y-3 border-t border-gray-100 pt-4">
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-montserrat text-xs font-bold uppercase text-brand">👥 Parceiros</h3>
+                      <button type="button" className="text-xs font-semibold text-brand hover:underline" onClick={() => setMostrarAdicionarParceiro(true)}>
+                        + Adicionar Parceiro
+                      </button>
                     </div>
-                  )}
+                    <div className="space-y-2">
+                      {(servico.parceiros_execucao ?? []).map((execucao) => (
+                        <div key={execucao.id} className="rounded-lg border border-gray-200 bg-gray-50 p-2.5">
+                          <div className="flex items-start justify-between gap-2">
+                            <div>
+                              <p className="text-sm font-medium text-gray-800">
+                                ✅ {execucao.parceiro?.nome ?? "—"}{" "}
+                                <span className="font-normal text-gray-400">
+                                  ({execucao.pessoas_mobilizadas} {execucao.pessoas_mobilizadas === 1 ? "pessoa" : "pessoas"})
+                                </span>
+                              </p>
+                              <p className="text-xs text-gray-500">{execucao.tipos_trabalho.map((t) => LABEL_TIPO_TRABALHO[t] ?? t).join(", ")}</p>
+                            </div>
+                            <button
+                              type="button"
+                              title="Remover"
+                              className="shrink-0 hover:opacity-70"
+                              disabled={removendoParceiroId !== null}
+                              onClick={() => removerParceiro(execucao.id)}
+                            >
+                              🗑️
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                      {(servico.parceiros_execucao ?? []).length === 0 && (
+                        <p className="text-sm text-gray-400">Nenhum parceiro vinculado ainda.</p>
+                      )}
+                    </div>
+                  </div>
 
                   <div className="space-y-4 border-t border-gray-100 pt-4">
                     <h3 className="font-montserrat text-xs font-bold uppercase text-brand">
@@ -443,64 +477,39 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
                     </h3>
 
                     <div className="rounded-card border border-gray-200 p-3">
-                      <p className="mb-2 text-sm font-semibold text-gray-700">📸 Foto principal</p>
-                      {servico.foto_principal_url ? (
-                        <div className="flex items-center justify-between gap-3 rounded-lg border border-accent-light bg-accent-light/40 p-2">
-                          <div className="flex items-center gap-2 overflow-hidden">
-                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={servico.foto_principal_url} alt="Foto principal" className="h-10 w-10 shrink-0 rounded object-cover" />
-                            <span className="truncate text-xs text-accent-dark">✅ {nomeArquivo(servico.foto_principal_url)}</span>
-                          </div>
-                          <div className="flex shrink-0 gap-2">
-                            <a href={servico.foto_principal_url} target="_blank" rel="noreferrer" title="Visualizar" className="hover:opacity-70">
-                              👁️
-                            </a>
-                            <button
-                              type="button"
-                              title="Remover"
-                              className="hover:opacity-70"
-                              disabled={enviandoArquivo !== null}
-                              onClick={() => removerArquivo("foto_principal_url", servico.foto_principal_url!)}
-                            >
-                              🗑️
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <label className="flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-gray-300 p-3 text-sm text-gray-500 hover:border-brand">
-                          <input type="file" accept="image/*" className="hidden" disabled={enviandoArquivo !== null} onChange={(e) => enviarArquivo(e, "foto_principal_url")} />
-                          📤 {enviandoArquivo === "foto_principal_url" ? "Enviando..." : "Escolher foto"}
-                        </label>
-                      )}
-                    </div>
-
-                    <div className="rounded-card border border-gray-200 p-3">
-                      <p className="mb-2 text-sm font-semibold text-gray-700">🖼️ Fotos adicionais ({servico.fotos_url.length}/10)</p>
-                      <div className="space-y-1.5">
+                      <p className="mb-2 text-sm font-semibold text-gray-700">📸 Fotos do Projeto ({servico.fotos_url.length}/{LIMITE_FOTOS})</p>
+                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                         {servico.fotos_url.map((url) => (
-                          <div key={url} className="flex items-center justify-between gap-3 rounded-lg border border-brand-light bg-brand-light/30 p-2">
-                            <span className="truncate text-xs text-brand">✅ {nomeArquivo(url)}</span>
-                            <div className="flex shrink-0 gap-2">
-                              <a href={url} target="_blank" rel="noreferrer" title="Visualizar" className="hover:opacity-70">
-                                👁️
-                              </a>
-                              <button type="button" title="Remover" className="hover:opacity-70" disabled={enviandoArquivo !== null} onClick={() => removerArquivo("fotos_url", url)}>
-                                🗑️
-                              </button>
+                          <div key={url} className="overflow-hidden rounded-lg border border-brand-light bg-brand-light/20">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={url} alt="Foto do projeto" className="h-20 w-full object-cover" />
+                            <div className="flex items-center justify-between gap-1 p-1.5">
+                              <span className="truncate text-[11px] text-brand" title={nomeArquivo(url)}>
+                                ✅ {nomeArquivo(url)}
+                              </span>
+                              <div className="flex shrink-0 gap-1.5">
+                                <a href={url} target="_blank" rel="noreferrer" title="Visualizar" className="hover:opacity-70">
+                                  👁️
+                                </a>
+                                <button type="button" title="Remover" className="hover:opacity-70" disabled={enviandoArquivo !== null} onClick={() => removerArquivo("fotos_url", url)}>
+                                  🗑️
+                                </button>
+                              </div>
                             </div>
                           </div>
                         ))}
                       </div>
-                      {servico.fotos_url.length < 10 && (
-                        <label className="mt-1.5 flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-gray-300 p-2 text-xs text-gray-500 hover:border-brand">
+                      {servico.fotos_url.length === 0 && <p className="mb-2 text-sm text-gray-400">Nenhuma foto ainda.</p>}
+                      {servico.fotos_url.length < LIMITE_FOTOS && (
+                        <label className="mt-2 flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-gray-300 p-2 text-xs text-gray-500 hover:border-brand">
                           <input type="file" accept="image/*" className="hidden" disabled={enviandoArquivo !== null} onChange={(e) => enviarArquivo(e, "fotos_url")} />
-                          📤 {enviandoArquivo === "fotos_url" ? "Enviando..." : "Adicionar mais fotos"}
+                          📤 {enviandoArquivo === "fotos_url" ? "Enviando..." : "Adicionar fotos"}
                         </label>
                       )}
                     </div>
 
                     <div className="rounded-card border border-gray-200 p-3">
-                      <p className="mb-2 text-sm font-semibold text-gray-700">📄 PDF relatório</p>
+                      <p className="mb-2 text-sm font-semibold text-gray-700">📄 PDF Relatório (Obrigatório)</p>
                       {servico.pdf_relatorio_url ? (
                         <div className="flex items-center justify-between gap-3 rounded-lg border border-accent-light bg-accent-light/40 p-2">
                           <span className="truncate text-xs text-accent-dark">✅ {nomeArquivo(servico.pdf_relatorio_url)}</span>
@@ -508,6 +517,10 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
                             <a href={servico.pdf_relatorio_url} target="_blank" rel="noreferrer" title="Visualizar" className="hover:opacity-70">
                               👁️
                             </a>
+                            <label className="cursor-pointer hover:opacity-70" title="Substituir">
+                              <input type="file" accept="application/pdf" className="hidden" disabled={enviandoArquivo !== null} onChange={(e) => enviarArquivo(e, "pdf_relatorio_url")} />
+                              📤
+                            </label>
                             <button
                               type="button"
                               title="Remover"
@@ -531,27 +544,29 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
                   {servico.etapa !== "finalizado" && (
                     <div className="space-y-2 rounded-card border-l-4 border-l-secondary bg-secondary-light/40 p-4">
                       <h3 className="font-montserrat text-xs font-bold uppercase text-brand">✅ Requisitos para Finalizar</h3>
-                      <p className={`text-xs ${temFotoPrincipal ? "text-accent-dark" : "text-gray-400"}`}>
-                        {temFotoPrincipal ? "✅" : "⬜"} Foto principal anexada
+                      <p className={`text-xs ${temFotos ? "text-accent-dark" : "text-gray-400"}`}>
+                        {temFotos ? "✅" : "⬜"} Fotos do projeto anexadas (mín. 1)
                       </p>
                       <p className={`text-xs ${temPdf ? "text-accent-dark" : "text-gray-400"}`}>{temPdf ? "✅" : "⬜"} PDF relatório anexado</p>
-                      <p className={`text-xs ${valorReal ? "text-accent-dark" : "text-gray-400"}`}>{valorReal ? "✅" : "⬜"} Valor real preenchido</p>
-                      <div>
-                        <label className="label-field">
-                          Valor real<span className="text-status-error"> *</span>
-                        </label>
-                        <input type="number" step="0.01" className="input-field max-w-xs" value={valorReal} onChange={(e) => setValorReal(e.target.value)} />
-                      </div>
+                      {podeFinalizar && <p className="text-xs text-accent-dark">✅ Pronto para confirmar finalização</p>}
                       <button
                         type="button"
                         className="btn-accent"
                         onClick={confirmarFinalizacao}
                         disabled={!podeFinalizar || finalizando}
-                        title={!podeFinalizar ? "Anexe foto principal, PDF relatório e informe o valor real" : undefined}
+                        title={!podeFinalizar ? "Anexe fotos do projeto e o PDF relatório" : undefined}
                       >
                         {finalizando ? "Finalizando..." : "✨ Confirmar finalização"}
                       </button>
                     </div>
+                  )}
+
+                  {mostrarAdicionarParceiro && (
+                    <ModalAdicionarParceiroServico
+                      servicoId={servicoId}
+                      onFechar={() => setMostrarAdicionarParceiro(false)}
+                      onAdicionado={adicionarParceiro}
+                    />
                   )}
                 </>
               )}

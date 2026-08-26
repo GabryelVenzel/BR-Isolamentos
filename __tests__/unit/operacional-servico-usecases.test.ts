@@ -90,30 +90,35 @@ describe("moverServico", () => {
 });
 
 describe("finalizarServico", () => {
-  it("rejeita finalizar sem foto principal e PDF anexados", async () => {
-    const servicoRepo = criarServicoRepoFake(servico({ foto_principal_url: null, pdf_relatorio_url: null }));
-    const historicoRepo = criarHistoricoRepoFake();
-
-    await expect(
-      finalizarServico("s1", { valor_real: 1000 }, { servicoRepo: servicoRepo as never, historicoRepo: historicoRepo as never })
-    ).rejects.toBeInstanceOf(ValidationError);
-    expect(servicoRepo.update).not.toHaveBeenCalled();
-  });
-
-  it("rejeita finalizar sem valor_real no corpo", async () => {
-    const servicoRepo = criarServicoRepoFake(
-      servico({ foto_principal_url: "foto.jpg", pdf_relatorio_url: "relatorio.pdf" })
-    );
+  it("rejeita finalizar sem fotos e PDF anexados", async () => {
+    const servicoRepo = criarServicoRepoFake(servico({ fotos_url: [], pdf_relatorio_url: null }));
     const historicoRepo = criarHistoricoRepoFake();
 
     await expect(
       finalizarServico("s1", {}, { servicoRepo: servicoRepo as never, historicoRepo: historicoRepo as never })
-    ).rejects.toThrow();
+    ).rejects.toBeInstanceOf(ValidationError);
+    expect(servicoRepo.update).not.toHaveBeenCalled();
   });
 
-  it("finaliza quando todos os requisitos estão prontos", async () => {
+  it("finaliza SEM valor_real no corpo — não é mais obrigatório (pedido explícito)", async () => {
     const servicoRepo = criarServicoRepoFake(
-      servico({ foto_principal_url: "foto.jpg", pdf_relatorio_url: "relatorio.pdf" })
+      servico({ fotos_url: ["foto.jpg"], pdf_relatorio_url: "relatorio.pdf" })
+    );
+    const historicoRepo = criarHistoricoRepoFake();
+
+    const resultado = await finalizarServico(
+      "s1",
+      {},
+      { servicoRepo: servicoRepo as never, historicoRepo: historicoRepo as never }
+    );
+
+    expect(resultado.etapa).toBe("finalizado");
+    expect(resultado.valor_real).toBeNull();
+  });
+
+  it("finaliza quando todos os requisitos estão prontos (com valor_real informado)", async () => {
+    const servicoRepo = criarServicoRepoFake(
+      servico({ fotos_url: ["foto.jpg"], pdf_relatorio_url: "relatorio.pdf" })
     );
     const historicoRepo = criarHistoricoRepoFake();
 
@@ -132,7 +137,7 @@ describe("finalizarServico", () => {
 
   it("cria um lançamento de receita pendente vinculado ao serviço (integração com o Financeiro)", async () => {
     const servicoRepo = criarServicoRepoFake(
-      servico({ numero_servico: "S00042", foto_principal_url: "foto.jpg", pdf_relatorio_url: "relatorio.pdf", orcamento_id: 7 })
+      servico({ numero_servico: "S00042", fotos_url: ["foto.jpg"], pdf_relatorio_url: "relatorio.pdf", orcamento_id: 7 })
     );
     const historicoRepo = criarHistoricoRepoFake();
     const lancamentoRepo = { create: jest.fn(async (dados: unknown) => dados) };
@@ -148,8 +153,24 @@ describe("finalizarServico", () => {
     );
   });
 
+  it("lançamento de receita usa valor_orcado como estimativa quando valor_real não é informado", async () => {
+    const servicoRepo = criarServicoRepoFake(
+      servico({ fotos_url: ["foto.jpg"], pdf_relatorio_url: "relatorio.pdf", valor_orcado: 3000 })
+    );
+    const historicoRepo = criarHistoricoRepoFake();
+    const lancamentoRepo = { create: jest.fn(async (dados: unknown) => dados) };
+
+    await finalizarServico(
+      "s1",
+      {},
+      { servicoRepo: servicoRepo as never, historicoRepo: historicoRepo as never, lancamentoRepo: lancamentoRepo as never }
+    );
+
+    expect(lancamentoRepo.create).toHaveBeenCalledWith(expect.objectContaining({ valor: 3000 }));
+  });
+
   it("não quebra se lancamentoRepo não for passado (compatibilidade)", async () => {
-    const servicoRepo = criarServicoRepoFake(servico({ foto_principal_url: "foto.jpg", pdf_relatorio_url: "relatorio.pdf" }));
+    const servicoRepo = criarServicoRepoFake(servico({ fotos_url: ["foto.jpg"], pdf_relatorio_url: "relatorio.pdf" }));
     const historicoRepo = criarHistoricoRepoFake();
 
     const resultado = await finalizarServico(
@@ -162,7 +183,7 @@ describe("finalizarServico", () => {
 
   it("rejeita finalizar um serviço já finalizado", async () => {
     const servicoRepo = criarServicoRepoFake(
-      servico({ etapa: "finalizado", foto_principal_url: "foto.jpg", pdf_relatorio_url: "relatorio.pdf" })
+      servico({ etapa: "finalizado", fotos_url: ["foto.jpg"], pdf_relatorio_url: "relatorio.pdf" })
     );
     const historicoRepo = criarHistoricoRepoFake();
 

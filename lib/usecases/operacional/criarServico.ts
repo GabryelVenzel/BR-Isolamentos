@@ -8,7 +8,9 @@ import { CreateServicoSchema, parseOrThrow } from "../../validators";
  * Comercial, ver LeadDetailModal.tsx). `cliente_id`, `numero_lead`,
  * `numero_orcamento` e `valor_orcado` são carregados do lead/orçamento
  * vinculados, não pedidos de novo ao usuário — é exatamente o ponto da
- * rastreabilidade Lead→Orçamento→Serviço. */
+ * rastreabilidade Lead→Orçamento→Serviço. Parceiros NÃO são pedidos na
+ * criação (pedido explícito, ver sql-migration-013) — são adicionados depois
+ * em Detalhes → aba Parceiros (ver adicionarParceiroServico.ts). */
 export async function criarServico(
   input: unknown,
   repos: {
@@ -39,14 +41,11 @@ export async function criarServico(
     // sql-migration-011-servicos-multiplos-tipos.sql).
     tipo_trabalho: dados.tipos_trabalho[0],
     valor_orcado: orcamento.valor_final,
-    parceiro_principal_id: dados.parceiro_principal_id,
-    pessoas_alocadas: dados.pessoas_alocadas ?? null,
-    parceiros_alocados: dados.parceiros_alocados ?? [],
     data_inicio: dados.data_inicio,
     data_fim_prevista: dados.data_fim_prevista ?? null,
     descricao: dados.descricao ?? null,
     notas: dados.notas ?? null,
-    responsavel_email: dados.responsavel_email ?? usuarioEmail ?? null,
+    responsavel_email: dados.responsavel_email,
     etapa: "planejamento",
   } as Partial<Servico>);
 

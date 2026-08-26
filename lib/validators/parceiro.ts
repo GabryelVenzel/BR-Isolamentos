@@ -7,17 +7,25 @@ const TipoTrabalhoOperacionalSchema = z.enum([
   "isolamentos_fixos",
 ]);
 
+// Classificação fixa (ver EspecialidadeParceiro em lib/types/domain.ts) —
+// NÃO confundir com `especialidades` (plural, abaixo), o modelo antigo por
+// horas/semana usado pelo dashboard Resumo.
+const EspecialidadeParceiroSchema = z.enum(["isolantes", "chaparia", "ferramentas", "ferragens", "outros"]);
+
 export const CreateParceiroSchema = z.object({
   nome: z.string().trim().min(1, "Informe o nome do parceiro."),
   email: z.string().trim().email("E-mail inválido.").nullable().optional(),
   telefone: z.string().trim().nullable().optional(),
   cnpj: z.string().trim().nullable().optional(),
   endereco: z.string().trim().nullable().optional(),
-  cidade: z.string().trim().nullable().optional(),
+  // Sigla vem de um dropdown fixo agora (ModalParceiro.tsx) — a validação de
+  // tamanho continua como salvaguarda de schema, não porque a UI ainda
+  // aceita digitação livre.
   estado: z.string().trim().length(2, "Use a sigla do estado (ex.: SP).").nullable().optional(),
   cpf: z.string().trim().nullable().optional(),
   conta_bancaria: z.string().trim().nullable().optional(),
   especialidades: z.array(z.string().trim().min(1)).optional(),
+  especialidade: EspecialidadeParceiroSchema.nullable().optional(),
   disponibilidade_horas_semana: z.number().nonnegative().nullable().optional(),
   disponibilidade_dias: z.array(z.string().trim().min(1)).optional(),
   custo_hora: z.number().nonnegative().nullable().optional(),
@@ -35,5 +43,22 @@ export const CreateParceiroSchema = z.object({
 
 export const UpdateParceiroSchema = CreateParceiroSchema.partial();
 
+// Anexo de parceiro (Editar Parceiro → seção Anexos) — mesmo padrão de
+// CreateAnexoLeadSchema, limite de 20 MB (maior que o de Lead: pedido
+// explícito pra este caso, documentação de parceiro tende a ter apólices/
+// certidões digitalizadas maiores).
+const LIMITE_ANEXO_PARCEIRO_BYTES = 20 * 1024 * 1024;
+
+export const CreateParceiroAnexoSchema = z.object({
+  parceiro_id: z.string().min(1),
+  nome_arquivo: z.string().trim().min(1),
+  tipo_arquivo: z.string().trim().min(1),
+  tamanho_bytes: z.number().int().positive().max(LIMITE_ANEXO_PARCEIRO_BYTES, "Arquivo maior que 20 MB."),
+  storage_path: z.string().trim().min(1),
+  url: z.string().trim().min(1),
+  adicionado_por: z.string().trim().email().nullable().optional(),
+});
+
 export type CreateParceiroInput = z.infer<typeof CreateParceiroSchema>;
 export type UpdateParceiroInput = z.infer<typeof UpdateParceiroSchema>;
+export type CreateParceiroAnexoInput = z.infer<typeof CreateParceiroAnexoSchema>;

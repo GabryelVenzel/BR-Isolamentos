@@ -56,7 +56,11 @@ export default function ServicoCard({ servico, onAbrir, onIniciarArraste, onTerm
           {servico.data_fim_prevista && ` – ${formatarData(servico.data_fim_prevista)}`}
         </p>
       )}
-      {servico.parceiro_principal && <p className="truncate text-xs text-gray-500">👷 {servico.parceiro_principal.nome}</p>}
+      {(servico.parceiros_execucao ?? []).length > 0 && (
+        <p className="truncate text-xs text-gray-500">
+          👷 {servico.parceiros_execucao!.map((e) => e.parceiro?.nome ?? "—").join(", ")}
+        </p>
+      )}
       {servico.etapa === "finalizado" && <p className="mt-1 text-xs font-semibold text-accent">✅ Concluído</p>}
     </div>
   );

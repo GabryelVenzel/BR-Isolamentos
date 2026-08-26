@@ -231,6 +231,12 @@ export interface ClienteResumo {
  * (bancada, caldeiraria, isolamentos removíveis/fixos). */
 export type TipoTrabalhoOperacional = "bancada" | "caldeiraria" | "isolamentos_removiveis" | "isolamentos_fixos";
 
+/** Classificação fixa do parceiro (ver sql-migration-013, decisão 4) — NÃO
+ * confundir com `Parceiro.especialidades` (plural, modelo antigo por horas/
+ * semana usado pelo dashboard Resumo). Usada pra filtrar parceiros ao montar
+ * um serviço (ex.: só fornecedores de "Ferragens"). */
+export type EspecialidadeParceiro = "isolantes" | "chaparia" | "ferramentas" | "ferragens" | "outros";
+
 export interface Parceiro {
   id: string;
   numero_parceiro: string | null;
@@ -262,9 +268,45 @@ export interface Parceiro {
    * (ver lib/usecases/operacional/capacidade.ts), porque dependem de QUAL
    * DIA está sendo consultado. */
   total_pessoas: number | null;
+  /** Classificação fixa (ver `EspecialidadeParceiro`) — null pra parceiros
+   * cadastrados antes desta migração, até serem editados. */
+  especialidade: EspecialidadeParceiro | null;
   ativo: boolean;
   created_at: string;
   updated_at: string;
+}
+
+/** Documento anexado a um parceiro (contrato, certidão, apólice de seguro...)
+ * — mesmo padrão de `AnexoLead`, um arquivo por linha. Editável só na tela de
+ * Editar Parceiro (pedido explícito — não faz sentido pedir documentação
+ * antes do parceiro nem existir). */
+export interface ParceiroAnexo {
+  id: string;
+  parceiro_id: string;
+  nome_arquivo: string;
+  tipo_arquivo: string;
+  tamanho_bytes: number;
+  storage_path: string;
+  url: string;
+  data_adicao: string;
+  adicionado_por: string | null;
+}
+
+/** Um parceiro vinculado a um serviço, com headcount e tipos de trabalho
+ * PRÓPRIOS (ver sql-migration-013) — substitui o modelo antigo de "um
+ * parceiro principal + parceiros de apoio sem headcount" (`Servico.
+ * parceiro_principal_id`/`pessoas_alocadas`/`parceiros_alocados`, mantidos
+ * no schema só por compatibilidade com serviços já criados). Um serviço pode
+ * ter N linhas destas. */
+export interface ServicoParceiroExecucao {
+  id: string;
+  servico_id: string;
+  parceiro_id: string;
+  pessoas_mobilizadas: number;
+  tipos_trabalho: TipoTrabalhoOperacional[];
+  data_adicao: string;
+  // Preenchido via join, opcional (ver ServicoParceiroExecucaoRepository.select).
+  parceiro?: Parceiro;
 }
 
 /** Fornecedor de materiais/equipamentos/serviços (não confundir com
@@ -331,22 +373,32 @@ export interface Servico {
    * tempo (ex.: Caldeiraria + Isolamentos no mesmo local/dia). */
   tipos_trabalho: TipoTrabalhoOperacional[];
   valor_orcado: number | null;
-  /** Preenchido só na finalização — base da análise "real vs orçado". */
+  /** Preenchido só na finalização, e OPCIONAL (pedido explícito: valor real
+   * não bloqueia mais finalizar — ver finalizarServico.ts) — base da análise
+   * "real vs orçado" quando preenchido; fica `null` quando o serviço é
+   * finalizado sem informar. */
   valor_real: number | null;
   data_inicio: string | null;
   data_fim_prevista: string | null;
   data_fim_real: string | null;
+  /** @deprecated Modelo antigo de "um parceiro principal" — substituído por
+   * `parceiros_execucao` (ver sql-migration-013). Mantido no schema só por
+   * compatibilidade com serviços criados antes dessa mudança; a UI não
+   * escreve mais aqui. */
   parceiro_principal_id: string | null;
-  /** Quantas pessoas do parceiro principal estão alocadas neste serviço —
-   * base do cálculo de capacidade por dia (ver
-   * lib/usecases/operacional/capacidade.ts). */
+  /** @deprecated Ver `parceiro_principal_id`. */
   pessoas_alocadas: number | null;
-  /** Parceiros de apoio (sem headcount individual — ver decisão 3 em
-   * sql-migration-008-operacional-servicos.sql). */
+  /** @deprecated Parceiros de apoio sem headcount individual — substituído
+   * por `parceiros_execucao`, onde cada parceiro tem seu próprio headcount. */
   parceiros_alocados: string[];
   descricao: string | null;
   notas: string | null;
+  /** @deprecated Substituído por `fotos_url` (lista única, ver
+   * sql-migration-013 decisão 5) — a foto que estava aqui foi copiada pro
+   * início de `fotos_url` na migração; a UI não escreve mais nesta coluna. */
   foto_principal_url: string | null;
+  /** Lista única de fotos do serviço (até 20) — ver decisão 5 em
+   * sql-migration-013. */
   fotos_url: string[];
   pdf_relatorio_url: string | null;
   responsavel_email: string | null;
@@ -354,7 +406,11 @@ export interface Servico {
   updated_at: string;
   // Preenchidos via join, opcionais (ver ServicoRepository.select).
   cliente?: Cliente;
+  /** @deprecated Ver `parceiro_principal_id`. */
   parceiro_principal?: Parceiro;
+  /** Parceiros vinculados ao serviço, cada um com seu headcount/tipos de
+   * trabalho — ver `ServicoParceiroExecucao`. */
+  parceiros_execucao?: ServicoParceiroExecucao[];
 }
 
 export type TipoEventoServico = "criacao" | "mudanca_etapa" | "anexo_adicionado" | "finalizacao";

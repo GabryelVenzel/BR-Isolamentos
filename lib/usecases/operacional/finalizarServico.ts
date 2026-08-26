@@ -3,19 +3,26 @@ import type { HistoricoServicoRepository, LancamentoFinanceiroRepository, Servic
 import type { HistoricoServico, LancamentoFinanceiro, Servico } from "../../types/domain";
 import { FinalizarServicoSchema, parseOrThrow } from "../../validators";
 
-/** Checklist de finalização (regra do pedido — "não deixa finalizar sem foto
- * + PDF"): foto principal e PDF relatório precisam já ter sido anexados
- * (via PATCH normal do serviço, upload feito no cliente antes de chamar
- * isto — ver ServicoDetailModal.tsx) ANTES de chamar este use case; valor
- * real vem no corpo desta chamada. Os 4 requisitos são checados juntos
- * aqui, não espalhados — evita finalizar com só 3 de 4 prontos.
+/** Checklist de finalização (regra do pedido — "não deixa finalizar sem
+ * fotos + PDF"): fotos do projeto (pelo menos 1, ver `fotos_url` — modelo
+ * unificado, sql-migration-013) e PDF relatório precisam já ter sido
+ * anexados (via PATCH normal do serviço, upload feito no cliente antes de
+ * chamar isto — ver ServicoDetailModal.tsx) ANTES de chamar este use case.
+ * `valor_real` é OPCIONAL (pedido explícito — antes bloqueava finalizar,
+ * agora não; ver FinalizarServicoSchema).
  *
  * Integração com o módulo Financeiro: finalizar cria automaticamente um
  * lançamento de RECEITA pendente (pedido explícito — "Status: Pendente até
  * receber"), vinculado ao serviço/orçamento, pro sócio não ter que lançar
- * manualmente toda venda fechada. `lancamentoRepo` é opcional só pra não
- * quebrar quem já chamava este use case sem ele (testes existentes) — em
- * produção o contexto (lib/contexts/operacional.ts) sempre passa. */
+ * manualmente toda venda fechada. Como `valor_real` agora pode não vir
+ * preenchido, esse lançamento usa `valor_orcado` como estimativa quando
+ * faltar (precisa de algum número — `LancamentoFinanceiro.valor` não é
+ * opcional) — mas o `valor_real` GRAVADO NO SERVIÇO fica `null` nesse caso,
+ * pra não inventar dado no relatório "Custo Real vs Orçado" (ver
+ * lib/usecases/operacional/relatorio.ts, que só considera serviços com
+ * valor_real != null). `lancamentoRepo` é opcional só pra não quebrar quem
+ * já chamava este use case sem ele (testes existentes) — em produção o
+ * contexto (lib/contexts/operacional.ts) sempre passa. */
 export async function finalizarServico(
   servicoId: string,
   input: unknown,
@@ -31,7 +38,7 @@ export async function finalizarServico(
   }
 
   const faltando: string[] = [];
-  if (!servico.foto_principal_url) faltando.push("foto principal");
+  if (servico.fotos_url.length === 0) faltando.push("fotos do projeto");
   if (!servico.pdf_relatorio_url) faltando.push("PDF relatório");
   if (faltando.length > 0) {
     throw new ValidationError(`Não é possível finalizar: faltam ${faltando.join(" e ")}.`);
@@ -42,10 +49,11 @@ export async function finalizarServico(
   // serviço finalizado à noite (BRT) grave a data de amanhã (UTC já virou o
   // dia seguinte).
   const dataFimReal = dados.data_fim_real ?? obterDataHojeBrasilia();
+  const valorReal = dados.valor_real ?? null;
 
   const atualizado = await repos.servicoRepo.update(servicoId, {
     etapa: "finalizado",
-    valor_real: dados.valor_real,
+    valor_real: valorReal,
     data_fim_real: dataFimReal,
   } as Partial<Servico>);
 
@@ -54,7 +62,7 @@ export async function finalizarServico(
     tipo_evento: "finalizacao",
     etapa_anterior: servico.etapa,
     etapa_nova: "finalizado",
-    descricao: `Serviço finalizado — valor real: ${dados.valor_real}.`,
+    descricao: valorReal != null ? `Serviço finalizado — valor real: ${valorReal}.` : "Serviço finalizado.",
     usuario_email: usuarioEmail ?? null,
   } as Partial<HistoricoServico>);
 
@@ -63,7 +71,7 @@ export async function finalizarServico(
       tipo: "receita",
       categoria: "Venda de orçamento/serviço",
       descricao: `Serviço ${servico.numero_servico}${servico.cliente ? ` — ${servico.cliente.nome}` : ""}`,
-      valor: dados.valor_real,
+      valor: valorReal ?? servico.valor_orcado ?? 0,
       data: dataFimReal,
       pago: false,
       orcamento_id: servico.orcamento_id,

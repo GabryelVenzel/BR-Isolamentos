@@ -20,6 +20,8 @@ export { ServicoRepository } from "./servico.repository";
 export type { FiltrosServico } from "./servico.repository";
 export { HistoricoServicoRepository } from "./historico-servico.repository";
 export { InteracaoServicoRepository } from "./interacao-servico.repository";
+export { ServicoParceiroExecucaoRepository } from "./servico-parceiro-execucao.repository";
+export { ParceiroAnexoRepository } from "./parceiro-anexo.repository";
 export { AgendamentoRepository } from "./agendamento.repository";
 export type { FiltrosAgendamento } from "./agendamento.repository";
 export { LancamentoFinanceiroRepository } from "./lancamento-financeiro.repository";

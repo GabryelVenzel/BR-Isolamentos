@@ -10,9 +10,11 @@ export interface FiltrosServico {
 }
 
 export class ServicoRepository extends BaseRepository<Servico> {
-  // Cliente + parceiro principal resolvidos via join — o Kanban e o modal de
+  // Cliente + parceiro principal (legado) + parceiros vinculados (modelo
+  // atual, ver sql-migration-013) resolvidos via join — o Kanban e o modal de
   // detalhes sempre precisam do nome, não só do id.
-  protected select = "*, cliente:clientes(*), parceiro_principal:parceiros(*)";
+  protected select =
+    "*, cliente:clientes(*), parceiro_principal:parceiros(*), parceiros_execucao:servico_parceiros_execucao(*, parceiro:parceiros(*))";
 
   constructor(supabase: SupabaseClient) {
     super(supabase, "servicos");
@@ -66,12 +68,25 @@ export class ServicoRepository extends BaseRepository<Servico> {
     return (linhas ?? []) as unknown as Servico[];
   }
 
-  /** Todos os serviços com `parceiro_principal_id = parceiroId` — usado pelo
-   * "Ver histórico" da aba Capacidade/Parceiros. */
+  /** Todos os serviços vinculados a um parceiro — usado pelo "Ver histórico"
+   * da aba Capacidade/Parceiros. Precisa checar as DUAS fontes: o modelo
+   * atual (`servico_parceiros_execucao`, ver sql-migration-013) e o legado
+   * (`parceiro_principal_id`, serviços criados antes dessa migração que por
+   * algum motivo não foram cobertos pelo backfill). */
   async listarPorParceiro(parceiroId: string): Promise<Servico[]> {
+    const { data: execucoes, error: erroExecucoes } = await this.supabase
+      .from("servico_parceiros_execucao")
+      .select("servico_id")
+      .eq("parceiro_id", parceiroId);
+    if (erroExecucoes) throw erroExecucoes;
+
+    const idsPorExecucao = (execucoes ?? []).map((e: { servico_id: string }) => e.servico_id);
+    const condicoes = [`parceiro_principal_id.eq.${parceiroId}`];
+    if (idsPorExecucao.length > 0) condicoes.push(`id.in.(${idsPorExecucao.join(",")})`);
+
     const { data, error } = await this.queryBuilder()
       .select(this.select)
-      .eq("parceiro_principal_id", parceiroId)
+      .or(condicoes.join(","))
       .order("data_inicio", { ascending: false });
 
     if (error) throw error;

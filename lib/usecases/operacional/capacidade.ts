@@ -9,6 +9,14 @@ import type { Parceiro, Servico } from "../../types/domain";
 // "Mobilizado" é sempre relativo a UM DIA específico — por isso não é uma
 // coluna persistida (ver decisão 2 em sql-migration-008-operacional-servicos.sql):
 // um parceiro pode estar livre hoje e cheio na semana que vem.
+//
+// A partir de sql-migration-013, a fonte do headcount por parceiro é
+// `Servico.parceiros_execucao` (join com `servico_parceiros_execucao`), não
+// mais `parceiro_principal_id`/`pessoas_alocadas` — um serviço pode ter N
+// parceiros, cada um com seu próprio número de pessoas. Consequência (e
+// correção, não regressão): parceiros de apoio, que antes não entravam na
+// conta (`parceiros_alocados` não tinha headcount individual), agora contam
+// normalmente, porque no modelo novo todo parceiro vinculado tem headcount.
 
 export interface CapacidadeParceiroDia {
   parceiroId: string;
@@ -38,15 +46,22 @@ export interface CapacidadeDia {
 
 /** `servicosAtivos` já deve vir filtrado pro dia em questão (ver
  * ServicoRepository.listarAtivosNoDia) — esta função só agrega, não filtra
- * por data. Só considera `parceiro_principal_id` (ver decisão 3 no SQL:
- * `parceiros_alocados` de apoio não têm headcount individual, então não
- * entram na conta de pessoas mobilizadas). */
+ * por data. Considera TODOS os parceiros vinculados a cada serviço via
+ * `parceiros_execucao` (ver nota de módulo acima) — um serviço sem nenhum
+ * parceiro vinculado ainda (`parceiros_execucao` vazio/undefined) não
+ * mobiliza ninguém. */
 export function calcularCapacidadeDia(data: string, parceiros: Parceiro[], servicosAtivos: Servico[]): CapacidadeDia {
   const porParceiro: CapacidadeParceiroDia[] = parceiros
     .filter((p) => p.ativo)
     .map((parceiro) => {
-      const servicosDoParceiro = servicosAtivos.filter((s) => s.parceiro_principal_id === parceiro.id);
-      const pessoasMobilizadas = servicosDoParceiro.reduce((soma, s) => soma + (s.pessoas_alocadas ?? 0), 0);
+      // Cada serviço pode ter mais de uma linha de execução pro MESMO
+      // parceiro (turnos diferentes, por exemplo) — soma todas.
+      const execucoesDoParceiro = servicosAtivos.flatMap((s) =>
+        (s.parceiros_execucao ?? [])
+          .filter((e) => e.parceiro_id === parceiro.id)
+          .map((e) => ({ servico: s, execucao: e }))
+      );
+      const pessoasMobilizadas = execucoesDoParceiro.reduce((soma, { execucao }) => soma + execucao.pessoas_mobilizadas, 0);
       const totalPessoas = parceiro.total_pessoas ?? 0;
 
       return {
@@ -56,11 +71,11 @@ export function calcularCapacidadeDia(data: string, parceiros: Parceiro[], servi
         pessoasMobilizadas,
         pessoasDisponiveis: Math.max(0, totalPessoas - pessoasMobilizadas),
         tiposTrabalho: parceiro.tipos_trabalho,
-        servicos: servicosDoParceiro.map((s) => ({
+        servicos: execucoesDoParceiro.map(({ servico: s, execucao }) => ({
           servicoId: s.id,
           numeroServico: s.numero_servico,
-          pessoas: s.pessoas_alocadas ?? 0,
-          tipoTrabalho: s.tipo_trabalho,
+          pessoas: execucao.pessoas_mobilizadas,
+          tipoTrabalho: execucao.tipos_trabalho[0] ?? s.tipo_trabalho,
           dataInicio: s.data_inicio,
           dataFimPrevista: s.data_fim_prevista,
           etapa: s.etapa,

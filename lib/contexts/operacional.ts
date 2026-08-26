@@ -13,7 +13,9 @@ import {
   LancamentoFinanceiroRepository,
   LeadRepository,
   OrcamentoRepository,
+  ParceiroAnexoRepository,
   ParceiroRepository,
+  ServicoParceiroExecucaoRepository,
   ServicoRepository,
   type FiltrosAgendamento,
   type FiltrosFornecedor,
@@ -27,9 +29,13 @@ import type {
   HistoricoServico,
   InteracaoServico,
   Parceiro,
+  ParceiroAnexo,
   Servico,
+  ServicoParceiroExecucao,
 } from "../types/domain";
 import {
+  adicionarParceiroServico,
+  anexarArquivoParceiro,
   anexarArquivoServico,
   removerArquivoServico,
   atualizarAgendamento,
@@ -61,6 +67,8 @@ export function createOperacionalContext(supabase: SupabaseClient) {
   const historicoServicoRepo = new HistoricoServicoRepository(supabase);
   const interacaoServicoRepo = new InteracaoServicoRepository(supabase);
   const lancamentoRepo = new LancamentoFinanceiroRepository(supabase);
+  const execucaoRepo = new ServicoParceiroExecucaoRepository(supabase);
+  const parceiroAnexoRepo = new ParceiroAnexoRepository(supabase);
 
   const reposServico = { servicoRepo, historicoRepo: historicoServicoRepo };
   // finalizarServico usa `lancamentoRepo` além dos dois de cima — separado
@@ -97,6 +105,20 @@ export function createOperacionalContext(supabase: SupabaseClient) {
 
     removerParceiro(id: string): Promise<void> {
       return parceiroRepo.delete(id);
+    },
+
+    // --- Anexos de parceiro (só disponível editando, ver ParceiroAnexos.tsx) ---
+
+    listarAnexosParceiro(parceiroId: string): Promise<ParceiroAnexo[]> {
+      return parceiroAnexoRepo.listarPorParceiro(parceiroId);
+    },
+
+    anexarArquivoParceiro(dados: unknown): Promise<ParceiroAnexo> {
+      return anexarArquivoParceiro(dados, { parceiroRepo, parceiroAnexoRepo });
+    },
+
+    removerAnexoParceiro(anexoId: string): Promise<void> {
+      return parceiroAnexoRepo.delete(anexoId);
     },
 
     // --- Fornecedores ---
@@ -179,6 +201,20 @@ export function createOperacionalContext(supabase: SupabaseClient) {
 
     removerServico(id: string): Promise<void> {
       return servicoRepo.delete(id);
+    },
+
+    // --- Parceiros vinculados a um serviço (aba Parceiros, ver sql-migration-013) ---
+
+    listarParceirosServico(servicoId: string): Promise<ServicoParceiroExecucao[]> {
+      return execucaoRepo.listarPorServico(servicoId);
+    },
+
+    adicionarParceiroServico(dados: unknown): Promise<ServicoParceiroExecucao> {
+      return adicionarParceiroServico(dados, { servicoRepo, parceiroRepo, execucaoRepo });
+    },
+
+    removerParceiroServico(execucaoId: string): Promise<void> {
+      return execucaoRepo.delete(execucaoId);
     },
 
     listarHistoricoServico(servicoId: string): Promise<HistoricoServico[]> {

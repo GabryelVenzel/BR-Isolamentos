@@ -1,5 +1,17 @@
 import { calcularCapacidadeDia, calcularCapacidadeMes, nivelOcupacao } from "@/lib/usecases/operacional";
-import type { Parceiro, Servico } from "@/lib/types/domain";
+import type { Parceiro, Servico, ServicoParceiroExecucao } from "@/lib/types/domain";
+
+function execucao(overrides: Partial<ServicoParceiroExecucao> = {}): ServicoParceiroExecucao {
+  return {
+    id: "e1",
+    servico_id: "s1",
+    parceiro_id: "p1",
+    pessoas_mobilizadas: 5,
+    tipos_trabalho: ["bancada"],
+    data_adicao: "2026-01-01T00:00:00Z",
+    ...overrides,
+  };
+}
 
 function parceiro(overrides: Partial<Parceiro> = {}): Parceiro {
   return {
@@ -15,6 +27,7 @@ function parceiro(overrides: Partial<Parceiro> = {}): Parceiro {
     cpf: null,
     conta_bancaria: null,
     especialidades: [],
+    especialidade: null,
     disponibilidade_horas_semana: null,
     disponibilidade_dias: [],
     custo_hora: null,
@@ -48,8 +61,8 @@ function servico(overrides: Partial<Servico> = {}): Servico {
     data_inicio: "2026-08-01",
     data_fim_prevista: "2026-08-20",
     data_fim_real: null,
-    parceiro_principal_id: "p1",
-    pessoas_alocadas: 5,
+    parceiro_principal_id: null,
+    pessoas_alocadas: null,
     parceiros_alocados: [],
     descricao: null,
     notas: null,
@@ -59,16 +72,20 @@ function servico(overrides: Partial<Servico> = {}): Servico {
     responsavel_email: null,
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
+    parceiros_execucao: [execucao({ servico_id: "s1", parceiro_id: "p1", pessoas_mobilizadas: 5 })],
     ...overrides,
   };
 }
 
 describe("calcularCapacidadeDia", () => {
-  it("soma pessoas_alocadas dos serviços do parceiro principal", () => {
+  it("soma pessoas_mobilizadas dos parceiros vinculados (parceiros_execucao)", () => {
     const resultado = calcularCapacidadeDia(
       "2026-08-10",
       [parceiro()],
-      [servico({ id: "s1", pessoas_alocadas: 5 }), servico({ id: "s2", pessoas_alocadas: 3 })]
+      [
+        servico({ id: "s1", parceiros_execucao: [execucao({ servico_id: "s1", parceiro_id: "p1", pessoas_mobilizadas: 5 })] }),
+        servico({ id: "s2", parceiros_execucao: [execucao({ servico_id: "s2", parceiro_id: "p1", pessoas_mobilizadas: 3 })] }),
+      ]
     );
 
     expect(resultado.porParceiro[0].pessoasMobilizadas).toBe(8);
@@ -78,15 +95,22 @@ describe("calcularCapacidadeDia", () => {
     expect(resultado.totalLivre).toBe(7);
   });
 
-  it("ignora parceiros de apoio (parceiros_alocados) — só parceiro_principal_id conta headcount", () => {
+  it("conta TODOS os parceiros vinculados a um serviço, não só um 'principal' (modelo pós sql-migration-013)", () => {
     const resultado = calcularCapacidadeDia(
       "2026-08-10",
       [parceiro({ id: "p1" }), parceiro({ id: "p2", nome: "Fibra Co" })],
-      [servico({ parceiro_principal_id: "p1", pessoas_alocadas: 5, parceiros_alocados: ["p2"] })]
+      [
+        servico({
+          parceiros_execucao: [
+            execucao({ id: "e1", parceiro_id: "p1", pessoas_mobilizadas: 5 }),
+            execucao({ id: "e2", parceiro_id: "p2", pessoas_mobilizadas: 2 }),
+          ],
+        }),
+      ]
     );
 
     const fibraCo = resultado.porParceiro.find((p) => p.parceiroId === "p2");
-    expect(fibraCo?.pessoasMobilizadas).toBe(0);
+    expect(fibraCo?.pessoasMobilizadas).toBe(2);
   });
 
   it("ignora parceiros inativos", () => {
@@ -94,11 +118,16 @@ describe("calcularCapacidadeDia", () => {
     expect(resultado.porParceiro).toHaveLength(0);
   });
 
+  it("serviço sem nenhum parceiro vinculado ainda não mobiliza ninguém", () => {
+    const resultado = calcularCapacidadeDia("2026-08-10", [parceiro()], [servico({ parceiros_execucao: [] })]);
+    expect(resultado.porParceiro[0].pessoasMobilizadas).toBe(0);
+  });
+
   it("nunca deixa pessoasDisponiveis negativo (superalocação)", () => {
     const resultado = calcularCapacidadeDia(
       "2026-08-10",
       [parceiro({ total_pessoas: 5 })],
-      [servico({ pessoas_alocadas: 10 })]
+      [servico({ parceiros_execucao: [execucao({ pessoas_mobilizadas: 10 })] })]
     );
     expect(resultado.porParceiro[0].pessoasDisponiveis).toBe(0);
   });
@@ -143,7 +172,7 @@ describe("calcularCapacidadeMes", () => {
       2026,
       8,
       [parceiro()],
-      [servico({ data_inicio: "2026-08-10", data_fim_prevista: "2026-08-12", pessoas_alocadas: 5 })]
+      [servico({ data_inicio: "2026-08-10", data_fim_prevista: "2026-08-12" })]
     );
     const dia9 = resultado.find((d) => d.data === "2026-08-09");
     const dia11 = resultado.find((d) => d.data === "2026-08-11");
