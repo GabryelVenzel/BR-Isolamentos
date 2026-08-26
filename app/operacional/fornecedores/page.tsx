@@ -1,10 +1,11 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import ToastContainer from "@/components/modules/operacional/ToastContainer";
 import { toast } from "@/components/modules/operacional/toast";
 import ModalFornecedor from "@/components/modules/operacional/ModalFornecedor";
-import type { Fornecedor } from "@/lib/types/domain";
+import FiltroFornecedores from "@/components/modules/operacional/FiltroFornecedores";
+import type { CategoriaFornecimento, Fornecedor } from "@/lib/types/domain";
 
 const LABEL_TIPOS_FORNECIMENTO: Record<string, string> = {
   isolantes: "Isolantes",
@@ -18,6 +19,7 @@ export default function FornecedoresPage() {
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState("");
+  const [tiposFiltro, setTiposFiltro] = useState<CategoriaFornecimento[]>([]);
   const [editando, setEditando] = useState<Fornecedor | "novo" | null>(null);
 
   const carregar = useCallback(async () => {
@@ -50,6 +52,14 @@ export default function FornecedoresPage() {
     carregar();
   }
 
+  // Filtro por tipo é em cima da lista já carregada (busca por nome já é
+  // server-side, ver `carregar` acima) — em tempo real, sem round-trip
+  // nenhum: mostra quem tem PELO MENOS um dos tipos marcados.
+  const fornecedoresFiltrados = useMemo(() => {
+    if (tiposFiltro.length === 0) return fornecedores;
+    return fornecedores.filter((f) => (f.tipos_fornecimento ?? []).some((t) => tiposFiltro.includes(t)));
+  }, [fornecedores, tiposFiltro]);
+
   return (
     <div className="space-y-6">
       <ToastContainer />
@@ -65,6 +75,8 @@ export default function FornecedoresPage() {
           + Novo Fornecedor
         </button>
       </div>
+
+      <FiltroFornecedores value={tiposFiltro} onChange={setTiposFiltro} />
 
       {carregando ? (
         <p className="text-sm text-gray-500">Carregando...</p>
@@ -84,7 +96,7 @@ export default function FornecedoresPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {fornecedores.map((f) => (
+              {fornecedoresFiltrados.map((f) => (
                 <tr key={f.id}>
                   <td className="px-4 py-2 font-mono text-xs text-gray-500">{f.numero_fornecedor ?? "—"}</td>
                   <td className="px-4 py-2 font-medium text-brand">{f.nome}</td>
@@ -109,16 +121,23 @@ export default function FornecedoresPage() {
                   </td>
                 </tr>
               ))}
-              {fornecedores.length === 0 && (
+              {fornecedoresFiltrados.length === 0 && (
                 <tr>
                   <td colSpan={8} className="px-4 py-6 text-center text-gray-400">
-                    Nenhum fornecedor cadastrado.
+                    {fornecedores.length === 0 ? "Nenhum fornecedor cadastrado." : "Nenhum fornecedor com os tipos filtrados."}
                   </td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
+      )}
+
+      {!carregando && (
+        <p className="text-xs text-gray-400">
+          {fornecedoresFiltrados.length} fornecedor{fornecedoresFiltrados.length === 1 ? "" : "es"} encontrado
+          {fornecedoresFiltrados.length === 1 ? "" : "s"}.
+        </p>
       )}
 
       {editando && (
