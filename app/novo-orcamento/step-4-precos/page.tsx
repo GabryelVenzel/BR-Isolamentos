@@ -13,11 +13,28 @@ function precoAcessorio(precos: PrecoConfig[], tipo: string): number {
   return precos.find((p) => p.tipo_material === tipo)?.preco_unitario ?? 0;
 }
 
-/** Tela 4 (refatorada, migração 019) — Resumo técnico + Quantificação
- * automática de materiais/mão de obra + Custos operacionais (movidos da
- * Revisão pra cá — pedido explícito). Os "Cálculos" viraram automáticos
- * (tela anterior). Preços por m²/unidade são editáveis SÓ PARA ESTE
- * ORÇAMENTO (não altera o catálogo em Configurar Preços). */
+type ChaveLinha = "isolante" | "acabamento" | "rebite" | "parafuso" | "arame" | "silicone" | "maoObra";
+
+interface OverrideLinha {
+  quantidade?: number;
+  precoUnitario?: number;
+}
+
+interface LinhaEdicao {
+  chave: ChaveLinha;
+  titulo: string;
+  unidadeQuantidade: string;
+  unidadePreco: string;
+  quantidadeBase: number;
+  precoBase: number;
+}
+
+/** Tela 4 (refinada, ajuste final) — Resumo técnico virou só a análise
+ * térmica (material/acabamento já aparecem na Quantificação, não precisa
+ * repetir); as duas caixas grandes de "Preços deste trecho" viraram um
+ * sistema uniforme de edição por lápis (mesma mecânica pra isolante,
+ * acabamento, os 4 acessórios E mão de obra); "+ Adicionar outro trecho"
+ * saiu daqui — essa ação já existe na Revisão (Tela 5), não precisa duplicar. */
 export default function Step4PrecosPage() {
   const router = useRouter();
   const {
@@ -36,9 +53,9 @@ export default function Step4PrecosPage() {
   const [precos, setPrecos] = useState<PrecoConfig[]>([]);
   const [config, setConfig] = useState<ConfigEmpresa | null>(null);
   const [impostosExtras, setImpostosExtras] = useState<ImpostoConfig[]>([]);
-  const [precoIsolanteOverride, setPrecoIsolanteOverride] = useState<number | null>(null);
-  const [precoAcabamentoOverride, setPrecoAcabamentoOverride] = useState<number | null>(null);
-  const [salvando, setSalvando] = useState<"trecho" | "revisao" | null>(null);
+  const [overrides, setOverrides] = useState<Partial<Record<ChaveLinha, OverrideLinha>>>({});
+  const [editando, setEditando] = useState<LinhaEdicao | null>(null);
+  const [salvando, setSalvando] = useState<"revisao" | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
@@ -69,10 +86,8 @@ export default function Step4PrecosPage() {
   const temResultado = materialCustomizado || !!(resultadoTermicoQuenteAtual || resultadoTermicoFrioAtual);
   const metragem = especificacoes.metragem_editada ? especificacoes.metragem_manual_m2 ?? 0 : somarMetragemEscopo(escopoAtual);
 
-  const valorIsolanteM2 =
-    precoIsolanteOverride ?? (isolanteCustomizado ? especificacoes.isolante_customizado_preco_m2 ?? 0 : precoIsolanteCatalogo?.preco_unitario ?? 0);
-  const valorAcabamentoM2 =
-    precoAcabamentoOverride ?? (acabamentoCustomizado ? especificacoes.acabamento_customizado_preco_m2 ?? 0 : precoAcabamentoCatalogo?.preco_unitario ?? 0);
+  const precoIsolanteBase = isolanteCustomizado ? especificacoes.isolante_customizado_preco_m2 ?? 0 : precoIsolanteCatalogo?.preco_unitario ?? 0;
+  const precoAcabamentoBase = acabamentoCustomizado ? especificacoes.acabamento_customizado_preco_m2 ?? 0 : precoAcabamentoCatalogo?.preco_unitario ?? 0;
 
   const precosAcessorios = {
     rebiteUn: precoAcessorio(precos, "acessorio_rebite"),
@@ -81,13 +96,15 @@ export default function Step4PrecosPage() {
     siliconeFrasco: precoAcessorio(precos, "acessorio_silicone"),
   };
 
-  const precificacao =
+  // Baseline: quantificação automática + mão de obra automática (motor da
+  // migração 019), ainda SEM os overrides manuais desta tela.
+  const base =
     config && temResultado
       ? precificarTrecho({
           escopoItens: escopoAtual,
           tipoProposta,
-          precoIsolanteM2: valorIsolanteM2,
-          precoAcabamentoM2: valorAcabamentoM2,
+          precoIsolanteM2: precoIsolanteBase,
+          precoAcabamentoM2: precoAcabamentoBase,
           precosAcessorios,
           valorHoraMaoObra: config.valor_hora_mao_obra,
           trabalhoAltura: especificacoes.trabalho_altura,
@@ -96,22 +113,49 @@ export default function Step4PrecosPage() {
         })
       : null;
 
+  function valor(chave: ChaveLinha, campo: keyof OverrideLinha, base: number): number {
+    return overrides[chave]?.[campo] ?? base;
+  }
+
+  const linhas: LinhaEdicao[] = base
+    ? [
+        { chave: "isolante", titulo: nomeIsolante, unidadeQuantidade: "m²", unidadePreco: "m²", quantidadeBase: base.quantidades.isolanteM2, precoBase: precoIsolanteBase },
+        { chave: "acabamento", titulo: nomeAcabamento, unidadeQuantidade: "m²", unidadePreco: "m²", quantidadeBase: base.quantidades.acabamentoM2, precoBase: precoAcabamentoBase },
+        { chave: "rebite", titulo: "Rebite", unidadeQuantidade: "un.", unidadePreco: "un.", quantidadeBase: base.quantidades.rebiteUn, precoBase: precosAcessorios.rebiteUn },
+        { chave: "parafuso", titulo: "Parafuso", unidadeQuantidade: "un.", unidadePreco: "un.", quantidadeBase: base.quantidades.parafusoUn, precoBase: precosAcessorios.parafusoUn },
+        { chave: "arame", titulo: "Arame", unidadeQuantidade: "g", unidadePreco: "g", quantidadeBase: base.quantidades.arameGramas, precoBase: precosAcessorios.arameKg / 1000 },
+        { chave: "silicone", titulo: "Silicone", unidadeQuantidade: "frasco(s)", unidadePreco: "frasco", quantidadeBase: base.quantidades.siliconeFrascos, precoBase: precosAcessorios.siliconeFrasco },
+      ]
+    : [];
+
+  const subtotalMaterial =
+    !base || tipoProposta === "somente_mo"
+      ? 0
+      : Number(linhas.reduce((acc, l) => acc + valor(l.chave, "quantidade", l.quantidadeBase) * valor(l.chave, "precoUnitario", l.precoBase), 0).toFixed(2));
+
+  const horasMaoObraEfetiva = base ? valor("maoObra", "quantidade", base.horas_mao_obra) : 0;
+  const valorHoraEfetivo = base ? valor("maoObra", "precoUnitario", base.valor_hora_mao_obra) : 0;
+  const subtotalMaoObra = Number((horasMaoObraEfetiva * valorHoraEfetivo).toFixed(2));
+  const subtotalTrecho = Number((subtotalMaterial + subtotalMaoObra).toFixed(2));
+
   function montarPayloadConfirmacao() {
-    if (!precificacao) return null;
+    if (!base) return null;
     return {
       materialNome: nomeIsolante,
       acabamentoNome: nomeAcabamento,
       especificacaoIsolante: isolanteCustomizado ? null : precoIsolanteCatalogo?.especificacao ?? null,
       especificacaoAcabamento: acabamentoCustomizado ? null : precoAcabamentoCatalogo?.especificacao ?? null,
-      precificacao,
+      precificacao: {
+        ...base,
+        preco_isolante_m2: valor("isolante", "precoUnitario", precoIsolanteBase),
+        preco_acabamento_m2: valor("acabamento", "precoUnitario", precoAcabamentoBase),
+        horas_mao_obra: horasMaoObraEfetiva,
+        valor_hora_mao_obra: valorHoraEfetivo,
+        subtotal_material: subtotalMaterial,
+        subtotal_mao_obra: subtotalMaoObra,
+        subtotal_trecho: subtotalTrecho,
+      },
     };
-  }
-
-  function adicionarOutroTrecho() {
-    const payload = montarPayloadConfirmacao();
-    if (!payload) return;
-    confirmarItemAtual(payload);
-    router.push("/novo-orcamento/step-2-escopo");
   }
 
   async function irParaRevisao() {
@@ -158,10 +202,7 @@ export default function Step4PrecosPage() {
     }
   }
 
-  const espessuraExibida =
-    especificacoes.tipo_trabalho === "quente"
-      ? especificacoes.espessura_mm
-      : resultadoTermicoFrioAtual?.espessura_minima_mm ?? null;
+  const financeiro = resultadoTermicoQuenteAtual?.financeiro;
 
   return (
     <div className="space-y-6">
@@ -172,7 +213,7 @@ export default function Step4PrecosPage() {
           <a href="/config-precos" className="text-brand hover:underline">
             Configuração de Preços
           </a>
-          . Você pode ajustar o valor só para este orçamento sem alterar o catálogo.
+          . Clique no lápis de qualquer linha pra ajustar só este orçamento, sem alterar o catálogo.
         </p>
       </div>
 
@@ -184,25 +225,52 @@ export default function Step4PrecosPage() {
 
       {temResultado && (
         <>
-          <div className="card space-y-1 text-sm">
-            <h2 className="mb-2 text-lg font-semibold">Resumo técnico</h2>
-            <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-              <p>Material: {nomeIsolante}</p>
-              <p>Acabamento: {nomeAcabamento}</p>
-              <p>Metragem: {formatarNumero(metragem, 2)} m²</p>
-              {espessuraExibida != null && <p>Espessura: {formatarNumero(espessuraExibida, 1)} mm</p>}
-              {resultadoTermicoQuenteAtual?.financeiro && (
-                <p>Economia anual estimada: {formatarMoeda(resultadoTermicoQuenteAtual.financeiro.economia_anual)}</p>
-              )}
-              {resultadoTermicoFrioAtual && (
-                <p>Ponto de orvalho: {formatarNumero(resultadoTermicoFrioAtual.temperatura_orvalho, 1)} °C</p>
-              )}
-              {materialCustomizado && (
-                <p className="text-amber-600 sm:col-span-2">
-                  ⚠️ Material customizado neste trecho — sem saídas técnicas (perda térmica/economia).
-                </p>
-              )}
-            </div>
+          <div className="card space-y-3 text-sm">
+            <h2 className="text-lg font-semibold">Resumo técnico</h2>
+            <p>Metragem total: <strong>{formatarNumero(metragem, 2)} m²</strong></p>
+
+            {materialCustomizado && (
+              <p className="text-amber-600">
+                ⚠️ Material customizado neste trecho — sem saídas técnicas (perda térmica/economia), só quantificação
+                e preço.
+              </p>
+            )}
+
+            {!materialCustomizado && resultadoTermicoQuenteAtual && (
+              <>
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">Análise térmica (cálculos de referência)</p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <BoxResumo titulo="Temperatura">
+                    <LinhaResumo label="Face fria" valor={`${formatarNumero(resultadoTermicoQuenteAtual.temperatura_face_fria, 1)} °C`} />
+                  </BoxResumo>
+                  <BoxResumo titulo="Perda de energia">
+                    <LinhaResumo label="Com isolante" valor={`${formatarNumero(resultadoTermicoQuenteAtual.perda_com_isolante_kw_m2, 3)} kW/m²`} />
+                    <LinhaResumo label="Sem isolante" valor={`${formatarNumero(resultadoTermicoQuenteAtual.perda_sem_isolante_kw_m2, 3)} kW/m²`} />
+                    {financeiro && <LinhaResumo label="Redução" valor={`${formatarNumero(financeiro.reducao_percentual, 1)}%`} />}
+                  </BoxResumo>
+                  {financeiro && (
+                    <BoxResumo titulo="Economia e sustentabilidade">
+                      <LinhaResumo label="Anual" valor={formatarMoeda(financeiro.economia_anual)} />
+                      <LinhaResumo label="Mensal" valor={formatarMoeda(financeiro.economia_mensal)} />
+                      <LinhaResumo label="CO₂ evitado/ano" valor={`${formatarNumero(financeiro.co2_ton_ano, 2)} t`} />
+                    </BoxResumo>
+                  )}
+                </div>
+              </>
+            )}
+
+            {!materialCustomizado && resultadoTermicoFrioAtual && (
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <BoxResumo titulo="Ponto de orvalho">
+                  <LinhaResumo label="Temperatura" valor={`${formatarNumero(resultadoTermicoFrioAtual.temperatura_orvalho, 1)} °C`} />
+                </BoxResumo>
+                {resultadoTermicoFrioAtual.espessura_minima_mm != null && (
+                  <BoxResumo titulo="Espessura mínima">
+                    <LinhaResumo label="Isolante" valor={`${formatarNumero(resultadoTermicoFrioAtual.espessura_minima_mm, 1)} mm`} />
+                  </BoxResumo>
+                )}
+              </div>
+            )}
           </div>
 
           {tipoProposta === "somente_mo" ? (
@@ -210,75 +278,65 @@ export default function Step4PrecosPage() {
               Proposta "Somente Mão de Obra" — quantificação/preço de material não entram neste orçamento.
             </div>
           ) : (
-            <div className="card space-y-4">
-              <h2 className="text-lg font-semibold">Quantificação de materiais</h2>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="label-field">{nomeIsolante} (R$/m²)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="input-field"
-                    value={valorIsolanteM2}
-                    onChange={(e) => setPrecoIsolanteOverride(Number(e.target.value))}
-                  />
-                </div>
-                <div>
-                  <label className="label-field">{nomeAcabamento} (R$/m²)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="input-field"
-                    value={valorAcabamentoM2}
-                    onChange={(e) => setPrecoAcabamentoOverride(Number(e.target.value))}
-                  />
-                </div>
-              </div>
-
-              {precificacao && (
-                <div className="overflow-x-auto">
-                  <table className="min-w-full divide-y divide-gray-200 text-sm">
-                    <thead className="table-header">
-                      <tr>
-                        <th className="py-2 pr-4 text-left">Material</th>
-                        <th className="py-2 pr-4 text-right">Qtd.</th>
-                        <th className="py-2 pr-4 text-right">Preço unit.</th>
-                        <th className="py-2 pr-4 text-right">Total</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      <LinhaQuantidade nome={nomeIsolante} qtd={precificacao.quantidades.isolanteM2} unidade="m²" precoUn={valorIsolanteM2} />
-                      <LinhaQuantidade nome={nomeAcabamento} qtd={precificacao.quantidades.acabamentoM2} unidade="m²" precoUn={valorAcabamentoM2} />
-                      <LinhaQuantidade nome="Rebite" qtd={precificacao.quantidades.rebiteUn} unidade="un." precoUn={precosAcessorios.rebiteUn} />
-                      <LinhaQuantidade nome="Parafuso" qtd={precificacao.quantidades.parafusoUn} unidade="un." precoUn={precosAcessorios.parafusoUn} />
-                      <LinhaQuantidade
-                        nome="Arame"
-                        qtd={precificacao.quantidades.arameGramas}
-                        unidade="g"
-                        precoUn={precosAcessorios.arameKg / 1000}
+            <div className="card space-y-2">
+              <h2 className="text-lg font-semibold">Quantificação de materiais e mão de obra</h2>
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="table-header">
+                    <tr>
+                      <th className="py-2 pr-4 text-left">Material</th>
+                      <th className="py-2 pr-4 text-right">Qtd.</th>
+                      <th className="py-2 pr-4 text-right">Preço unit.</th>
+                      <th className="py-2 pr-4 text-right">Subtotal</th>
+                      <th className="py-2 pl-4 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {linhas.map((l) => (
+                      <LinhaTabela
+                        key={l.chave}
+                        linha={l}
+                        quantidade={valor(l.chave, "quantidade", l.quantidadeBase)}
+                        precoUnitario={valor(l.chave, "precoUnitario", l.precoBase)}
+                        onEditar={() => setEditando(l)}
                       />
-                      <LinhaQuantidade nome="Silicone" qtd={precificacao.quantidades.siliconeFrascos} unidade="frasco(s)" precoUn={precosAcessorios.siliconeFrasco} />
-                    </tbody>
-                  </table>
-                  <p className="mt-1 text-xs text-gray-400">
-                    Preços de Rebite/Parafuso/Arame/Silicone vêm do catálogo ("Materiais Adicionais" em Configurar
-                    Preços) — ajuste lá se precisar mudar pra todos os orçamentos.
-                  </p>
-                </div>
-              )}
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <p className="text-xs text-gray-400">
+                Preços de Rebite/Parafuso/Arame/Silicone vêm do catálogo ("Materiais Adicionais" em Configurar
+                Preços) — o lápis ajusta só este orçamento.
+              </p>
+              <div className="border-t border-gray-100 pt-2 text-sm font-semibold">
+                <Linha label="Subtotal Materiais" valor={subtotalMaterial} />
+              </div>
             </div>
           )}
 
-          {precificacao && config && (
-            <div className="card space-y-1 text-sm">
-              <h2 className="mb-2 text-lg font-semibold">Mão de obra (automática)</h2>
+          {base && config && (
+            <div className="card space-y-2">
+              <h2 className="text-lg font-semibold">Mão de obra</h2>
               <p className="text-xs text-gray-400">
-                {formatarNumero(metragem, 2)} m² ÷ {formatarNumero(config.m2_por_hora_dupla, 2)} m²/h, eficiência{" "}
-                {formatarNumero(precificacao.eficiencia_global * 100, 1)}%
-                {especificacoes.trabalho_altura && " (inclui trabalho em altura)"}.
+                Automática: {formatarNumero(metragem, 2)} m² ÷ {formatarNumero(config.m2_por_hora_dupla, 2)} m²/h, eficiência{" "}
+                {formatarNumero(base.eficiencia_global * 100, 1)}%
+                {especificacoes.trabalho_altura && " (inclui trabalho em altura)"}. Ajustável no lápis, se precisar.
               </p>
-              <Linha label={`${formatarNumero(precificacao.horas_mao_obra, 2)}h × ${formatarMoeda(config.valor_hora_mao_obra)}/h`} valor={precificacao.subtotal_mao_obra} />
-              <Linha label="Subtotal deste trecho" valor={precificacao.subtotal_trecho} destaque />
+              <table className="min-w-full text-sm">
+                <tbody>
+                  <LinhaTabela
+                    linha={{ chave: "maoObra", titulo: "Mão de obra (dupla de 2 profissionais)", unidadeQuantidade: "h", unidadePreco: "hora", quantidadeBase: base.horas_mao_obra, precoBase: base.valor_hora_mao_obra }}
+                    quantidade={horasMaoObraEfetiva}
+                    precoUnitario={valorHoraEfetivo}
+                    onEditar={() =>
+                      setEditando({ chave: "maoObra", titulo: "Mão de obra (dupla de 2 profissionais)", unidadeQuantidade: "h", unidadePreco: "hora", quantidadeBase: base.horas_mao_obra, precoBase: base.valor_hora_mao_obra })
+                    }
+                  />
+                </tbody>
+              </table>
+              <div className="border-t border-gray-100 pt-2 text-sm font-semibold">
+                <Linha label="Subtotal Mão de Obra" valor={subtotalMaoObra} />
+              </div>
             </div>
           )}
 
@@ -330,6 +388,11 @@ export default function Step4PrecosPage() {
               </div>
             </div>
           </div>
+
+          <div className="card flex items-center justify-between border-t-4 border-t-accent">
+            <span className="font-montserrat text-sm font-bold uppercase text-brand">Valor total deste trecho</span>
+            <span className="font-montserrat text-2xl font-bold text-accent">{formatarMoeda(subtotalTrecho)}</span>
+          </div>
         </>
       )}
 
@@ -339,15 +402,23 @@ export default function Step4PrecosPage() {
         <button type="button" className="btn-secondary" onClick={() => router.push("/novo-orcamento/step-3-especificacoes")}>
           ← Voltar
         </button>
-        <div className="flex gap-3">
-          <button type="button" className="btn-accent" disabled={!precificacao || salvando !== null} onClick={adicionarOutroTrecho}>
-            + Adicionar outro trecho
-          </button>
-          <button type="button" className="btn-primary" disabled={!precificacao || salvando !== null} onClick={irParaRevisao}>
-            {salvando === "revisao" ? "Calculando..." : "Ir para Revisão →"}
-          </button>
-        </div>
+        <button type="button" className="btn-primary" disabled={!base || salvando !== null} onClick={irParaRevisao}>
+          {salvando === "revisao" ? "Calculando..." : "Próximo →"}
+        </button>
       </div>
+
+      {editando && (
+        <ModalEditarLinha
+          linha={editando}
+          quantidadeAtual={valor(editando.chave, "quantidade", editando.quantidadeBase)}
+          precoAtual={valor(editando.chave, "precoUnitario", editando.precoBase)}
+          onFechar={() => setEditando(null)}
+          onSalvar={(quantidade, precoUnitario) => {
+            setOverrides((prev) => ({ ...prev, [editando.chave]: { quantidade, precoUnitario } }));
+            setEditando(null);
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -361,15 +432,111 @@ function Linha({ label, valor, destaque }: { label: string; valor: number; desta
   );
 }
 
-function LinhaQuantidade({ nome, qtd, unidade, precoUn }: { nome: string; qtd: number; unidade: string; precoUn: number }) {
+function BoxResumo({ titulo, children }: { titulo: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-lg border border-gray-200 p-3">
+      <p className="mb-1 text-xs font-semibold uppercase text-gray-500">{titulo}</p>
+      <div className="space-y-0.5">{children}</div>
+    </div>
+  );
+}
+
+function LinhaResumo({ label, valor }: { label: string; valor: string }) {
+  return (
+    <div className="flex justify-between text-sm">
+      <span className="text-gray-500">{label}</span>
+      <span className="font-medium text-gray-800">{valor}</span>
+    </div>
+  );
+}
+
+function LinhaTabela({
+  linha,
+  quantidade,
+  precoUnitario,
+  onEditar,
+}: {
+  linha: LinhaEdicao;
+  quantidade: number;
+  precoUnitario: number;
+  onEditar: () => void;
+}) {
   return (
     <tr>
-      <td className="py-1.5 pr-4">{nome}</td>
+      <td className="py-1.5 pr-4">{linha.titulo}</td>
       <td className="py-1.5 pr-4 text-right text-gray-500">
-        {formatarNumero(qtd, unidade === "g" ? 0 : 2)} {unidade}
+        {formatarNumero(quantidade, linha.unidadeQuantidade === "g" || linha.unidadeQuantidade === "h" ? 1 : 2)} {linha.unidadeQuantidade}
       </td>
-      <td className="py-1.5 pr-4 text-right text-gray-500">{formatarMoeda(precoUn)}</td>
-      <td className="py-1.5 pr-4 text-right font-medium">{formatarMoeda(qtd * precoUn)}</td>
+      <td className="py-1.5 pr-4 text-right text-gray-500">{formatarMoeda(precoUnitario)}</td>
+      <td className="py-1.5 pr-4 text-right font-medium">{formatarMoeda(quantidade * precoUnitario)}</td>
+      <td className="py-1.5 pl-4 text-right">
+        <button type="button" title="Editar" className="hover:opacity-70" onClick={onEditar}>
+          ✏️
+        </button>
+      </td>
     </tr>
+  );
+}
+
+function ModalEditarLinha({
+  linha,
+  quantidadeAtual,
+  precoAtual,
+  onFechar,
+  onSalvar,
+}: {
+  linha: LinhaEdicao;
+  quantidadeAtual: number;
+  precoAtual: number;
+  onFechar: () => void;
+  onSalvar: (quantidade: number, precoUnitario: number) => void;
+}) {
+  const [quantidade, setQuantidade] = useState(String(quantidadeAtual));
+  const [preco, setPreco] = useState(String(precoAtual));
+  const [erro, setErro] = useState<string | null>(null);
+
+  function salvar() {
+    const q = Number(quantidade);
+    const p = Number(preco);
+    if (!(q > 0)) {
+      setErro("Quantidade precisa ser maior que zero.");
+      return;
+    }
+    if (!(p >= 0)) {
+      setErro("Preço não pode ser negativo.");
+      return;
+    }
+    onSalvar(q, p);
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4" onClick={onFechar}>
+      <div className="w-full max-w-sm rounded-card bg-white p-6 shadow-card-hover" onClick={(e) => e.stopPropagation()}>
+        <h2 className="mb-4 font-montserrat text-lg font-bold text-brand">Editar {linha.titulo}</h2>
+
+        <div className="space-y-3">
+          <div>
+            <label className="label-field">Quantidade ({linha.unidadeQuantidade})</label>
+            <input type="number" step="0.01" className="input-field" value={quantidade} onChange={(e) => setQuantidade(e.target.value)} />
+          </div>
+          <div>
+            <label className="label-field">Preço por {linha.unidadePreco} (R$)</label>
+            <input type="number" step="0.01" className="input-field" value={preco} onChange={(e) => setPreco(e.target.value)} />
+          </div>
+          <p className="text-sm text-gray-500">Subtotal: {formatarMoeda(Number(quantidade || 0) * Number(preco || 0))}</p>
+
+          {erro && <p className="text-sm text-status-error">{erro}</p>}
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" className="btn-secondary" onClick={onFechar}>
+              Cancelar
+            </button>
+            <button type="button" className="btn-primary" onClick={salvar}>
+              Salvar
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
