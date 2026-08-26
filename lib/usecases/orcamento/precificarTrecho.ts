@@ -13,9 +13,30 @@
 // `alocarValorFinalPorTrecho` só REPARTE o resultado desse motor entre os
 // trechos (proporcional ao custo de cada um), para exibição — não recalcula
 // impostos/margem por conta própria.
+//
+// Migração 019 — motor de quantificação + mão de obra automática: o material
+// não é mais "metragem × preço/m²" direto — cada material tem sua própria
+// quantidade (isolante/acabamento com acréscimo, rebite/parafuso/arame/
+// silicone por m²), e a mão de obra deixou de ser um número digitado pra
+// virar um cálculo automático (eficiência × horas base). Ver
+// quantificarMateriais.ts / calcularMaoObraAutomatica.ts.
 
 import type { ItemEscopo } from "../../types";
-import { somarMetragemEscopo } from "./escopo";
+import { somarMetragemEscopo, temCurvasNoEscopo, temTubulacaoPequena } from "./escopo";
+import { calcularMaoObraAutomatica, type ParametrosMaoObra } from "./calcularMaoObraAutomatica";
+import { quantificarMateriais, type ParametrosQuantificacao } from "./quantificarMateriais";
+
+export interface PrecosAcessorios {
+  /** R$ por unidade. */
+  rebiteUn: number;
+  /** R$ por unidade. */
+  parafusoUn: number;
+  /** R$ por KG (o catálogo comercial precifica arame por kg — a
+   * quantificação calcula em gramas, ver quantificarMateriais.ts). */
+  arameKg: number;
+  /** R$ por frasco. */
+  siliconeFrasco: number;
+}
 
 export interface PrecificacaoTrecho {
   metragem_m2: number;
@@ -23,33 +44,68 @@ export interface PrecificacaoTrecho {
   preco_acabamento_m2: number;
   horas_mao_obra: number;
   valor_hora_mao_obra: number;
+  eficiencia_global: number;
   subtotal_material: number;
   subtotal_mao_obra: number;
   subtotal_trecho: number;
+  /** Só pra exibição/edição na Tela 4 — não persistido campo a campo (ver
+   * decisão 3 em sql-migration-019). */
+  quantidades: ReturnType<typeof quantificarMateriais>;
 }
 
 export function precificarTrecho(input: {
   escopoItens: ItemEscopo[];
+  /** "somente_mo" zera a quantificação/custo de material inteiro — só mão de
+   * obra entra no subtotal (pedido explícito, ver Orcamento.tipo_proposta). */
+  tipoProposta: "material_mo" | "somente_mo";
   precoIsolanteM2: number;
   precoAcabamentoM2: number;
-  horasMaoObra: number;
+  precosAcessorios: PrecosAcessorios;
   valorHoraMaoObra: number;
+  trabalhoAltura: boolean;
+  parametrosQuantificacao: ParametrosQuantificacao;
+  parametrosMaoObra: ParametrosMaoObra;
 }): PrecificacaoTrecho {
   const metragem = somarMetragemEscopo(input.escopoItens);
   const round2 = (n: number) => Number(n.toFixed(2));
 
-  const subtotalMaterial = round2(metragem * (input.precoIsolanteM2 + input.precoAcabamentoM2));
-  const subtotalMaoObra = round2(input.horasMaoObra * input.valorHoraMaoObra);
+  const quantidades = quantificarMateriais(metragem, input.parametrosQuantificacao);
+
+  const maoObra = calcularMaoObraAutomatica(
+    metragem,
+    {
+      tubulacaoPequena: temTubulacaoPequena(input.escopoItens),
+      temCurvas: temCurvasNoEscopo(input.escopoItens),
+      trabalhoAltura: input.trabalhoAltura,
+    },
+    input.parametrosMaoObra
+  );
+
+  const subtotalMaterial =
+    input.tipoProposta === "somente_mo"
+      ? 0
+      : round2(
+          quantidades.isolanteM2 * input.precoIsolanteM2 +
+            quantidades.acabamentoM2 * input.precoAcabamentoM2 +
+            quantidades.rebiteUn * input.precosAcessorios.rebiteUn +
+            quantidades.parafusoUn * input.precosAcessorios.parafusoUn +
+            (quantidades.arameGramas / 1000) * input.precosAcessorios.arameKg +
+            quantidades.siliconeFrascos * input.precosAcessorios.siliconeFrasco
+        );
+
+  const subtotalMaoObra = round2(maoObra.horasAjustadas * input.valorHoraMaoObra);
 
   return {
     metragem_m2: metragem,
     preco_isolante_m2: input.precoIsolanteM2,
     preco_acabamento_m2: input.precoAcabamentoM2,
-    horas_mao_obra: input.horasMaoObra,
+    horas_mao_obra: maoObra.horasAjustadas,
     valor_hora_mao_obra: input.valorHoraMaoObra,
+    eficiencia_global: maoObra.eficienciaGlobal,
     subtotal_material: subtotalMaterial,
     subtotal_mao_obra: subtotalMaoObra,
     subtotal_trecho: round2(subtotalMaterial + subtotalMaoObra),
+    quantidades,
   };
 }
 

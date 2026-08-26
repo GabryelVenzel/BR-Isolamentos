@@ -28,10 +28,27 @@ import type { PrecificacaoTrecho } from "./usecases/orcamento";
 
 export interface WizardEspecificacoes {
   tipo_trabalho: TipoTrabalho;
-  /** FK para precos_config (tipo_material isolante_*) — a escolha comercial. */
+  /** FK para precos_config (tipo_material isolante_*) — a escolha comercial.
+   * `null` quando `isolante_customizado_nome` está preenchido ("Outro
+   * material", migração 019) — os dois são mutuamente exclusivos. */
   preco_isolante_id: number | null;
-  /** FK para precos_config (tipo_material chaparia_*) — só usado no quente. */
+  /** FK para precos_config (tipo_material chaparia_*) — só usado no quente.
+   * `null` quando `acabamento_customizado_nome` está preenchido, mesma
+   * lógica de `preco_isolante_id`. */
   preco_acabamento_id: number | null;
+  /** "Outro material" (migração 019) — nome livre + preço manual por m²,
+   * usado SÓ pra quantificação/preço; não tem dado físico (k(T)) cadastrado,
+   * então um trecho com isolante customizado não roda o cálculo térmico
+   * (ver step-3-especificacoes/page.tsx). */
+  isolante_customizado_nome: string | null;
+  isolante_customizado_preco_m2: number | null;
+  acabamento_customizado_nome: string | null;
+  acabamento_customizado_preco_m2: number | null;
+  /** Trabalho acima de 2m de altura neste trecho (migração 019) — só afeta a
+   * eficiência da mão de obra automática, nunca a quantificação de material.
+   * Escolhido na Tela 2 (Escopo), guardado aqui porque é um atributo do
+   * TRECHO inteiro, igual `metragem_editada`. */
+  trabalho_altura: boolean;
   /** Obrigatório só no quente; no frio é calculada (ver calcularFrio). */
   espessura_mm: number | null;
   // Nullable de propósito (pedido: "campo vazio, não 0") — 0°C é um valor
@@ -51,9 +68,6 @@ export interface WizardEspecificacoes {
   /** Override da metragem total do trecho (soma do Escopo) — checkbox "editar metragem". */
   metragem_editada: boolean;
   metragem_manual_m2: number | null;
-  /** Mão de obra deste trecho (horas) — soma de todos os trechos alimenta o
-   * `horas_mao_obra` único que `calcularOrcamento` usa (taxa é global). */
-  horas_mao_obra: number;
 }
 
 export interface WizardItem {
@@ -80,6 +94,10 @@ export interface WizardCustosOperacionais {
 
 interface WizardState {
   clienteSelecionado: Cliente | null;
+  /** Escolhido na Tela 1 (migração 019) — vale pro orçamento inteiro, não
+   * por trecho. "somente_mo" esconde quantificação/preço de material nas
+   * telas seguintes e zera o custo de material no cálculo. */
+  tipoProposta: "material_mo" | "somente_mo";
   itens: WizardItem[];
 
   // Rascunho do trecho em edição (step-2-escopo / step-3-especificacoes)
@@ -92,6 +110,7 @@ interface WizardState {
   resultadoOrcamento: CalcularOrcamentoResultado | null;
 
   setCliente: (cliente: Cliente | null) => void;
+  setTipoProposta: (tipo: "material_mo" | "somente_mo") => void;
   setEscopoAtual: (itens: ItemEscopo[]) => void;
   setItemAtual: (dados: Partial<WizardEspecificacoes>) => void;
   setResultadoAtualQuente: (resultado: CalcularTermicoResultadoQuente | null) => void;
@@ -117,6 +136,11 @@ const itemAtualInicial: WizardEspecificacoes = {
   tipo_trabalho: "quente",
   preco_isolante_id: null,
   preco_acabamento_id: null,
+  isolante_customizado_nome: null,
+  isolante_customizado_preco_m2: null,
+  acabamento_customizado_nome: null,
+  acabamento_customizado_preco_m2: null,
+  trabalho_altura: false,
   espessura_mm: null,
   temperatura_quente: null,
   temperatura_ambiente: null,
@@ -129,7 +153,6 @@ const itemAtualInicial: WizardEspecificacoes = {
   dias_operacao_semana: 5,
   metragem_editada: false,
   metragem_manual_m2: null,
-  horas_mao_obra: 0,
 };
 
 const custosOperacionaisIniciais: WizardCustosOperacionais = {
@@ -143,6 +166,7 @@ export const useWizardStore = create<WizardState>()(
   persist(
     (set, get) => ({
       clienteSelecionado: null,
+      tipoProposta: "material_mo",
       itens: [],
 
       escopoAtual: [],
@@ -154,6 +178,7 @@ export const useWizardStore = create<WizardState>()(
       resultadoOrcamento: null,
 
       setCliente: (cliente) => set({ clienteSelecionado: cliente }),
+      setTipoProposta: (tipo) => set({ tipoProposta: tipo }),
       setEscopoAtual: (itens) => set({ escopoAtual: itens }),
       setItemAtual: (dados) => set((state) => ({ itemAtual: { ...state.itemAtual, ...dados } })),
       setResultadoAtualQuente: (resultado) => set({ resultadoTermicoQuenteAtual: resultado }),
@@ -203,6 +228,7 @@ export const useWizardStore = create<WizardState>()(
       reset: () =>
         set({
           clienteSelecionado: null,
+          tipoProposta: "material_mo",
           itens: [],
           escopoAtual: [],
           itemAtual: itemAtualInicial,
@@ -224,9 +250,10 @@ export function tipoTrabalhoAgregado(itens: WizardItem[]): TipoTrabalho {
   return "misto";
 }
 
-/** Soma as horas de mão de obra de todos os trechos — é o único
- * `horas_mao_obra` que `calcularOrcamento` recebe (a taxa/hora é global,
- * não varia por trecho). */
+/** Soma as horas de mão de obra (já calculadas automaticamente por trecho —
+ * ver precificarTrecho.ts/calcularMaoObraAutomatica.ts) de todos os trechos —
+ * é o único `horas_mao_obra` que `calcularOrcamento` recebe (a taxa/hora é
+ * global, não varia por trecho). */
 export function horasMaoObraTotal(itens: WizardItem[]): number {
-  return Number(itens.reduce((acc, i) => acc + i.especificacoes.horas_mao_obra, 0).toFixed(2));
+  return Number(itens.reduce((acc, i) => acc + i.precificacao.horas_mao_obra, 0).toFixed(2));
 }

@@ -16,7 +16,7 @@ import type { ItemEscopo } from "@/lib/types";
  * item que existe aqui). */
 export default function Step2EscopoPage() {
   const router = useRouter();
-  const { clienteSelecionado, escopoAtual, setEscopoAtual, itens } = useWizardStore();
+  const { clienteSelecionado, escopoAtual, setEscopoAtual, itens, itemAtual, setItemAtual } = useWizardStore();
   const [editando, setEditando] = useState<ItemEscopo | "novo" | null>(null);
 
   const total = somarMetragemEscopo(escopoAtual);
@@ -69,6 +69,23 @@ export default function Step2EscopoPage() {
         <span className="font-montserrat text-sm font-bold uppercase text-brand">Total metragem</span>
         <span className="font-montserrat text-2xl font-bold text-accent">{formatarNumero(total, 2)} m²</span>
       </div>
+
+      {/* Migração 019 — "tem curvas"/"tubulação pequena" já são deriváveis
+          dos itens de escopo acima (tipo/diâmetro), não pedidos de novo
+          aqui. Só "trabalho em altura" precisa de um campo próprio: não tem
+          proxy no Escopo, e só afeta a eficiência da mão de obra (nunca a
+          quantificação de material) — ver calcularMaoObraAutomatica.ts. */}
+      <label className="card flex cursor-pointer items-center justify-between">
+        <span>
+          <span className="block text-sm font-medium text-gray-800">Trabalho em altura (&gt; 2m)?</span>
+          <span className="block text-xs text-gray-400">Afeta só o cálculo de mão de obra deste trecho.</span>
+        </span>
+        <input
+          type="checkbox"
+          checked={itemAtual.trabalho_altura}
+          onChange={(e) => setItemAtual({ trabalho_altura: e.target.checked })}
+        />
+      </label>
 
       {editando && (
         <ModalItemEscopo

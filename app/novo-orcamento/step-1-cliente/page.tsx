@@ -7,7 +7,7 @@ import type { Cliente } from "@/lib/types";
 
 export default function Step1ClientePage() {
   const router = useRouter();
-  const { clienteSelecionado, setCliente } = useWizardStore();
+  const { clienteSelecionado, setCliente, tipoProposta, setTipoProposta } = useWizardStore();
 
   function handleSelecionar(cliente: Cliente | null) {
     setCliente(cliente);
@@ -21,6 +21,47 @@ export default function Step1ClientePage() {
       </div>
 
       <FormCliente clienteSelecionado={clienteSelecionado} onSelecionar={handleSelecionar} />
+
+      {/* Migração 019 — vale pro orçamento inteiro, não por trecho. "Somente
+          Mão de Obra" esconde a quantificação/preço de material nas telas
+          seguintes e zera esse custo no cálculo final. */}
+      <div className="card space-y-3">
+        <label className="label-field">Tipo de proposta</label>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label
+            className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm ${
+              tipoProposta === "material_mo" ? "border-brand bg-brand-light/40" : "border-gray-200"
+            }`}
+          >
+            <input
+              type="radio"
+              className="mt-1"
+              checked={tipoProposta === "material_mo"}
+              onChange={() => setTipoProposta("material_mo")}
+            />
+            <span>
+              <span className="block font-medium text-gray-800">Material + Mão de Obra</span>
+              <span className="block text-xs text-gray-500">Quantificação completa de materiais e mão de obra.</span>
+            </span>
+          </label>
+          <label
+            className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm ${
+              tipoProposta === "somente_mo" ? "border-brand bg-brand-light/40" : "border-gray-200"
+            }`}
+          >
+            <input
+              type="radio"
+              className="mt-1"
+              checked={tipoProposta === "somente_mo"}
+              onChange={() => setTipoProposta("somente_mo")}
+            />
+            <span>
+              <span className="block font-medium text-gray-800">Somente Mão de Obra</span>
+              <span className="block text-xs text-gray-500">Apenas o cálculo de horas — sem custo de material.</span>
+            </span>
+          </label>
+        </div>
+      </div>
 
       <div className="flex justify-end">
         <button

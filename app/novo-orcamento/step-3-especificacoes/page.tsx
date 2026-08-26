@@ -39,22 +39,47 @@ export default function Step3EspecificacoesPage() {
   const metragemEscopo = somarMetragemEscopo(escopoAtual);
   const areaM2 = especificacoes.metragem_editada ? (especificacoes.metragem_manual_m2 ?? 0) : metragemEscopo;
 
+  // "Outro material" (migração 019) não tem dado técnico (k(T)/emissividade)
+  // cadastrado — um trecho assim não roda o cálculo térmico, só quantificação
+  // e preço (ver FormEspecificacoes.tsx). `valido` exige nome + preço em vez
+  // do id do catálogo nesse caso.
+  const usaIsolanteCustomizado = especificacoes.isolante_customizado_nome != null;
+  const usaAcabamentoCustomizado = especificacoes.acabamento_customizado_nome != null;
+  const materialCustomizado = usaIsolanteCustomizado || usaAcabamentoCustomizado;
+  const isolanteValido = usaIsolanteCustomizado
+    ? !!especificacoes.isolante_customizado_nome?.trim() && !!especificacoes.isolante_customizado_preco_m2
+    : !!especificacoes.preco_isolante_id;
+  const acabamentoValido = usaAcabamentoCustomizado
+    ? !!especificacoes.acabamento_customizado_nome?.trim() && !!especificacoes.acabamento_customizado_preco_m2
+    : !!especificacoes.preco_acabamento_id;
+
   const valido =
-    !!especificacoes.preco_isolante_id &&
-    !!especificacoes.preco_acabamento_id &&
+    isolanteValido &&
+    acabamentoValido &&
     especificacoes.temperatura_quente !== null &&
     especificacoes.temperatura_ambiente !== null &&
     areaM2 > 0 &&
-    (!isQuente || (!!especificacoes.espessura_mm && especificacoes.espessura_mm > 0)) &&
+    (!isQuente || materialCustomizado || (!!especificacoes.espessura_mm && especificacoes.espessura_mm > 0)) &&
     (isQuente || (especificacoes.umidade_relativa !== null && especificacoes.umidade_relativa > 0)) &&
-    (!isQuente || (!!especificacoes.custo_combustivel && especificacoes.custo_combustivel > 0));
+    (!isQuente || materialCustomizado || (!!especificacoes.custo_combustivel && especificacoes.custo_combustivel > 0));
 
   async function calcularEContinuar() {
+    setErro(null);
+
+    // Material customizado: sem k(T)/emissividade cadastrados, não dá pra
+    // rodar o cálculo térmico — segue direto pra Preços só com quantificação
+    // (ver aviso em FormEspecificacoes.tsx).
+    if (materialCustomizado) {
+      setResultadoAtualQuente(null);
+      setResultadoAtualFrio(null);
+      router.push("/novo-orcamento/step-4-precos");
+      return;
+    }
+
     const precoIsolante = precos.find((p) => p.id === especificacoes.preco_isolante_id);
     const precoAcabamento = precos.find((p) => p.id === especificacoes.preco_acabamento_id);
     if (!precoIsolante || !precoAcabamento) return;
 
-    setErro(null);
     setCalculando(true);
     try {
       const materialFisico = materialFisicoMaisProximo(
@@ -165,7 +190,7 @@ export default function Step3EspecificacoesPage() {
           disabled={!valido || !clienteSelecionado || escopoAtual.length === 0 || calculando}
           onClick={calcularEContinuar}
         >
-          {calculando ? "Calculando..." : "Calcular e continuar →"}
+          {calculando ? "Calculando..." : materialCustomizado ? "Continuar →" : "Calcular e continuar →"}
         </button>
       </div>
     </div>

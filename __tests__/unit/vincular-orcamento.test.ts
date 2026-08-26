@@ -35,6 +35,7 @@ function orcamentoFake(overrides: Partial<Orcamento> = {}): Orcamento {
     cliente_id: 1,
     data_criacao: "2026-01-01",
     tipo_trabalho: "quente",
+    tipo_proposta: "material_mo",
     valor_materiais: 0,
     valor_mao_obra: 0,
     valor_deslocamento: 0,

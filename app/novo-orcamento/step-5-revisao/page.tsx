@@ -11,10 +11,10 @@ export default function Step5RevisaoPage() {
   const router = useRouter();
   const {
     clienteSelecionado,
+    tipoProposta,
     itens,
     resultadoOrcamento,
     custosOperacionais,
-    setCustosOperacionais,
     setResultadoOrcamento,
     editarItem,
     removerItem,
@@ -76,12 +76,6 @@ export default function Step5RevisaoPage() {
     [config, impostosExtras, setResultadoOrcamento]
   );
 
-  function atualizarCustoOperacional(dados: Partial<typeof custosOperacionais>) {
-    setCustosOperacionais(dados);
-    const novoCustos = { ...custosOperacionais, ...dados };
-    recalcular(itens, novoCustos);
-  }
-
   function excluirTrecho(index: number) {
     if (!confirm("Excluir este trecho do orçamento?")) return;
     removerItem(index);
@@ -133,6 +127,9 @@ export default function Step5RevisaoPage() {
           area_m2: item.precificacao.metragem_m2,
           perimetro_m: null,
 
+          trabalho_altura: item.especificacoes.trabalho_altura,
+          eficiencia_global: item.precificacao.eficiencia_global,
+
           espessura_necessaria_mm: espessuraNecessaria,
           temperatura_face_fria: item.resultadoTermicoQuente?.temperatura_face_fria ?? null,
           perda_com_isolante: item.resultadoTermicoQuente?.perda_com_isolante_kw_m2 ?? 0,
@@ -161,6 +158,7 @@ export default function Step5RevisaoPage() {
       const payload = {
         cliente_id: clienteSelecionado!.id,
         tipo_trabalho: tipoTrabalho,
+        tipo_proposta: tipoProposta,
 
         valor_materiais: resultadoOrcamento!.valor_materiais,
         valor_mao_obra: resultadoOrcamento!.valor_mao_obra,
@@ -236,7 +234,7 @@ export default function Step5RevisaoPage() {
             <p>Material: {item.materialNome}</p>
             {item.acabamentoNome && <p>Acabamento: {item.acabamentoNome}</p>}
             <p>Metragem: {formatarNumero(item.precificacao.metragem_m2, 2)} m²</p>
-            <p>Mão de obra: {formatarNumero(item.especificacoes.horas_mao_obra, 1)}h</p>
+            <p>Mão de obra: {formatarNumero(item.precificacao.horas_mao_obra, 1)}h</p>
           </div>
 
           <div>
@@ -269,51 +267,9 @@ export default function Step5RevisaoPage() {
         </div>
       ))}
 
-      <div className="card space-y-4">
-        <h2 className="text-lg font-semibold">Custos operacionais adicionais</h2>
-        <p className="text-xs text-gray-400">Valem para o orçamento inteiro (todos os trechos juntos).</p>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div>
-            <label className="label-field">Deslocamento (km)</label>
-            <input
-              type="number"
-              className="input-field"
-              value={custosOperacionais.km_deslocamento}
-              onChange={(e) => atualizarCustoOperacional({ km_deslocamento: Number(e.target.value) })}
-            />
-          </div>
-          <div>
-            <label className="label-field">Hospedagem (noites)</label>
-            <input
-              type="number"
-              className="input-field"
-              value={custosOperacionais.noites_hospedagem}
-              onChange={(e) => atualizarCustoOperacional({ noites_hospedagem: Number(e.target.value) })}
-            />
-          </div>
-          <div>
-            <label className="label-field">Frete (toneladas)</label>
-            <input
-              type="number"
-              step="0.01"
-              className="input-field"
-              value={custosOperacionais.toneladas_frete}
-              onChange={(e) => atualizarCustoOperacional({ toneladas_frete: Number(e.target.value) })}
-            />
-          </div>
-          <div>
-            <label className="label-field">Desconto extra (%, opcional)</label>
-            <input
-              type="number"
-              step="0.1"
-              className="input-field"
-              placeholder="usar padrão da empresa"
-              value={custosOperacionais.desconto_percentual_extra ?? ""}
-              onChange={(e) => atualizarCustoOperacional({ desconto_percentual_extra: Number(e.target.value) })}
-            />
-          </div>
-        </div>
-      </div>
+      {/* Custos operacionais: campos de edição movidos pra Tela 4 (pedido
+          explícito) — aqui só o resumo financeiro final (abaixo), que já
+          mostra Deslocamento/Hospedagem/Frete calculados. */}
 
       {resultadoOrcamento && (
         <div className="card space-y-2 text-sm">

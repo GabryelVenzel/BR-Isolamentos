@@ -22,6 +22,28 @@ const CAMPOS_MARGEM: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo: s
   { nome: "margem_lucro_padrao", label: "Margem de lucro padrão", sufixo: "% do preço de venda" },
 ];
 
+// Quantificação de materiais e mão de obra automática (migração 019) — sem
+// painel/senha separados: mesma tela Configurar Preços, atrás do mesmo login
+// que já protege o resto do sistema (ver decisão 1 em
+// sql-migration-019-motor-quantificacao-mao-obra.sql).
+const CAMPOS_QUANTIFICACAO: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo: string }> = [
+  { nome: "isolante_acrescimo_percentual", label: "Isolante (acréscimo)", sufixo: "%" },
+  { nome: "acabamento_acrescimo_percentual", label: "Acabamento (acréscimo)", sufixo: "%" },
+  { nome: "rebite_por_m2", label: "Rebites por m²", sufixo: "un." },
+  { nome: "parafusos_por_m2", label: "Parafusos por m²", sufixo: "un." },
+  { nome: "arame_gramas_por_m2", label: "Arame por m²", sufixo: "g" },
+  { nome: "silicone_intervalo_m2", label: "1 frasco de silicone a cada", sufixo: "m²" },
+];
+
+const CAMPOS_MAO_OBRA: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo: string }> = [
+  { nome: "m2_por_hora_dupla", label: "Base dupla", sufixo: "m²/hora" },
+  { nome: "eficiencia_tubulacao_pequena", label: 'Eficiência tubulação < 4"', sufixo: "× (ex.: 0.75)" },
+  { nome: "eficiencia_curva", label: "Eficiência curva", sufixo: "× (ex.: 0.75)" },
+  { nome: "eficiencia_altura", label: "Eficiência altura (> 2m)", sufixo: "× (ex.: 0.50)" },
+  { nome: "eficiencia_fator_br", label: "Fator de rendimento (BR)", sufixo: "× (ex.: 0.80)" },
+  { nome: "horas_uteis_dia", label: "Horas úteis por dia", sufixo: "h" },
+];
+
 export default function FormConfigEmpresa({ config }: Props) {
   const [valores, setValores] = useState<ConfigEmpresa>(config);
   const [salvando, setSalvando] = useState(false);
@@ -141,6 +163,45 @@ export default function FormConfigEmpresa({ config }: Props) {
         <h3 className="mb-2 text-sm font-semibold text-gray-600">Margem</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {CAMPOS_MARGEM.map((campo) => (
+            <div key={campo.nome}>
+              <label className="label-field">
+                {campo.label} <span className="text-gray-400">({campo.sufixo})</span>
+              </label>
+              {numero(campo.nome)}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="mb-2 text-sm font-semibold text-gray-600">Quantificação de materiais</h3>
+        <p className="mb-3 text-xs text-gray-500">
+          Multiplicadores aplicados sobre a metragem total do trecho (m²) — ver{" "}
+          <a href="/novo-orcamento/step-4-precos" className="text-brand hover:underline">
+            Tela 4 do orçamento
+          </a>
+          .
+        </p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {CAMPOS_QUANTIFICACAO.map((campo) => (
+            <div key={campo.nome}>
+              <label className="label-field">
+                {campo.label} <span className="text-gray-400">({campo.sufixo})</span>
+              </label>
+              {numero(campo.nome)}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="mb-2 text-sm font-semibold text-gray-600">Mão de obra automática</h3>
+        <p className="mb-3 text-xs text-gray-500">
+          Substitui o campo manual "Mão de obra (horas)" — a eficiência é o produto de todos os fatores que se
+          aplicam ao trecho (tubulação pequena × curva × altura × fator BR).
+        </p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {CAMPOS_MAO_OBRA.map((campo) => (
             <div key={campo.nome}>
               <label className="label-field">
                 {campo.label} <span className="text-gray-400">({campo.sufixo})</span>

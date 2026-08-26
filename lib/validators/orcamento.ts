@@ -3,6 +3,7 @@ import { z } from "zod";
 const TipoTrabalhoSchema = z.enum(["quente", "frio", "misto"]);
 const GeometriaSchema = z.enum(["plana", "tubulacao"]);
 const StatusOrcamentoSchema = z.enum(["rascunho", "proposta", "enviado", "aceito", "rejeitado"]);
+const TipoPropostaSchema = z.enum(["material_mo", "somente_mo"]);
 
 /** Um trecho técnico do orçamento (ver `ItemOrcamento` em `lib/types.ts`). Os
  * campos numéricos calculados (espessura, perdas, quantificação...) são
@@ -38,6 +39,9 @@ export const ItemOrcamentoSchema = z.object({
   diametro_mm: z.number().positive().nullable().optional(),
   area_m2: z.number().positive("A área precisa ser maior que zero."),
   perimetro_m: z.number().nullable().optional(),
+  // Migração 019 — mão de obra automática (ver calcularMaoObraAutomatica.ts).
+  trabalho_altura: z.boolean().optional().default(false),
+  eficiencia_global: z.number().nullable().optional(),
   espessura_necessaria_mm: z.number(),
   temperatura_face_fria: z.number().nullable().optional(),
   perda_com_isolante: z.number(),
@@ -64,6 +68,10 @@ export const ItemOrcamentoSchema = z.object({
 export const CreateOrcamentoSchema = z.object({
   cliente_id: z.number().int().positive("Orçamento sem cliente vinculado."),
   tipo_trabalho: TipoTrabalhoSchema,
+  // Migração 019 — "somente_mo" esconde/zera o custo de material no motor
+  // de cálculo; default "material_mo" preserva o comportamento de sempre
+  // pra quem ainda não manda esse campo.
+  tipo_proposta: TipoPropostaSchema.optional().default("material_mo"),
   itens: z.array(ItemOrcamentoSchema).min(1, "Orçamento precisa de ao menos um item/trecho."),
   valor_materiais: z.number().nonnegative(),
   valor_mao_obra: z.number().nonnegative(),

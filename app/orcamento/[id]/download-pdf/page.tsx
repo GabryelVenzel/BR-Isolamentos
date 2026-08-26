@@ -5,7 +5,6 @@ import { useParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import PropostaTecnicaDocument from "@/components/pdf-native/PropostaTecnicaDocument";
 import PropostaComercialDocument from "@/components/pdf-native/PropostaComercialDocument";
-import GaleriaImagensProposta from "@/components/GaleriaImagensProposta";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { baixarPdf } from "@/lib/pdf-generator";
 import { gerarPropostaComercialDocx, nomeArquivoDocxComercial } from "@/lib/docx-generator";
@@ -172,18 +171,11 @@ export default function DownloadPdfPage() {
 
       {erro && <p className="text-sm text-red-600">{erro}</p>}
 
-      {/* Fotos de referência usadas na Proposta Técnica — antes ficava em
-          Configurar Preços, mudou pra cá (ver comentário em
-          components/GaleriaImagensProposta.tsx): é aqui que elas aparecem
-          na prévia logo abaixo, faz mais sentido gerenciar onde se usa. */}
-      <details className="card">
-        <summary className="cursor-pointer font-montserrat text-sm font-bold uppercase text-brand">
-          🖼️ Imagens de referência ({imagens.length})
-        </summary>
-        <div className="mt-4">
-          <GaleriaImagensProposta onChange={carregarImagens} />
-        </div>
-      </details>
+      {/* Container de gerenciamento de "Imagens de referência" removido
+          desta tela (pedido explícito) — as fotos já cadastradas continuam
+          aparecendo normalmente na Proposta Técnica (`imagens` ainda é
+          carregado e passado pra PropostaTecnicaDocument abaixo); só a
+          interface de upload/gerência saiu daqui. */}
 
       <div>
         <div className="mb-2 flex gap-1 border-b border-gray-200">

@@ -55,6 +55,25 @@ export function somarMetragemEscopo(itens: ItemEscopo[]): number {
   return Number(itens.reduce((acc, item) => acc + metragemFinalItem(item), 0).toFixed(2));
 }
 
+/** 4 polegadas em milímetros — limiar de "tubulação pequena" pro fator de
+ * eficiência de mão de obra (ver calcularMaoObraAutomatica.ts). */
+const QUATRO_POLEGADAS_MM = 101.6;
+
+/** true se o trecho tem qualquer item de escopo do tipo "curva" — derivado
+ * do Escopo, não é um campo manual (ver decisão 2 em sql-migration-019). */
+export function temCurvasNoEscopo(itens: ItemEscopo[]): boolean {
+  return itens.some((item) => item.tipo === "curva");
+}
+
+/** true se o trecho tem tubulação/curva com diâmetro < 4" — mesmo raciocínio
+ * de `temCurvasNoEscopo`: já dá pra saber isso pelo Escopo, sem pedir de
+ * novo como checkbox manual. */
+export function temTubulacaoPequena(itens: ItemEscopo[]): boolean {
+  return itens.some(
+    (item) => (item.tipo === "tubulacao" || item.tipo === "curva") && item.diametro_mm != null && item.diametro_mm < QUATRO_POLEGADAS_MM
+  );
+}
+
 /** Um trecho pode misturar tipos de item no Escopo (ex.: tubo + curvas +
  * área plana, como no próprio exemplo do pedido) mas o cálculo térmico
  * (`calcularTermico`) precisa de UMA geometria (o coeficiente de convecção

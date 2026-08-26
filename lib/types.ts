@@ -108,8 +108,20 @@ export interface ItemOrcamento {
 
   // Precificação por m² (migração 010) — preço travado no momento da
   // criação do trecho (não recalcula sozinho se o catálogo mudar depois).
+  // Quando o isolante/acabamento é "Outro material" (customizado, migração
+  // 019), `material`/`acabamento` guardam o nome digitado e este preço é o
+  // valor manual informado — nenhuma coluna nova precisa disso.
   preco_isolante_m2: number | null;
   preco_acabamento_m2: number | null;
+  /** Trabalho acima de 2m de altura neste trecho (migração 019) — só afeta
+   * a eficiência da mão de obra, nunca a quantificação de material. Sem
+   * proxy no Escopo (diferente de "tem curvas"/"tubulação pequena", que já
+   * são deriváveis de `escopo_itens` — ver lib/usecases/orcamento/escopo.ts). */
+  trabalho_altura: boolean;
+  /** Produto dos fatores de eficiência aplicados (tubulação pequena × curva
+   * × altura × fator BR) — cache só para exibição/auditoria na proposta,
+   * não recalcula nada sozinho depois de salvo (migração 019). */
+  eficiencia_global: number | null;
   horas_mao_obra: number;
   subtotal_material: number;
   subtotal_mao_obra: number;
@@ -132,6 +144,11 @@ export interface Orcamento {
   cliente_id: number;
   data_criacao: string;
   tipo_trabalho: TipoTrabalho;
+  /** Escolhido no passo 1 do wizard (migração 019) — "somente_mo" esconde a
+   * quantificação/preço de material nas telas 4/6 e zera `valor_materiais`
+   * no cálculo; o restante do motor (impostos/margem/custos operacionais)
+   * não muda. */
+  tipo_proposta: "material_mo" | "somente_mo";
 
   // Financeiro
   valor_materiais: number;
@@ -258,6 +275,36 @@ export interface ConfigEmpresa {
    * ficou órfão desde a migração 010). Coluna mantida no schema por
    * compatibilidade com orçamentos antigos que ainda exibem `vedacit_un`. */
   vedacit_gramas_por_junta: number;
+
+  // Quantificação de materiais (migração 019) — ver
+  // lib/usecases/orcamento/quantificarMateriais.ts. Todos calculados sobre a
+  // metragem total (m²) do trecho.
+  /** Isolante = m² × (1 + este% /100) — sobra/traspasse. */
+  isolante_acrescimo_percentual: number;
+  /** Acabamento = m² × (1 + este% /100). */
+  acabamento_acrescimo_percentual: number;
+  rebite_por_m2: number;
+  parafusos_por_m2: number;
+  arame_gramas_por_m2: number;
+  /** "1 frasco de silicone a cada X m²" — o tamanho do frasco (300g) é só
+   * informativo na tela, não entra em nenhuma fórmula. */
+  silicone_intervalo_m2: number;
+
+  // Mão de obra automática (migração 019) — ver
+  // lib/usecases/orcamento/calcularMaoObraAutomatica.ts. Substitui o campo
+  // manual "Mão de obra deste trecho (horas)" que existia no wizard.
+  m2_por_hora_dupla: number;
+  /** Multiplicador quando o trecho tem tubulação/curva com diâmetro < 4"
+   * (101,6mm) — derivado do Escopo, não é um campo manual. */
+  eficiencia_tubulacao_pequena: number;
+  /** Multiplicador quando o trecho tem algum item de escopo do tipo "curva". */
+  eficiencia_curva: number;
+  /** Multiplicador quando o trecho está marcado como trabalho em altura
+   * (> 2m) — único fator que não tem como ser derivado de outro dado. */
+  eficiencia_altura: number;
+  /** Fator de rendimento da dupla brasileira — sempre aplicado. */
+  eficiencia_fator_br: number;
+  horas_uteis_dia: number;
 }
 
 /** Imposto/taxa adicional configurável livremente (ex.: INSS retido em cessão de mão

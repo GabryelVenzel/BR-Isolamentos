@@ -88,8 +88,12 @@ export default function FormEspecificacoes() {
             <label className="label-field">Material isolante*</label>
             <select
               className="input-field"
-              value={especificacoes.preco_isolante_id ?? ""}
-              onChange={(e) => setEspecificacoes({ preco_isolante_id: Number(e.target.value) })}
+              value={especificacoes.isolante_customizado_nome != null ? "outro" : especificacoes.preco_isolante_id ?? ""}
+              onChange={(e) =>
+                e.target.value === "outro"
+                  ? setEspecificacoes({ preco_isolante_id: null, isolante_customizado_nome: "" })
+                  : setEspecificacoes({ preco_isolante_id: Number(e.target.value), isolante_customizado_nome: null, isolante_customizado_preco_m2: null })
+              }
             >
               <option value="" disabled>
                 Selecione...
@@ -99,15 +103,48 @@ export default function FormEspecificacoes() {
                   {p.descricao}
                 </option>
               ))}
+              <option value="outro">➕ Outro material</option>
             </select>
+            {especificacoes.isolante_customizado_nome != null && (
+              <div className="mt-2 space-y-2 rounded-lg border border-dashed border-gray-300 p-3">
+                <p className="text-xs text-amber-600">
+                  ⚠️ Material customizado — sem dado técnico cadastrado. Este trecho não terá cálculo de perda
+                  térmica/economia, só quantificação e preço.
+                </p>
+                <div>
+                  <label className="label-field">Nome do material</label>
+                  <input
+                    className="input-field"
+                    value={especificacoes.isolante_customizado_nome}
+                    onChange={(e) => setEspecificacoes({ isolante_customizado_nome: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="label-field">Preço por m² (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="input-field"
+                    value={especificacoes.isolante_customizado_preco_m2 ?? ""}
+                    onChange={(e) =>
+                      setEspecificacoes({ isolante_customizado_preco_m2: e.target.value ? Number(e.target.value) : null })
+                    }
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div>
             <label className="label-field">Acabamento externo*</label>
             <select
               className="input-field"
-              value={especificacoes.preco_acabamento_id ?? ""}
-              onChange={(e) => setEspecificacoes({ preco_acabamento_id: Number(e.target.value) })}
+              value={especificacoes.acabamento_customizado_nome != null ? "outro" : especificacoes.preco_acabamento_id ?? ""}
+              onChange={(e) =>
+                e.target.value === "outro"
+                  ? setEspecificacoes({ preco_acabamento_id: null, acabamento_customizado_nome: "" })
+                  : setEspecificacoes({ preco_acabamento_id: Number(e.target.value), acabamento_customizado_nome: null, acabamento_customizado_preco_m2: null })
+              }
             >
               <option value="" disabled>
                 Selecione...
@@ -117,7 +154,38 @@ export default function FormEspecificacoes() {
                   {p.descricao}
                 </option>
               ))}
+              <option value="outro">➕ Outro material</option>
             </select>
+            {especificacoes.acabamento_customizado_nome != null && (
+              <div className="mt-2 space-y-2 rounded-lg border border-dashed border-gray-300 p-3">
+                {isQuente && (
+                  <p className="text-xs text-amber-600">
+                    ⚠️ Acabamento customizado — sem emissividade cadastrada. Este trecho não terá cálculo de perda
+                    térmica/economia, só quantificação e preço.
+                  </p>
+                )}
+                <div>
+                  <label className="label-field">Nome do acabamento</label>
+                  <input
+                    className="input-field"
+                    value={especificacoes.acabamento_customizado_nome}
+                    onChange={(e) => setEspecificacoes({ acabamento_customizado_nome: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label className="label-field">Preço por m² (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="input-field"
+                    value={especificacoes.acabamento_customizado_preco_m2 ?? ""}
+                    onChange={(e) =>
+                      setEspecificacoes({ acabamento_customizado_preco_m2: e.target.value ? Number(e.target.value) : null })
+                    }
+                  />
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -274,16 +342,10 @@ export default function FormEspecificacoes() {
         {metragemFinal <= 0 && <p className="text-xs text-status-error">A metragem do trecho precisa ser maior que zero.</p>}
       </div>
 
-      <div className="card">
-        <label className="label-field">Mão de obra deste trecho (horas)</label>
-        <input
-          type="number"
-          step="0.5"
-          className="input-field sm:w-48"
-          value={especificacoes.horas_mao_obra}
-          onChange={(e) => setEspecificacoes({ horas_mao_obra: Number(e.target.value) })}
-        />
-      </div>
+      {/* Mão de obra deste trecho: removida (era um campo manual em horas) —
+          agora é calculada automaticamente na Tela 4, a partir da metragem e
+          dos fatores de eficiência (tubulação pequena/curvas/altura, ver
+          calcularMaoObraAutomatica.ts). */}
     </div>
   );
 }

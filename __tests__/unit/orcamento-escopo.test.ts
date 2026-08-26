@@ -4,6 +4,8 @@ import {
   calcularMetragemTubulacao,
   metragemFinalItem,
   somarMetragemEscopo,
+  temCurvasNoEscopo,
+  temTubulacaoPequena,
 } from "@/lib/usecases/orcamento/escopo";
 import type { ItemEscopo } from "@/lib/types";
 
@@ -74,5 +76,41 @@ describe("somarMetragemEscopo", () => {
 
   it("lista vazia soma zero", () => {
     expect(somarMetragemEscopo([])).toBe(0);
+  });
+});
+
+// Migração 019: "tem curvas"/"tubulação pequena" são derivadas do Escopo já
+// existente, não campos manuais novos — ver decisão 2 em
+// sql-migration-019-motor-quantificacao-mao-obra.sql.
+describe("temCurvasNoEscopo", () => {
+  it("true se há qualquer item do tipo curva", () => {
+    expect(temCurvasNoEscopo([item({ tipo: "curva", quantidade: 2 })])).toBe(true);
+  });
+
+  it("false se só há tubulação/plano", () => {
+    expect(temCurvasNoEscopo([item({ tipo: "tubulacao" }), item({ tipo: "plano", metragem_manual_m2: 5 })])).toBe(false);
+  });
+
+  it("lista vazia é false", () => {
+    expect(temCurvasNoEscopo([])).toBe(false);
+  });
+});
+
+describe("temTubulacaoPequena", () => {
+  it("true se alguma tubulação/curva tem diâmetro < 101,6mm (4 polegadas)", () => {
+    expect(temTubulacaoPequena([item({ tipo: "tubulacao", diametro_mm: 80 })])).toBe(true);
+    expect(temTubulacaoPequena([item({ tipo: "curva", diametro_mm: 50, quantidade: 2 })])).toBe(true);
+  });
+
+  it("false se diâmetro >= 101,6mm", () => {
+    expect(temTubulacaoPequena([item({ tipo: "tubulacao", diametro_mm: 150 })])).toBe(false);
+  });
+
+  it("itens 'plano' (sem diâmetro) nunca contam como tubulação pequena", () => {
+    expect(temTubulacaoPequena([item({ tipo: "plano", diametro_mm: null, metragem_manual_m2: 5 })])).toBe(false);
+  });
+
+  it("lista vazia é false", () => {
+    expect(temTubulacaoPequena([])).toBe(false);
   });
 });

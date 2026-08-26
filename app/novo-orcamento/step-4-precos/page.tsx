@@ -7,13 +7,17 @@ import { precificarTrecho, somarMetragemEscopo } from "@/lib/usecases/orcamento"
 import { formatarMoeda, formatarNumero } from "@/lib/format";
 import type { CalcularOrcamentoInput, ConfigEmpresa, ImpostoConfig, PrecoConfig } from "@/lib/types";
 
-/** Tela 4 (refatorada) — só Preços: os "Cálculos" viraram automáticos (tela
- * anterior). Mostra o resumo técnico do trecho atual + os 2 preços por m²
- * envolvidos (isolante/acabamento), editáveis SÓ PARA ESTE ORÇAMENTO (não
- * altera o catálogo em Configurar Preços — mesmo raciocínio do pedido:
- * "original mantém, apenas este orçamento usa novo valor"). Ao confirmar, o
- * trecho entra na lista e — se for pra Revisão — o orçamento inteiro é
- * calculado (impostos/margem reais, ver lib/orcamento.ts) automaticamente. */
+/** Preço de um acessório do catálogo (migrações 016/017) pela sua
+ * `tipo_material` — 0 se ainda não cadastrado em Configurar Preços. */
+function precoAcessorio(precos: PrecoConfig[], tipo: string): number {
+  return precos.find((p) => p.tipo_material === tipo)?.preco_unitario ?? 0;
+}
+
+/** Tela 4 (refatorada, migração 019) — Resumo técnico + Quantificação
+ * automática de materiais/mão de obra + Custos operacionais (movidos da
+ * Revisão pra cá — pedido explícito). Os "Cálculos" viraram automáticos
+ * (tela anterior). Preços por m²/unidade são editáveis SÓ PARA ESTE
+ * ORÇAMENTO (não altera o catálogo em Configurar Preços). */
 export default function Step4PrecosPage() {
   const router = useRouter();
   const {
@@ -22,7 +26,9 @@ export default function Step4PrecosPage() {
     resultadoTermicoQuenteAtual,
     resultadoTermicoFrioAtual,
     itens,
+    tipoProposta,
     custosOperacionais,
+    setCustosOperacionais,
     confirmarItemAtual,
     setResultadoOrcamento,
   } = useWizardStore();
@@ -47,32 +53,56 @@ export default function Step4PrecosPage() {
     });
   }, []);
 
-  const precoIsolante = precos.find((p) => p.id === especificacoes.preco_isolante_id);
-  const precoAcabamento = precos.find((p) => p.id === especificacoes.preco_acabamento_id);
-  const temResultado = !!(resultadoTermicoQuenteAtual || resultadoTermicoFrioAtual);
+  const isolanteCustomizado = especificacoes.isolante_customizado_nome != null;
+  const acabamentoCustomizado = especificacoes.acabamento_customizado_nome != null;
+
+  const precoIsolanteCatalogo = precos.find((p) => p.id === especificacoes.preco_isolante_id);
+  const precoAcabamentoCatalogo = precos.find((p) => p.id === especificacoes.preco_acabamento_id);
+
+  const nomeIsolante = isolanteCustomizado ? especificacoes.isolante_customizado_nome! : precoIsolanteCatalogo?.descricao ?? "Isolante";
+  const nomeAcabamento = acabamentoCustomizado ? especificacoes.acabamento_customizado_nome! : precoAcabamentoCatalogo?.descricao ?? "Acabamento";
+
+  // Só bloqueia avançar por falta de resultado térmico quando NÃO é material
+  // customizado (esses trechos pulam o cálculo térmico de propósito — ver
+  // step-3-especificacoes/page.tsx).
+  const materialCustomizado = isolanteCustomizado || acabamentoCustomizado;
+  const temResultado = materialCustomizado || !!(resultadoTermicoQuenteAtual || resultadoTermicoFrioAtual);
   const metragem = especificacoes.metragem_editada ? especificacoes.metragem_manual_m2 ?? 0 : somarMetragemEscopo(escopoAtual);
 
-  const valorIsolanteM2 = precoIsolanteOverride ?? precoIsolante?.preco_unitario ?? 0;
-  const valorAcabamentoM2 = precoAcabamentoOverride ?? precoAcabamento?.preco_unitario ?? 0;
+  const valorIsolanteM2 =
+    precoIsolanteOverride ?? (isolanteCustomizado ? especificacoes.isolante_customizado_preco_m2 ?? 0 : precoIsolanteCatalogo?.preco_unitario ?? 0);
+  const valorAcabamentoM2 =
+    precoAcabamentoOverride ?? (acabamentoCustomizado ? especificacoes.acabamento_customizado_preco_m2 ?? 0 : precoAcabamentoCatalogo?.preco_unitario ?? 0);
+
+  const precosAcessorios = {
+    rebiteUn: precoAcessorio(precos, "acessorio_rebite"),
+    parafusoUn: precoAcessorio(precos, "acessorio_parafuso"),
+    arameKg: precoAcessorio(precos, "acessorio_arame"),
+    siliconeFrasco: precoAcessorio(precos, "acessorio_silicone"),
+  };
 
   const precificacao =
     config && temResultado
       ? precificarTrecho({
           escopoItens: escopoAtual,
+          tipoProposta,
           precoIsolanteM2: valorIsolanteM2,
           precoAcabamentoM2: valorAcabamentoM2,
-          horasMaoObra: especificacoes.horas_mao_obra,
+          precosAcessorios,
           valorHoraMaoObra: config.valor_hora_mao_obra,
+          trabalhoAltura: especificacoes.trabalho_altura,
+          parametrosQuantificacao: config,
+          parametrosMaoObra: config,
         })
       : null;
 
   function montarPayloadConfirmacao() {
-    if (!precoIsolante || !precoAcabamento || !precificacao) return null;
+    if (!precificacao) return null;
     return {
-      materialNome: precoIsolante.descricao,
-      acabamentoNome: precoAcabamento.descricao,
-      especificacaoIsolante: precoIsolante.especificacao,
-      especificacaoAcabamento: precoAcabamento.especificacao,
+      materialNome: nomeIsolante,
+      acabamentoNome: nomeAcabamento,
+      especificacaoIsolante: isolanteCustomizado ? null : precoIsolanteCatalogo?.especificacao ?? null,
+      especificacaoAcabamento: acabamentoCustomizado ? null : precoAcabamentoCatalogo?.especificacao ?? null,
       precificacao,
     };
   }
@@ -157,8 +187,8 @@ export default function Step4PrecosPage() {
           <div className="card space-y-1 text-sm">
             <h2 className="mb-2 text-lg font-semibold">Resumo técnico</h2>
             <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-              <p>Material: {precoIsolante?.descricao ?? "—"}</p>
-              <p>Acabamento: {precoAcabamento?.descricao ?? "—"}</p>
+              <p>Material: {nomeIsolante}</p>
+              <p>Acabamento: {nomeAcabamento}</p>
               <p>Metragem: {formatarNumero(metragem, 2)} m²</p>
               {espessuraExibida != null && <p>Espessura: {formatarNumero(espessuraExibida, 1)} mm</p>}
               {resultadoTermicoQuenteAtual?.financeiro && (
@@ -167,45 +197,138 @@ export default function Step4PrecosPage() {
               {resultadoTermicoFrioAtual && (
                 <p>Ponto de orvalho: {formatarNumero(resultadoTermicoFrioAtual.temperatura_orvalho, 1)} °C</p>
               )}
+              {materialCustomizado && (
+                <p className="text-amber-600 sm:col-span-2">
+                  ⚠️ Material customizado neste trecho — sem saídas técnicas (perda térmica/economia).
+                </p>
+              )}
             </div>
           </div>
 
+          {tipoProposta === "somente_mo" ? (
+            <div className="card rounded-lg bg-brand-light/40 p-4 text-sm text-brand">
+              Proposta "Somente Mão de Obra" — quantificação/preço de material não entram neste orçamento.
+            </div>
+          ) : (
+            <div className="card space-y-4">
+              <h2 className="text-lg font-semibold">Quantificação de materiais</h2>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="label-field">{nomeIsolante} (R$/m²)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="input-field"
+                    value={valorIsolanteM2}
+                    onChange={(e) => setPrecoIsolanteOverride(Number(e.target.value))}
+                  />
+                </div>
+                <div>
+                  <label className="label-field">{nomeAcabamento} (R$/m²)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="input-field"
+                    value={valorAcabamentoM2}
+                    onChange={(e) => setPrecoAcabamentoOverride(Number(e.target.value))}
+                  />
+                </div>
+              </div>
+
+              {precificacao && (
+                <div className="overflow-x-auto">
+                  <table className="min-w-full divide-y divide-gray-200 text-sm">
+                    <thead className="table-header">
+                      <tr>
+                        <th className="py-2 pr-4 text-left">Material</th>
+                        <th className="py-2 pr-4 text-right">Qtd.</th>
+                        <th className="py-2 pr-4 text-right">Preço unit.</th>
+                        <th className="py-2 pr-4 text-right">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      <LinhaQuantidade nome={nomeIsolante} qtd={precificacao.quantidades.isolanteM2} unidade="m²" precoUn={valorIsolanteM2} />
+                      <LinhaQuantidade nome={nomeAcabamento} qtd={precificacao.quantidades.acabamentoM2} unidade="m²" precoUn={valorAcabamentoM2} />
+                      <LinhaQuantidade nome="Rebite" qtd={precificacao.quantidades.rebiteUn} unidade="un." precoUn={precosAcessorios.rebiteUn} />
+                      <LinhaQuantidade nome="Parafuso" qtd={precificacao.quantidades.parafusoUn} unidade="un." precoUn={precosAcessorios.parafusoUn} />
+                      <LinhaQuantidade
+                        nome="Arame"
+                        qtd={precificacao.quantidades.arameGramas}
+                        unidade="g"
+                        precoUn={precosAcessorios.arameKg / 1000}
+                      />
+                      <LinhaQuantidade nome="Silicone" qtd={precificacao.quantidades.siliconeFrascos} unidade="frasco(s)" precoUn={precosAcessorios.siliconeFrasco} />
+                    </tbody>
+                  </table>
+                  <p className="mt-1 text-xs text-gray-400">
+                    Preços de Rebite/Parafuso/Arame/Silicone vêm do catálogo ("Materiais Adicionais" em Configurar
+                    Preços) — ajuste lá se precisar mudar pra todos os orçamentos.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          {precificacao && config && (
+            <div className="card space-y-1 text-sm">
+              <h2 className="mb-2 text-lg font-semibold">Mão de obra (automática)</h2>
+              <p className="text-xs text-gray-400">
+                {formatarNumero(metragem, 2)} m² ÷ {formatarNumero(config.m2_por_hora_dupla, 2)} m²/h, eficiência{" "}
+                {formatarNumero(precificacao.eficiencia_global * 100, 1)}%
+                {especificacoes.trabalho_altura && " (inclui trabalho em altura)"}.
+              </p>
+              <Linha label={`${formatarNumero(precificacao.horas_mao_obra, 2)}h × ${formatarMoeda(config.valor_hora_mao_obra)}/h`} valor={precificacao.subtotal_mao_obra} />
+              <Linha label="Subtotal deste trecho" valor={precificacao.subtotal_trecho} destaque />
+            </div>
+          )}
+
+          {/* Custos operacionais: movidos da Revisão pra cá (pedido
+              explícito) — valem pro orçamento inteiro, não só este trecho;
+              o resumo financeiro final continua exibido na Revisão. */}
           <div className="card space-y-4">
-            <h2 className="text-lg font-semibold">Preços deste trecho</h2>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <h2 className="text-lg font-semibold">Custos operacionais adicionais</h2>
+            <p className="text-xs text-gray-400">Valem para o orçamento inteiro (todos os trechos juntos).</p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               <div>
-                <label className="label-field">{precoIsolante?.descricao ?? "Isolante"} (R$/m²)</label>
+                <label className="label-field">Deslocamento (km)</label>
                 <input
                   type="number"
-                  step="0.01"
                   className="input-field"
-                  value={valorIsolanteM2}
-                  onChange={(e) => setPrecoIsolanteOverride(Number(e.target.value))}
+                  value={custosOperacionais.km_deslocamento}
+                  onChange={(e) => setCustosOperacionais({ km_deslocamento: Number(e.target.value) })}
                 />
               </div>
               <div>
-                <label className="label-field">{precoAcabamento?.descricao ?? "Acabamento"} (R$/m²)</label>
+                <label className="label-field">Hospedagem (noites)</label>
+                <input
+                  type="number"
+                  className="input-field"
+                  value={custosOperacionais.noites_hospedagem}
+                  onChange={(e) => setCustosOperacionais({ noites_hospedagem: Number(e.target.value) })}
+                />
+              </div>
+              <div>
+                <label className="label-field">Frete (toneladas)</label>
                 <input
                   type="number"
                   step="0.01"
                   className="input-field"
-                  value={valorAcabamentoM2}
-                  onChange={(e) => setPrecoAcabamentoOverride(Number(e.target.value))}
+                  value={custosOperacionais.toneladas_frete}
+                  onChange={(e) => setCustosOperacionais({ toneladas_frete: Number(e.target.value) })}
+                />
+              </div>
+              <div>
+                <label className="label-field">Desconto extra (%, opcional)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  className="input-field"
+                  placeholder="0"
+                  value={custosOperacionais.desconto_percentual_extra ?? ""}
+                  onChange={(e) => setCustosOperacionais({ desconto_percentual_extra: Number(e.target.value) })}
                 />
               </div>
             </div>
-
-            {precificacao && config && (
-              <div className="space-y-1 border-t border-gray-100 pt-3 text-sm">
-                <Linha label={`Isolante: ${formatarNumero(metragem, 2)} m² × ${formatarMoeda(valorIsolanteM2)}/m²`} valor={metragem * valorIsolanteM2} />
-                <Linha label={`Acabamento: ${formatarNumero(metragem, 2)} m² × ${formatarMoeda(valorAcabamentoM2)}/m²`} valor={metragem * valorAcabamentoM2} />
-                <Linha
-                  label={`Mão de obra: ${formatarNumero(especificacoes.horas_mao_obra, 1)}h × ${formatarMoeda(config.valor_hora_mao_obra)}/h`}
-                  valor={precificacao.subtotal_mao_obra}
-                />
-                <Linha label="Subtotal deste trecho" valor={precificacao.subtotal_trecho} destaque />
-              </div>
-            )}
           </div>
         </>
       )}
@@ -235,5 +358,18 @@ function Linha({ label, valor, destaque }: { label: string; valor: number; desta
       <span>{label}</span>
       <span>{formatarMoeda(valor)}</span>
     </div>
+  );
+}
+
+function LinhaQuantidade({ nome, qtd, unidade, precoUn }: { nome: string; qtd: number; unidade: string; precoUn: number }) {
+  return (
+    <tr>
+      <td className="py-1.5 pr-4">{nome}</td>
+      <td className="py-1.5 pr-4 text-right text-gray-500">
+        {formatarNumero(qtd, unidade === "g" ? 0 : 2)} {unidade}
+      </td>
+      <td className="py-1.5 pr-4 text-right text-gray-500">{formatarMoeda(precoUn)}</td>
+      <td className="py-1.5 pr-4 text-right font-medium">{formatarMoeda(qtd * precoUn)}</td>
+    </tr>
   );
 }
