@@ -14,14 +14,6 @@ const LABEL_TIPO: Record<string, string> = {
   isolamentos_fixos: "Isolamentos Fixos",
 };
 
-const LABEL_ESPECIALIDADE: Record<string, string> = {
-  isolantes: "Isolantes",
-  chaparia: "Chaparia",
-  ferramentas: "Ferramentas",
-  ferragens: "Ferragens",
-  outros: "Outros",
-};
-
 /** Cadastro de parceiros de instalação — capacidade "mobilizadas/
  * disponíveis" (colunas do mockup) não é mostrada nesta tabela porque é
  * relativa a um DIA específico (ver aba Capacidade, que tem essa
@@ -96,7 +88,6 @@ export default function ParceirosPage() {
                 <th className="px-4 py-2 text-left">Telefone</th>
                 <th className="px-4 py-2 text-left">CNPJ</th>
                 <th className="px-4 py-2 text-left">Estado</th>
-                <th className="px-4 py-2 text-left">Especialidade</th>
                 <th className="px-4 py-2 text-left">Trabalhos</th>
                 <th className="px-4 py-2 text-right">Capacidade</th>
                 <th className="px-4 py-2 text-left">Status</th>
@@ -111,7 +102,6 @@ export default function ParceirosPage() {
                   <td className="px-4 py-2 text-gray-500">{p.telefone ?? "—"}</td>
                   <td className="px-4 py-2 text-gray-500">{p.cnpj ?? "—"}</td>
                   <td className="px-4 py-2 text-gray-500">{p.estado ?? "—"}</td>
-                  <td className="px-4 py-2 text-gray-500">{p.especialidade ? LABEL_ESPECIALIDADE[p.especialidade] : "—"}</td>
                   <td className="px-4 py-2 text-gray-500">
                     {(p.tipos_trabalho ?? []).length > 0 ? p.tipos_trabalho.map((t) => LABEL_TIPO[t] ?? t).join(", ") : "—"}
                   </td>
@@ -123,19 +113,21 @@ export default function ParceirosPage() {
                       {p.ativo ? "Ativo" : "Inativo"}
                     </span>
                   </td>
-                  <td className="px-4 py-2 text-right">
-                    <button type="button" className="mr-2 hover:opacity-70" title="Editar" onClick={() => setEditando(p)}>
-                      ✏️
-                    </button>
-                    <button type="button" className="hover:opacity-70" title="Excluir" onClick={() => excluir(p)}>
-                      🗑️
-                    </button>
+                  <td className="px-4 py-2">
+                    <div className="flex items-center justify-end gap-2">
+                      <button type="button" className="p-1 hover:opacity-70" title="Editar" onClick={() => setEditando(p)}>
+                        ✏️
+                      </button>
+                      <button type="button" className="p-1 hover:opacity-70" title="Excluir" onClick={() => excluir(p)}>
+                        🗑️
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
               {parceirosFiltrados.length === 0 && (
                 <tr>
-                  <td colSpan={10} className="px-4 py-6 text-center text-gray-400">
+                  <td colSpan={9} className="px-4 py-6 text-center text-gray-400">
                     Nenhum parceiro cadastrado.
                   </td>
                 </tr>

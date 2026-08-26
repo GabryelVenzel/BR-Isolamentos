@@ -2,13 +2,21 @@
 
 import { useState } from "react";
 import { toast } from "./toast";
-import type { Fornecedor } from "@/lib/types/domain";
+import type { EspecialidadeFornecedor, Fornecedor } from "@/lib/types/domain";
 
 interface Props {
   fornecedor: Fornecedor | null;
   onFechar: () => void;
   onSalvo: () => void;
 }
+
+const ESPECIALIDADES: Array<{ valor: EspecialidadeFornecedor; label: string }> = [
+  { valor: "isolantes", label: "Isolantes" },
+  { valor: "chaparia", label: "Chaparia" },
+  { valor: "ferramentas", label: "Ferramentas" },
+  { valor: "ferragens", label: "Ferragens" },
+  { valor: "outros", label: "Outros" },
+];
 
 interface Form {
   nome: string;
@@ -19,7 +27,7 @@ interface Form {
   cidade: string;
   estado: string;
   tipoFornecimento: "materiais" | "equipamentos" | "servicos" | "";
-  especialidade: string;
+  especialidade: EspecialidadeFornecedor | "";
   pessoaContato: string;
   notas: string;
 }
@@ -52,6 +60,10 @@ export default function ModalFornecedor({ fornecedor, onFechar, onSalvo }: Props
     }
     if (!form.tipoFornecimento) {
       setErro("Selecione o tipo de fornecimento.");
+      return;
+    }
+    if (!form.especialidade) {
+      setErro("Selecione a especialidade do fornecedor.");
       return;
     }
     setErro(null);
@@ -164,8 +176,21 @@ export default function ModalFornecedor({ fornecedor, onFechar, onSalvo }: Props
               </select>
             </div>
             <div>
-              <label className="label-field">Especialidade</label>
-              <input className="input-field" value={form.especialidade} onChange={(e) => setForm((f) => ({ ...f, especialidade: e.target.value }))} />
+              <label className="label-field">
+                Especialidade<span className="text-status-error"> *</span>
+              </label>
+              <select
+                className="input-field"
+                value={form.especialidade}
+                onChange={(e) => setForm((f) => ({ ...f, especialidade: e.target.value as EspecialidadeFornecedor }))}
+              >
+                <option value="">Selecione...</option>
+                {ESPECIALIDADES.map((e) => (
+                  <option key={e.valor} value={e.valor}>
+                    {e.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
           <div>

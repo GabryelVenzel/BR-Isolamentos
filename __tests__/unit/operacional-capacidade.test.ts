@@ -27,7 +27,6 @@ function parceiro(overrides: Partial<Parceiro> = {}): Parceiro {
     cpf: null,
     conta_bancaria: null,
     especialidades: [],
-    especialidade: null,
     disponibilidade_horas_semana: null,
     disponibilidade_dias: [],
     custo_hora: null,

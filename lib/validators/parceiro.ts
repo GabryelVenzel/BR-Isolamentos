@@ -7,11 +7,6 @@ const TipoTrabalhoOperacionalSchema = z.enum([
   "isolamentos_fixos",
 ]);
 
-// Classificação fixa (ver EspecialidadeParceiro em lib/types/domain.ts) —
-// NÃO confundir com `especialidades` (plural, abaixo), o modelo antigo por
-// horas/semana usado pelo dashboard Resumo.
-const EspecialidadeParceiroSchema = z.enum(["isolantes", "chaparia", "ferramentas", "ferragens", "outros"]);
-
 export const CreateParceiroSchema = z.object({
   nome: z.string().trim().min(1, "Informe o nome do parceiro."),
   email: z.string().trim().email("E-mail inválido.").nullable().optional(),
@@ -24,8 +19,10 @@ export const CreateParceiroSchema = z.object({
   estado: z.string().trim().length(2, "Use a sigla do estado (ex.: SP).").nullable().optional(),
   cpf: z.string().trim().nullable().optional(),
   conta_bancaria: z.string().trim().nullable().optional(),
+  // "especialidade" (singular, classificação fixa) NÃO existe em Parceiro —
+  // foi movida pra Fornecedor (ver sql-migration-014). Isso aqui embaixo
+  // (plural) é o modelo antigo por horas/semana, usado pelo dashboard Resumo.
   especialidades: z.array(z.string().trim().min(1)).optional(),
-  especialidade: EspecialidadeParceiroSchema.nullable().optional(),
   disponibilidade_horas_semana: z.number().nonnegative().nullable().optional(),
   disponibilidade_dias: z.array(z.string().trim().min(1)).optional(),
   custo_hora: z.number().nonnegative().nullable().optional(),

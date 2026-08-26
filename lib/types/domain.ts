@@ -231,11 +231,12 @@ export interface ClienteResumo {
  * (bancada, caldeiraria, isolamentos removíveis/fixos). */
 export type TipoTrabalhoOperacional = "bancada" | "caldeiraria" | "isolamentos_removiveis" | "isolamentos_fixos";
 
-/** Classificação fixa do parceiro (ver sql-migration-013, decisão 4) — NÃO
- * confundir com `Parceiro.especialidades` (plural, modelo antigo por horas/
- * semana usado pelo dashboard Resumo). Usada pra filtrar parceiros ao montar
- * um serviço (ex.: só fornecedores de "Ferragens"). */
-export type EspecialidadeParceiro = "isolantes" | "chaparia" | "ferramentas" | "ferragens" | "outros";
+/** Classificação fixa do FORNECEDOR (material/equipamento/serviço de apoio —
+ * ver sql-migration-014). Corrige um equívoco da migração 013, que tinha
+ * colocado esse campo em `Parceiro` (mão de obra de instalação) — quem
+ * fornece MATERIAL é `Fornecedor`, então é lá que "especialidade" faz
+ * sentido; `Parceiro` já tem `tipos_trabalho` pra classificação dele. */
+export type EspecialidadeFornecedor = "isolantes" | "chaparia" | "ferramentas" | "ferragens" | "outros";
 
 export interface Parceiro {
   id: string;
@@ -268,9 +269,6 @@ export interface Parceiro {
    * (ver lib/usecases/operacional/capacidade.ts), porque dependem de QUAL
    * DIA está sendo consultado. */
   total_pessoas: number | null;
-  /** Classificação fixa (ver `EspecialidadeParceiro`) — null pra parceiros
-   * cadastrados antes desta migração, até serem editados. */
-  especialidade: EspecialidadeParceiro | null;
   ativo: boolean;
   created_at: string;
   updated_at: string;
@@ -322,7 +320,10 @@ export interface Fornecedor {
   cidade: string | null;
   estado: string | null;
   tipo_fornecimento: "materiais" | "equipamentos" | "servicos" | null;
-  especialidade: string | null;
+  /** Classificação fixa (ver `EspecialidadeFornecedor`) — coluna já existia
+   * como texto livre desde sql-migration-008; virou dropdown fixo em
+   * sql-migration-014 (movida de `Parceiro`, ver comentário do tipo). */
+  especialidade: EspecialidadeFornecedor | null;
   notas: string | null;
   pessoa_contato: string | null;
   ativo: boolean;

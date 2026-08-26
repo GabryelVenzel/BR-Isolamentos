@@ -4,7 +4,7 @@ import { useState } from "react";
 import { toast } from "./toast";
 import ParceiroAnexos from "./ParceiroAnexos";
 import { ESTADOS_BRASIL } from "@/lib/estados-brasil";
-import type { EspecialidadeParceiro, Parceiro, TipoTrabalhoOperacional } from "@/lib/types/domain";
+import type { Parceiro, TipoTrabalhoOperacional } from "@/lib/types/domain";
 
 interface Props {
   parceiro: Parceiro | null; // null = criar novo
@@ -19,14 +19,6 @@ const TIPOS: Array<{ valor: TipoTrabalhoOperacional; label: string }> = [
   { valor: "isolamentos_fixos", label: "Isolamentos Fixos" },
 ];
 
-const ESPECIALIDADES: Array<{ valor: EspecialidadeParceiro; label: string }> = [
-  { valor: "isolantes", label: "Isolantes" },
-  { valor: "chaparia", label: "Chaparia" },
-  { valor: "ferramentas", label: "Ferramentas" },
-  { valor: "ferragens", label: "Ferragens" },
-  { valor: "outros", label: "Outros" },
-];
-
 interface Form {
   nome: string;
   telefone: string;
@@ -35,7 +27,6 @@ interface Form {
   endereco: string;
   cidade: string;
   estado: string;
-  especialidade: EspecialidadeParceiro | "";
   tiposTrabalho: TipoTrabalhoOperacional[];
   notasBancada: string;
   notasCaldeiraria: string;
@@ -53,7 +44,6 @@ function paraForm(p: Parceiro | null): Form {
     endereco: p?.endereco ?? "",
     cidade: p?.cidade ?? "",
     estado: p?.estado ?? "",
-    especialidade: p?.especialidade ?? "",
     tiposTrabalho: p?.tipos_trabalho ?? [],
     notasBancada: p?.notas_bancada ?? "",
     notasCaldeiraria: p?.notas_caldeiraria ?? "",
@@ -86,10 +76,6 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo }: Props) {
       setErro("Selecione pelo menos um tipo de trabalho.");
       return;
     }
-    if (!form.especialidade) {
-      setErro("Selecione a especialidade do parceiro.");
-      return;
-    }
     setErro(null);
     setSalvando(true);
 
@@ -101,7 +87,6 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo }: Props) {
       endereco: form.endereco || null,
       cidade: form.cidade || null,
       estado: form.estado || null,
-      especialidade: form.especialidade || null,
       tipos_trabalho: form.tiposTrabalho,
       notas_bancada: form.tiposTrabalho.includes("bancada") ? form.notasBancada || null : null,
       notas_caldeiraria: form.tiposTrabalho.includes("caldeiraria") ? form.notasCaldeiraria || null : null,
@@ -190,23 +175,6 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo }: Props) {
             <div>
               <label className="label-field">Cidade</label>
               <input className="input-field" value={form.cidade} onChange={(e) => setForm((f) => ({ ...f, cidade: e.target.value }))} />
-            </div>
-            <div>
-              <label className="label-field">
-                Especialidade<span className="text-status-error"> *</span>
-              </label>
-              <select
-                className="input-field"
-                value={form.especialidade}
-                onChange={(e) => setForm((f) => ({ ...f, especialidade: e.target.value as EspecialidadeParceiro }))}
-              >
-                <option value="">Selecione...</option>
-                {ESPECIALIDADES.map((e) => (
-                  <option key={e.valor} value={e.valor}>
-                    {e.label}
-                  </option>
-                ))}
-              </select>
             </div>
           </div>
 

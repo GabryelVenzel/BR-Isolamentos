@@ -12,6 +12,14 @@ const LABEL_TIPO: Record<string, string> = {
   servicos: "Serviços",
 };
 
+const LABEL_ESPECIALIDADE: Record<string, string> = {
+  isolantes: "Isolantes",
+  chaparia: "Chaparia",
+  ferramentas: "Ferramentas",
+  ferragens: "Ferragens",
+  outros: "Outros",
+};
+
 export default function FornecedoresPage() {
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -90,14 +98,16 @@ export default function FornecedoresPage() {
                   <td className="px-4 py-2 text-gray-500">{f.cnpj ?? "—"}</td>
                   <td className="px-4 py-2 text-gray-500">{f.pessoa_contato ?? "—"}</td>
                   <td className="px-4 py-2 text-gray-500">{f.tipo_fornecimento ? LABEL_TIPO[f.tipo_fornecimento] : "—"}</td>
-                  <td className="px-4 py-2 text-gray-500">{f.especialidade ?? "—"}</td>
-                  <td className="px-4 py-2 text-right">
-                    <button type="button" className="mr-2 hover:opacity-70" title="Editar" onClick={() => setEditando(f)}>
-                      ✏️
-                    </button>
-                    <button type="button" className="hover:opacity-70" title="Excluir" onClick={() => excluir(f)}>
-                      🗑️
-                    </button>
+                  <td className="px-4 py-2 text-gray-500">{f.especialidade ? LABEL_ESPECIALIDADE[f.especialidade] : "—"}</td>
+                  <td className="px-4 py-2">
+                    <div className="flex items-center justify-end gap-2">
+                      <button type="button" className="p-1 hover:opacity-70" title="Editar" onClick={() => setEditando(f)}>
+                        ✏️
+                      </button>
+                      <button type="button" className="p-1 hover:opacity-70" title="Excluir" onClick={() => excluir(f)}>
+                        🗑️
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
