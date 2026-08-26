@@ -16,6 +16,7 @@ export { ParceiroRepository } from "./parceiro.repository";
 export type { FiltrosParceiro } from "./parceiro.repository";
 export { FornecedorRepository } from "./fornecedor.repository";
 export type { FiltrosFornecedor } from "./fornecedor.repository";
+export { FornecedorAnexoRepository } from "./fornecedor-anexo.repository";
 export { ServicoRepository } from "./servico.repository";
 export type { FiltrosServico } from "./servico.repository";
 export { HistoricoServicoRepository } from "./historico-servico.repository";

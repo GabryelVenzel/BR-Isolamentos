@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { toast } from "./toast";
-import type { EspecialidadeFornecedor, Fornecedor } from "@/lib/types/domain";
+import FornecedorAnexos from "./FornecedorAnexos";
+import { ESTADOS_BRASIL } from "@/lib/estados-brasil";
+import type { CategoriaFornecimento, Fornecedor } from "@/lib/types/domain";
 
 interface Props {
   fornecedor: Fornecedor | null;
@@ -10,7 +12,7 @@ interface Props {
   onSalvo: () => void;
 }
 
-const ESPECIALIDADES: Array<{ valor: EspecialidadeFornecedor; label: string }> = [
+const CATEGORIAS: Array<{ valor: CategoriaFornecimento; label: string }> = [
   { valor: "isolantes", label: "Isolantes" },
   { valor: "chaparia", label: "Chaparia" },
   { valor: "ferramentas", label: "Ferramentas" },
@@ -26,8 +28,7 @@ interface Form {
   endereco: string;
   cidade: string;
   estado: string;
-  tipoFornecimento: "materiais" | "equipamentos" | "servicos" | "";
-  especialidade: EspecialidadeFornecedor | "";
+  tiposFornecimento: CategoriaFornecimento[];
   pessoaContato: string;
   notas: string;
 }
@@ -41,8 +42,7 @@ function paraForm(f: Fornecedor | null): Form {
     endereco: f?.endereco ?? "",
     cidade: f?.cidade ?? "",
     estado: f?.estado ?? "",
-    tipoFornecimento: f?.tipo_fornecimento ?? "",
-    especialidade: f?.especialidade ?? "",
+    tiposFornecimento: f?.tipos_fornecimento ?? [],
     pessoaContato: f?.pessoa_contato ?? "",
     notas: f?.notas ?? "",
   };
@@ -53,17 +53,22 @@ export default function ModalFornecedor({ fornecedor, onFechar, onSalvo }: Props
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
+  function alternarCategoria(categoria: CategoriaFornecimento) {
+    setForm((prev) => ({
+      ...prev,
+      tiposFornecimento: prev.tiposFornecimento.includes(categoria)
+        ? prev.tiposFornecimento.filter((c) => c !== categoria)
+        : [...prev.tiposFornecimento, categoria],
+    }));
+  }
+
   async function salvar() {
     if (!form.nome.trim()) {
       setErro("Informe o nome do fornecedor.");
       return;
     }
-    if (!form.tipoFornecimento) {
-      setErro("Selecione o tipo de fornecimento.");
-      return;
-    }
-    if (!form.especialidade) {
-      setErro("Selecione a especialidade do fornecedor.");
+    if (form.tiposFornecimento.length === 0) {
+      setErro("Selecione pelo menos um tipo de fornecimento.");
       return;
     }
     setErro(null);
@@ -77,8 +82,7 @@ export default function ModalFornecedor({ fornecedor, onFechar, onSalvo }: Props
       endereco: form.endereco || null,
       cidade: form.cidade || null,
       estado: form.estado || null,
-      tipo_fornecimento: form.tipoFornecimento,
-      especialidade: form.especialidade || null,
+      tipos_fornecimento: form.tiposFornecimento,
       pessoa_contato: form.pessoaContato || null,
       notas: form.notas || null,
     };
@@ -152,51 +156,47 @@ export default function ModalFornecedor({ fornecedor, onFechar, onSalvo }: Props
               <input className="input-field" value={form.cidade} onChange={(e) => setForm((f) => ({ ...f, cidade: e.target.value }))} />
             </div>
             <div>
-              <label className="label-field">Estado</label>
-              <input
-                className="input-field"
-                maxLength={2}
-                value={form.estado}
-                onChange={(e) => setForm((f) => ({ ...f, estado: e.target.value.toUpperCase() }))}
-              />
-            </div>
-            <div>
               <label className="label-field">
-                Tipo de fornecimento<span className="text-status-error"> *</span>
+                Estado<span className="text-status-error"> *</span>
               </label>
-              <select
-                className="input-field"
-                value={form.tipoFornecimento}
-                onChange={(e) => setForm((f) => ({ ...f, tipoFornecimento: e.target.value as Form["tipoFornecimento"] }))}
-              >
+              <select className="input-field" value={form.estado} onChange={(e) => setForm((f) => ({ ...f, estado: e.target.value }))}>
                 <option value="">Selecione...</option>
-                <option value="materiais">Materiais</option>
-                <option value="equipamentos">Equipamentos</option>
-                <option value="servicos">Serviços</option>
-              </select>
-            </div>
-            <div>
-              <label className="label-field">
-                Especialidade<span className="text-status-error"> *</span>
-              </label>
-              <select
-                className="input-field"
-                value={form.especialidade}
-                onChange={(e) => setForm((f) => ({ ...f, especialidade: e.target.value as EspecialidadeFornecedor }))}
-              >
-                <option value="">Selecione...</option>
-                {ESPECIALIDADES.map((e) => (
-                  <option key={e.valor} value={e.valor}>
-                    {e.label}
+                {ESTADOS_BRASIL.map((uf) => (
+                  <option key={uf.sigla} value={uf.sigla}>
+                    {uf.sigla} ({uf.nome})
                   </option>
                 ))}
               </select>
             </div>
           </div>
+
+          <div className="border-t border-gray-100 pt-4">
+            <p className="label-field mb-2">
+              Tipo de fornecimento<span className="text-status-error"> *</span>
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              {CATEGORIAS.map((c) => (
+                <label key={c.valor} className="flex items-center gap-2 text-sm text-gray-700">
+                  <input type="checkbox" checked={form.tiposFornecimento.includes(c.valor)} onChange={() => alternarCategoria(c.valor)} />
+                  {c.label}
+                </label>
+              ))}
+            </div>
+          </div>
+
           <div>
             <label className="label-field">Notas</label>
             <textarea className="input-field" rows={3} value={form.notas} onChange={(e) => setForm((f) => ({ ...f, notas: e.target.value }))} />
           </div>
+
+          {/* Anexos só na edição (mesmo padrão de ModalParceiro.tsx) — um
+              fornecedor recém-criado ainda não tem `id` real pra associar os
+              documentos. */}
+          {fornecedor && (
+            <div className="border-t border-gray-100 pt-4">
+              <FornecedorAnexos fornecedorId={fornecedor.id} />
+            </div>
+          )}
 
           {erro && <p className="text-sm text-status-error">{erro}</p>}
 

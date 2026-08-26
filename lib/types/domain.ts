@@ -231,12 +231,15 @@ export interface ClienteResumo {
  * (bancada, caldeiraria, isolamentos removíveis/fixos). */
 export type TipoTrabalhoOperacional = "bancada" | "caldeiraria" | "isolamentos_removiveis" | "isolamentos_fixos";
 
-/** Classificação fixa do FORNECEDOR (material/equipamento/serviço de apoio —
- * ver sql-migration-014). Corrige um equívoco da migração 013, que tinha
- * colocado esse campo em `Parceiro` (mão de obra de instalação) — quem
- * fornece MATERIAL é `Fornecedor`, então é lá que "especialidade" faz
- * sentido; `Parceiro` já tem `tipos_trabalho` pra classificação dele. */
-export type EspecialidadeFornecedor = "isolantes" | "chaparia" | "ferramentas" | "ferragens" | "outros";
+/** Categorias de fornecimento (material/equipamento/serviço de apoio — ver
+ * sql-migration-015). Corrige um equívoco da migração 013, que tinha
+ * colocado uma classificação parecida em `Parceiro` (mão de obra de
+ * instalação) — quem fornece MATERIAL é `Fornecedor`, então é lá que essa
+ * classificação faz sentido; `Parceiro` já tem `tipos_trabalho` pra
+ * classificação dele. Um fornecedor pode ter MAIS DE UMA categoria ao mesmo
+ * tempo (ver `Fornecedor.tipos_fornecimento`, array) — ex.: fornece
+ * Isolantes E Ferragens. */
+export type CategoriaFornecimento = "isolantes" | "chaparia" | "ferramentas" | "ferragens" | "outros";
 
 export interface Parceiro {
   id: string;
@@ -319,16 +322,38 @@ export interface Fornecedor {
   endereco: string | null;
   cidade: string | null;
   estado: string | null;
+  /** @deprecated Dropdown único (materiais/equipamentos/serviços) —
+   * substituído por `tipos_fornecimento` (múltipla escolha, categorias mais
+   * específicas — ver sql-migration-015). Mantido no schema só por
+   * compatibilidade com fornecedores já cadastrados; a UI não escreve mais
+   * aqui. */
   tipo_fornecimento: "materiais" | "equipamentos" | "servicos" | null;
-  /** Classificação fixa (ver `EspecialidadeFornecedor`) — coluna já existia
-   * como texto livre desde sql-migration-008; virou dropdown fixo em
-   * sql-migration-014 (movida de `Parceiro`, ver comentário do tipo). */
-  especialidade: EspecialidadeFornecedor | null;
+  /** Categorias de fornecimento (ver `CategoriaFornecimento`) — um
+   * fornecedor pode ter mais de uma (ex.: Isolantes + Ferragens). Substitui
+   * `tipo_fornecimento` (único) E a `especialidade` (única) que a migração
+   * 014 tinha adicionado por engano — ver sql-migration-015. Fornecedores
+   * cadastrados antes desta migração ficam com array vazio até serem
+   * editados de novo. */
+  tipos_fornecimento: CategoriaFornecimento[];
   notas: string | null;
   pessoa_contato: string | null;
   ativo: boolean;
   created_at: string;
   updated_at: string;
+}
+
+/** Documento anexado a um fornecedor — mesmo padrão de `ParceiroAnexo`,
+ * editável só na tela de Editar Fornecedor. */
+export interface FornecedorAnexo {
+  id: string;
+  fornecedor_id: string;
+  nome_arquivo: string;
+  tipo_arquivo: string;
+  tamanho_bytes: number;
+  storage_path: string;
+  url: string;
+  data_adicao: string;
+  adicionado_por: string | null;
 }
 
 export type StatusAgendamento = "agendado" | "em_progresso" | "concluido" | "cancelado";

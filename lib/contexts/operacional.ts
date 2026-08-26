@@ -7,6 +7,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   AgendamentoRepository,
+  FornecedorAnexoRepository,
   FornecedorRepository,
   HistoricoServicoRepository,
   InteracaoServicoRepository,
@@ -26,6 +27,7 @@ import type {
   Agendamento,
   EtapaServico,
   Fornecedor,
+  FornecedorAnexo,
   HistoricoServico,
   InteracaoServico,
   Parceiro,
@@ -35,6 +37,7 @@ import type {
 } from "../types/domain";
 import {
   adicionarParceiroServico,
+  anexarArquivoFornecedor,
   anexarArquivoParceiro,
   anexarArquivoServico,
   removerArquivoServico,
@@ -69,6 +72,7 @@ export function createOperacionalContext(supabase: SupabaseClient) {
   const lancamentoRepo = new LancamentoFinanceiroRepository(supabase);
   const execucaoRepo = new ServicoParceiroExecucaoRepository(supabase);
   const parceiroAnexoRepo = new ParceiroAnexoRepository(supabase);
+  const fornecedorAnexoRepo = new FornecedorAnexoRepository(supabase);
 
   const reposServico = { servicoRepo, historicoRepo: historicoServicoRepo };
   // finalizarServico usa `lancamentoRepo` além dos dois de cima — separado
@@ -141,6 +145,20 @@ export function createOperacionalContext(supabase: SupabaseClient) {
 
     removerFornecedor(id: string): Promise<void> {
       return fornecedorRepo.delete(id);
+    },
+
+    // --- Anexos de fornecedor (só disponível editando, ver FornecedorAnexos.tsx) ---
+
+    listarAnexosFornecedor(fornecedorId: string): Promise<FornecedorAnexo[]> {
+      return fornecedorAnexoRepo.listarPorFornecedor(fornecedorId);
+    },
+
+    anexarArquivoFornecedor(dados: unknown): Promise<FornecedorAnexo> {
+      return anexarArquivoFornecedor(dados, { fornecedorRepo, fornecedorAnexoRepo });
+    },
+
+    removerAnexoFornecedor(anexoId: string): Promise<void> {
+      return fornecedorAnexoRepo.delete(anexoId);
     },
 
     // --- Agenda (existente, inalterada) ---
