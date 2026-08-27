@@ -98,13 +98,18 @@ export function temAnaliseFinanceira(orcamento: Pick<Orcamento, "valor_final">, 
 
 /** Descrição completa de um material — nome + especificação (densidade) +
  * espessura calculada num único texto (ex.: "Fibra Cerâmica 96kg/m³ 51mm"),
- * usada nas tabelas da Proposta Técnica em vez de colunas separadas. Omite a
+ * usada nas tabelas das Propostas em vez de colunas separadas. Omite a
  * espessura quando zero/ausente (trechos sem cálculo térmico, ex.: material
- * customizado). */
+ * customizado). Não repete `especificacao_isolante` se ele já estiver
+ * contido em `material` (catálogos onde a densidade foi digitada dentro da
+ * própria descrição do material, ex. "Lã de Rocha 64kg/m³" + especificação
+ * "64kg/m³" seguidos — bug relatado: "Lã de Rocha 64kg/m³ 64kg/m³ 51mm"). */
 export function descricaoMaterialCompleta(
   item: Pick<ItemOrcamento, "material" | "especificacao_isolante" | "espessura_necessaria_mm">
 ): string {
-  const partes = [item.material, item.especificacao_isolante].filter(Boolean) as string[];
+  const jaContemEspecificacao =
+    !!item.especificacao_isolante && item.material.toLowerCase().includes(item.especificacao_isolante.toLowerCase());
+  const partes = [item.material, jaContemEspecificacao ? null : item.especificacao_isolante].filter(Boolean) as string[];
   if (item.espessura_necessaria_mm > 0) partes.push(`${item.espessura_necessaria_mm}mm`);
   return partes.join(" ");
 }
@@ -132,9 +137,10 @@ export function itensNaoContemplados(tipoProposta: "material_mo" | "somente_mo")
 export interface LinhaEspecificacaoTecnica {
   trechoNumero: number;
   tipoTrabalho: TipoTrabalho;
-  /** Só o isolante (`item.material`) — a chaparia/acabamento não entra
-   * nesta tabela (pedido explícito: "não precisamos colocar a chaparia
-   * nessa tabela"). */
+  /** Material + espessura (via `descricaoMaterialCompleta`) — a chaparia/
+   * acabamento não entra nesta tabela (pedido explícito: "não precisamos
+   * colocar a chaparia nessa tabela"), mas a espessura sim (pedido
+   * explícito: "o ISOLAMENTO deve conter o material e a espessura"). */
   isolamento: string;
   /** Nome do item de escopo (ex.: "Tubo 2\"", "Curva 2\"") — "—" quando o
    * trecho não tem Escopo detalhado (orçamentos legados, só `area_m2`). */
@@ -152,7 +158,7 @@ export interface LinhaEspecificacaoTecnica {
 export function linhasEspecificacoesTecnicas(itens: ItemOrcamento[]): LinhaEspecificacaoTecnica[] {
   const linhas: LinhaEspecificacaoTecnica[] = [];
   itens.forEach((item, index) => {
-    const base = { trechoNumero: index + 1, tipoTrabalho: item.tipo_trabalho, isolamento: item.material };
+    const base = { trechoNumero: index + 1, tipoTrabalho: item.tipo_trabalho, isolamento: descricaoMaterialCompleta(item) };
     if ((item.escopo_itens?.length ?? 0) > 0) {
       for (const escopo of item.escopo_itens) {
         linhas.push({ ...base, descricao: escopo.nome, qtd: quantidadeEscopoItem(escopo), areaM2: metragemFinalItem(escopo) });
@@ -169,14 +175,6 @@ export interface ResumoFinanceiroSimplificado {
   maoDeObra: number;
 }
 
-/** Resumo financeiro reduzido a 2 linhas + total (pedido explícito: "o
- * cliente não pode ver nossas informações brutas, nem saber quanto temos de
- * margens e impostos") — reparte `valor_final` (já com impostos/margem)
- * proporcionalmente entre Material e Mão de Obra (que absorve também
- * deslocamento/hospedagem/frete, ver comentário abaixo), preservando a MESMA
- * % de imposto/margem embutida nas duas categorias. `maoDeObra` absorve o
- * arredondamento — a soma das duas linhas bate exatamente com `valor_final`
- * (mesma técnica de `alocarValorFinalPorTrecho`). */
 /** Filtra a galeria de imagens de referência (`imagens_proposta`, migração
  * 022) pro tipo do orçamento — "misto" mostra todas (o projeto toca os dois
  * sistemas); "quente"/"frio" mostram só as marcadas com esse tipo, mais as
@@ -191,6 +189,14 @@ export function imagensRelevantesParaTipo<T extends { tipo_trabalho: "quente" | 
   return imagens.filter((img) => img.tipo_trabalho == null || img.tipo_trabalho === "ambos" || img.tipo_trabalho === tipoOrcamento);
 }
 
+/** Resumo financeiro reduzido a 2 linhas + total (pedido explícito: "o
+ * cliente não pode ver nossas informações brutas, nem saber quanto temos de
+ * margens e impostos") — reparte `valor_final` (já com impostos/margem)
+ * proporcionalmente entre Material e Mão de Obra (que absorve também
+ * deslocamento/hospedagem/frete, ver comentário abaixo), preservando a MESMA
+ * % de imposto/margem embutida nas duas categorias. `maoDeObra` absorve o
+ * arredondamento — a soma das duas linhas bate exatamente com `valor_final`
+ * (mesma técnica de `alocarValorFinalPorTrecho`). */
 export function distribuirResumoFinanceiroSimplificado(
   orcamento: Pick<Orcamento, "valor_materiais" | "valor_mao_obra" | "valor_deslocamento" | "valor_hospedagem" | "valor_frete" | "subtotal" | "valor_final">
 ): ResumoFinanceiroSimplificado {
@@ -199,4 +205,46 @@ export function distribuirResumoFinanceiroSimplificado(
   const material = Number((orcamento.valor_materiais * fator).toFixed(2));
   const maoDeObra = Number((orcamento.valor_final - material).toFixed(2));
   return { material, maoDeObra };
+}
+
+export interface LinhaQuantidadeMaterial {
+  trechoNumero: number;
+  titulo: string;
+  quantidade: number;
+  unidade: string;
+}
+
+/** Quadro 1 da Quantificação (materiais, sem preço — "sem preços unitários
+ * nas tabelas") — uma linha por material de `detalhamento_materiais`
+ * (persistido desde a migração 020, já com os overrides da Tela 4). Vazio em
+ * orçamentos "somente_mo" (não há material) e em orçamentos anteriores à
+ * migração 020, que só têm o agregado — quem chama trata esse caso com o
+ * fallback mais simples (`material`/`acabamento`/`area_m2` do próprio
+ * trecho), igual já era feito antes desta lista existir. */
+export function linhasQuantificacaoMateriais(itens: ItemOrcamento[]): LinhaQuantidadeMaterial[] {
+  const linhas: LinhaQuantidadeMaterial[] = [];
+  itens.forEach((item, index) => {
+    for (const linha of item.detalhamento_materiais ?? []) {
+      linhas.push({ trechoNumero: index + 1, titulo: linha.titulo, quantidade: linha.quantidade, unidade: linha.unidade });
+    }
+  });
+  return linhas;
+}
+
+/** Quadro 2 da Quantificação — mão de obra + custos operacionais, exibidos
+ * só como "Incluso" (sem valor, sem quantidade) — pedido explícito. Mão de
+ * obra sempre aparece; deslocamento/hospedagem/frete só quando o orçamento
+ * de fato tem esse custo (> 0). "Alimentação" não tem campo próprio no
+ * orçamento (não existe custo rastreado separado pra isso) — entra sempre
+ * como item padrão, é só uma descrição do que está incluso no preço, não
+ * uma quantia calculada. */
+export function linhasOperacionaisIncluso(
+  orcamento: Pick<Orcamento, "valor_mao_obra" | "valor_deslocamento" | "valor_hospedagem" | "valor_frete">
+): string[] {
+  const linhas = ["Mão de obra"];
+  if (orcamento.valor_deslocamento > 0) linhas.push("Deslocamento");
+  if (orcamento.valor_hospedagem > 0) linhas.push("Hospedagem");
+  if (orcamento.valor_frete > 0) linhas.push("Frete");
+  linhas.push("Alimentação");
+  return linhas;
 }

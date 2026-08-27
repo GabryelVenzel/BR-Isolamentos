@@ -9,30 +9,25 @@
 // Somente MO × Quente/Frio/Mista). Em vez de 6 templates hardcoded, este
 // documento é UM template que se adapta aos dados reais do orçamento.
 //
-// ORDEM ATUAL DOS TÓPICOS (pedido "AJUSTES NAS PROPOSTAS", numeração dada
-// pelo próprio usuário observando o PDF gerado):
+// ORDEM ATUAL DOS TÓPICOS (rodada "MAIS ALGUNS AJUSTES NOS PDFS"):
 //   1. Escopo — mesmo conteúdo/formato da Proposta Técnica.
 //   2. Especificações Técnicas — mesma tabela/nome da Proposta Técnica
-//      (uma linha por item de Escopo, sem chaparia).
-//   3. Resumo Financeiro — reduzido a Material + Mão de Obra + Total, sem
-//      impostos/margem visíveis (pedido explícito: "o cliente não pode ver
-//      nossas informações brutas").
-//   4. ROI e Projeção Econômica — caixa de payback + projeção de 10 anos
-//      no MESMO tópico (antes eram dois).
+//      (uma linha por item de Escopo, sem chaparia, Isolamento = material +
+//      espessura).
+//   3. Quantificação de Materiais e Mão de Obra — REINSERIDA nesta rodada
+//      (tinha saído na rodada anterior), agora em 2 quadros: materiais com
+//      quantidade (sem preço) e mão de obra/deslocamento/hospedagem/
+//      alimentação como "Incluso" (sem quantidade nem valor).
+//   4. ROI e Projeção Econômica — caixa de payback + projeção de 10 anos no
+//      mesmo tópico.
 //   5. Benefícios Ambientais.
-//   6. Condições Comerciais — sem mais "Não contemplado" (já coberto pelo
-//      tópico 1) e Responsabilidades empilhadas, não em duas colunas.
+//   6. Resumo Financeiro — MOVIDO pra depois de Benefícios (pedido
+//      explícito); reduzido a Material + Mão de Obra + Total, sem impostos/
+//      margem visíveis.
+//   7. Condições Comerciais — sem "Não contemplado" (já coberto pelo tópico
+//      1) e Responsabilidades empilhadas, não em duas colunas.
 //   [Observações Adicionais, só quando preenchida]
-//   7. Próximos Passos.
-//
-// A tabela de "Quantificação de Materiais e Mão de Obra" (rebite/parafuso/
-// arame/silicone + horas) que existia como tópico próprio nas rodadas
-// anteriores SAIU do documento nesta rodada — os números 3/4/7 que o
-// usuário deu só batem com essa contagem se ela não ocupar mais um tópico
-// (ver comentário acima); e ela já era, no fundo, mais um nível de
-// "informação bruta" de composição do preço, o que o pedido pede pra
-// esconder do cliente. Se essa leitura estiver errada, é fácil reverter —
-// os dados continuam persistidos em `detalhamento_materiais` (migração 020).
+//   8. Próximos Passos.
 
 import { Document, Page, Text, View, Image } from "@react-pdf/renderer";
 import { formatarData, formatarMoeda, formatarNumero } from "@/lib/format";
@@ -45,6 +40,8 @@ import {
   itensContemplados,
   itensNaoContemplados,
   linhasEspecificacoesTecnicas,
+  linhasOperacionaisIncluso,
+  linhasQuantificacaoMateriais,
   prazoExecucaoDiasUteis,
   projetarEconomiaAcumulada,
   temAnaliseFinanceira,
@@ -141,6 +138,8 @@ export default function PropostaComercialDocument({ orcamento, imagens = [], con
   const linhasEspecificacoes = linhasEspecificacoesTecnicas(itens);
   const resumoSimplificado = distribuirResumoFinanceiroSimplificado(orcamento);
   const temTopicoRoi = economiaAnualTotal > 0;
+  const quadroMateriais = linhasQuantificacaoMateriais(itens);
+  const quadroOperacional = linhasOperacionaisIncluso(orcamento);
 
   let n = 1;
 
@@ -226,14 +225,38 @@ export default function PropostaComercialDocument({ orcamento, imagens = [], con
           </View>
         </View>
 
-        <View style={estilos.totalCaixa} wrap={false}>
-          <Text style={estilos.secaoTitulo}>{n++}. Resumo Financeiro</Text>
-          {!somenteMaoObra && <Linha label="Material" valor={formatarMoeda(resumoSimplificado.material)} />}
-          <Linha label="Mão de Obra" valor={formatarMoeda(resumoSimplificado.maoDeObra)} />
-          <View style={estilos.totalLinha}>
-            <Text style={estilos.totalLabel}>Valor Total</Text>
-            <Text style={estilos.totalValor}>{formatarMoeda(orcamento.valor_final)}</Text>
-          </View>
+        <View style={estilos.secao}>
+          <Text style={estilos.secaoTitulo}>{n++}. Quantificação de Materiais e Mão de Obra</Text>
+          {!somenteMaoObra && quadroMateriais.length > 0 && (
+            <>
+              <Text style={estilos.blocoTitulo}>Materiais</Text>
+              <View style={estilos.tabela}>
+                <View style={estilos.linhaCabecalho}>
+                  {itens.length > 1 && <Text style={estilos.celulaCabecalho}>Trecho</Text>}
+                  <Text style={{ ...estilos.celulaCabecalho, flex: 2 }}>Item</Text>
+                  <Text style={estilos.celulaCabecalho}>Quantidade</Text>
+                </View>
+                {quadroMateriais.map((linha, i) => (
+                  <View key={i} style={estilos.linha}>
+                    {itens.length > 1 && <Text style={estilos.celula}>{linha.trechoNumero}</Text>}
+                    <Text style={{ ...estilos.celula, flex: 2 }}>{linha.titulo}</Text>
+                    <Text style={estilos.celula}>
+                      {formatarNumero(linha.quantidade, linha.unidade === "g" ? 1 : 2)} {linha.unidade}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
+
+          <Text style={{ ...estilos.blocoTitulo, marginTop: !somenteMaoObra && quadroMateriais.length > 0 ? 10 : 0 }}>
+            Mão de obra e custos operacionais
+          </Text>
+          {quadroOperacional.map((label) => (
+            <Text key={label} style={estilos.listaItem}>
+              • {label}: <Text style={{ fontFamily: "Helvetica-Bold" }}>Incluso</Text>
+            </Text>
+          ))}
         </View>
 
         {temTopicoRoi && (
@@ -326,6 +349,16 @@ export default function PropostaComercialDocument({ orcamento, imagens = [], con
             </Text>
           </View>
         )}
+
+        <View style={estilos.totalCaixa} wrap={false}>
+          <Text style={estilos.secaoTitulo}>{n++}. Resumo Financeiro</Text>
+          {!somenteMaoObra && <Linha label="Material" valor={formatarMoeda(resumoSimplificado.material)} />}
+          <Linha label="Mão de Obra" valor={formatarMoeda(resumoSimplificado.maoDeObra)} />
+          <View style={estilos.totalLinha}>
+            <Text style={estilos.totalLabel}>Valor Total</Text>
+            <Text style={estilos.totalValor}>{formatarMoeda(orcamento.valor_final)}</Text>
+          </View>
+        </View>
 
         <View style={estilos.secao}>
           <Text style={estilos.secaoTitulo}>{n++}. Condições Comerciais</Text>

@@ -9,6 +9,8 @@ import {
   itensContemplados,
   itensNaoContemplados,
   linhasEspecificacoesTecnicas,
+  linhasOperacionaisIncluso,
+  linhasQuantificacaoMateriais,
   prazoExecucaoDiasUteis,
   projetarEconomiaAcumulada,
   temAnaliseFinanceira,
@@ -172,6 +174,12 @@ describe("descricaoMaterialCompleta", () => {
       "Lã de Rocha 40mm"
     );
   });
+
+  it("não repete a especificação se ela já estiver dentro do nome do material (bug relatado: \"64kg/m³ 64kg/m³\")", () => {
+    expect(
+      descricaoMaterialCompleta({ material: "Lã de Rocha 64kg/m³", especificacao_isolante: "64kg/m³", espessura_necessaria_mm: 51 })
+    ).toBe("Lã de Rocha 64kg/m³ 51mm");
+  });
 });
 
 describe("itensContemplados / itensNaoContemplados", () => {
@@ -205,8 +213,10 @@ describe("linhasEspecificacoesTecnicas", () => {
       }),
     ]);
     expect(linhas).toHaveLength(2);
-    expect(linhas[0]).toMatchObject({ trechoNumero: 1, isolamento: "Lã de Rocha", descricao: 'Tubo 2"', qtd: "25 m" });
-    expect(linhas[1]).toMatchObject({ trechoNumero: 1, isolamento: "Lã de Rocha", descricao: 'Curva 2"', qtd: "2 un." });
+    // isolamento = material + espessura (via descricaoMaterialCompleta,
+    // pedido explícito) — não só o nome do material.
+    expect(linhas[0]).toMatchObject({ trechoNumero: 1, isolamento: "Lã de Rocha 50mm", descricao: 'Tubo 2"', qtd: "25 m" });
+    expect(linhas[1]).toMatchObject({ trechoNumero: 1, isolamento: "Lã de Rocha 50mm", descricao: 'Curva 2"', qtd: "2 un." });
   });
 
   it("trecho sem Escopo detalhado (orçamento legado) cai numa única linha de fallback", () => {
@@ -283,5 +293,39 @@ describe("imagensRelevantesParaTipo", () => {
     const fotos = [foto("quente"), foto("frio"), foto("ambos"), foto(null)];
     const resultado = imagensRelevantesParaTipo(fotos, "frio");
     expect(resultado.map((f) => f.tipo_trabalho)).toEqual(["frio", "ambos", null]);
+  });
+});
+
+describe("linhasQuantificacaoMateriais", () => {
+  it("uma linha por material de detalhamento_materiais, marcada com o número do trecho", () => {
+    const linhas = linhasQuantificacaoMateriais([
+      item({
+        id: 1,
+        detalhamento_materiais: [
+          { chave: "isolante", titulo: "Fibra Cerâmica", quantidade: 4.8, unidade: "m²", preco_unitario: 50, subtotal: 240 },
+          { chave: "rebite", titulo: "Rebite", quantidade: 80, unidade: "un.", preco_unitario: 0.5, subtotal: 40 },
+        ],
+      }),
+    ]);
+    expect(linhas).toEqual([
+      { trechoNumero: 1, titulo: "Fibra Cerâmica", quantidade: 4.8, unidade: "m²" },
+      { trechoNumero: 1, titulo: "Rebite", quantidade: 80, unidade: "un." },
+    ]);
+  });
+
+  it("trecho sem detalhamento_materiais não gera linha nenhuma", () => {
+    expect(linhasQuantificacaoMateriais([item({ detalhamento_materiais: [] })])).toEqual([]);
+  });
+});
+
+describe("linhasOperacionaisIncluso", () => {
+  it("mão de obra e alimentação sempre aparecem; deslocamento/hospedagem/frete só quando > 0", () => {
+    const linhas = linhasOperacionaisIncluso({ valor_mao_obra: 1000, valor_deslocamento: 0, valor_hospedagem: 0, valor_frete: 0 });
+    expect(linhas).toEqual(["Mão de obra", "Alimentação"]);
+  });
+
+  it("inclui deslocamento/hospedagem/frete quando o orçamento tem esse custo", () => {
+    const linhas = linhasOperacionaisIncluso({ valor_mao_obra: 1000, valor_deslocamento: 200, valor_hospedagem: 300, valor_frete: 100 });
+    expect(linhas).toEqual(["Mão de obra", "Deslocamento", "Hospedagem", "Frete", "Alimentação"]);
   });
 });

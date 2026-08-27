@@ -23,6 +23,8 @@ import {
   itensContemplados,
   itensNaoContemplados,
   linhasEspecificacoesTecnicas,
+  linhasOperacionaisIncluso,
+  linhasQuantificacaoMateriais,
   prazoExecucaoDiasUteis,
   projetarEconomiaAcumulada,
   temAnaliseFinanceira,
@@ -149,6 +151,44 @@ function tabelaEspecificacoesTecnicas(itens: Orcamento["itens"]): Table {
   });
 }
 
+/** "Quantificação de Materiais e Mão de Obra" — 2 quadros, mesmo conteúdo
+ * nas duas Propostas (reinserida nesta rodada, sem preços): materiais com
+ * quantidade (`linhasQuantificacaoMateriais`) e mão de obra/deslocamento/
+ * hospedagem/alimentação como "Incluso" (`linhasOperacionaisIncluso`). O
+ * quadro de materiais só aparece quando há dado real (persistido desde a
+ * migração 020 — "somente_mo" e orçamentos legados não têm); o quadro de
+ * mão de obra/operacional sempre aparece, então o tópico nunca fica vazio. */
+function blocoQuantificacao(itens: NonNullable<Orcamento["itens"]>, orcamento: Orcamento): Array<Paragraph | Table> {
+  const somenteMaoObra = orcamento.tipo_proposta === "somente_mo";
+  const materiais = somenteMaoObra ? [] : linhasQuantificacaoMateriais(itens);
+
+  const children: Array<Paragraph | Table> = [];
+  if (materiais.length > 0) {
+    children.push(
+      titulo3("Materiais"),
+      new Table({
+        width: { size: 100, type: WidthType.PERCENTAGE },
+        rows: [
+          linhaCabecalho(itens.length > 1 ? ["Trecho", "Item", "Quantidade"] : ["Item", "Quantidade"]),
+          ...materiais.map(
+            (linha) =>
+              new TableRow({
+                children: [
+                  ...(itens.length > 1 ? [celula(String(linha.trechoNumero))] : []),
+                  celula(linha.titulo),
+                  celula(`${formatarNumero(linha.quantidade, linha.unidade === "g" ? 1 : 2)} ${linha.unidade}`),
+                ],
+              })
+          ),
+        ],
+      })
+    );
+  }
+  children.push(titulo3("Mão de obra e custos operacionais", materiais.length > 0 ? 200 : 0));
+  children.push(...linhasOperacionaisIncluso(orcamento).map((label) => new Paragraph({ text: `• ${label}: Incluso` })));
+  return children;
+}
+
 export async function gerarPropostaComercialDocx(orcamento: Orcamento, configEmpresa?: ConfigEmpresa | null): Promise<Blob> {
   const itens = [...(orcamento.itens ?? [])].sort((a, b) => a.ordem - b.ordem);
   const somenteMaoObra = orcamento.tipo_proposta === "somente_mo";
@@ -185,16 +225,8 @@ export async function gerarPropostaComercialDocx(orcamento: Orcamento, configEmp
   children.push(new Paragraph({ text: `${n++}. Especificações Técnicas`, heading: HeadingLevel.HEADING_2, spacing: { before: 300 } }));
   children.push(tabelaEspecificacoesTecnicas(itens));
 
-  children.push(new Paragraph({ text: `${n++}. Resumo Financeiro`, heading: HeadingLevel.HEADING_2, spacing: { before: 300 } }));
-  const linhasFinanceiro: TableRow[] = [];
-  if (!somenteMaoObra) linhasFinanceiro.push(new TableRow({ children: [celula("Material"), celula(formatarMoeda(resumoSimplificado.material))] }));
-  linhasFinanceiro.push(new TableRow({ children: [celula("Mão de Obra"), celula(formatarMoeda(resumoSimplificado.maoDeObra))] }));
-  linhasFinanceiro.push(
-    new TableRow({
-      children: [celula("VALOR TOTAL", { negrito: true }), celula(formatarMoeda(orcamento.valor_final), { negrito: true, cor: COR_ACCENT })],
-    })
-  );
-  children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: linhasFinanceiro }));
+  children.push(new Paragraph({ text: `${n++}. Quantificação de Materiais e Mão de Obra`, heading: HeadingLevel.HEADING_2, spacing: { before: 300 } }));
+  children.push(...blocoQuantificacao(itens, orcamento));
 
   if (temTopicoRoi) {
     children.push(
@@ -255,6 +287,17 @@ export async function gerarPropostaComercialDocx(orcamento: Orcamento, configEmp
     if (co2ToneladasAno > 0) children.push(paragrafoItem(`Redução de emissão de CO₂: ${formatarNumero(co2ToneladasAno, 2)} toneladas/ano`));
     if (arvores > 0) children.push(paragrafoItem(`Equivalência ilustrativa: cerca de ${arvores} árvores plantadas por ano`));
   }
+
+  children.push(new Paragraph({ text: `${n++}. Resumo Financeiro`, heading: HeadingLevel.HEADING_2, spacing: { before: 300 } }));
+  const linhasFinanceiro: TableRow[] = [];
+  if (!somenteMaoObra) linhasFinanceiro.push(new TableRow({ children: [celula("Material"), celula(formatarMoeda(resumoSimplificado.material))] }));
+  linhasFinanceiro.push(new TableRow({ children: [celula("Mão de Obra"), celula(formatarMoeda(resumoSimplificado.maoDeObra))] }));
+  linhasFinanceiro.push(
+    new TableRow({
+      children: [celula("VALOR TOTAL", { negrito: true }), celula(formatarMoeda(orcamento.valor_final), { negrito: true, cor: COR_ACCENT })],
+    })
+  );
+  children.push(new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: linhasFinanceiro }));
 
   children.push(new Paragraph({ text: `${n++}. Condições Comerciais`, heading: HeadingLevel.HEADING_2, spacing: { before: 300 } }));
   children.push(titulo3("Forma de pagamento"));
@@ -375,21 +418,10 @@ export async function gerarPropostaTecnicaDocx(orcamento: Orcamento, configEmpre
     children.push(
       new Paragraph({ text: `${numeroSecao++}. Eficiência energética e redução de carbono`, heading: HeadingLevel.HEADING_2 }),
       new Paragraph({
-        text: "Em sistemas quentes, cada grau de temperatura perdido pela superfície para o ambiente representa energia comprada e não aproveitada no processo. Isolar reduz essa perda, o que se traduz em menor consumo de combustível ou eletricidade, menor custo operacional recorrente e menor emissão de CO₂ associada à queima desse combustível.",
+        text: 'Em sistemas quentes, cada grau de temperatura perdido pela superfície para o ambiente representa energia comprada e não aproveitada no processo. Isolar reduz essa perda, o que se traduz em menor consumo de combustível ou eletricidade, menor custo operacional recorrente e menor emissão de CO₂ associada à queima desse combustível. Os valores calculados por trecho (perda térmica, economia e CO₂ evitado) estão detalhados na seção "Especificações Técnicas", junto com as demais características de cada trecho.',
         spacing: { after: 150 },
       })
     );
-    for (const item of itensQuentes) {
-      children.push(
-        new Paragraph({ children: [new TextRun({ text: descricaoMaterialCompleta(item), bold: true })] }),
-        new Paragraph({ text: `Perda de calor sem isolante: ${formatarNumero(item.perda_sem_isolante, 3)} kW/m²` }),
-        new Paragraph({ text: `Perda de calor com isolante: ${formatarNumero(item.perda_com_isolante, 3)} kW/m²` }),
-        new Paragraph({ text: `Subtotal do trecho: ${formatarNumero(item.perda_com_isolante * item.area_m2, 2)} kW em ${formatarNumero(item.area_m2)} m²` })
-      );
-      if (item.economia_anual != null) children.push(new Paragraph({ text: `Economia anual estimada: ${formatarMoeda(item.economia_anual)}` }));
-      if (item.co2_ton_ano != null)
-        children.push(new Paragraph({ text: `CO₂ evitado por ano: ${formatarNumero(item.co2_ton_ano, 2)} toneladas`, spacing: { after: 150 } }));
-    }
   }
 
   if (itensFrios.length > 0) {
@@ -440,6 +472,24 @@ export async function gerarPropostaTecnicaDocx(orcamento: Orcamento, configEmpre
 
   children.push(new Paragraph({ text: `${numeroSecao++}. Especificações Técnicas`, heading: HeadingLevel.HEADING_2, spacing: { before: 200 } }));
   children.push(tabelaEspecificacoesTecnicas(itens));
+
+  // Valores calculados de perda/economia por trecho quente — relocados pra
+  // cá (pedido explícito), antes ficavam na seção "Eficiência energética".
+  for (const item of itensQuentes) {
+    children.push(
+      titulo3(descricaoMaterialCompleta(item)),
+      new Paragraph({ text: `Perda de calor sem isolante: ${formatarNumero(item.perda_sem_isolante, 3)} kW/m²` }),
+      new Paragraph({ text: `Perda de calor com isolante: ${formatarNumero(item.perda_com_isolante, 3)} kW/m²` }),
+      new Paragraph({ text: `Subtotal do trecho: ${formatarNumero(item.perda_com_isolante * item.area_m2, 2)} kW em ${formatarNumero(item.area_m2)} m²` })
+    );
+    if (item.economia_anual != null) children.push(new Paragraph({ text: `Economia anual estimada: ${formatarMoeda(item.economia_anual)}` }));
+    if (item.co2_ton_ano != null) children.push(new Paragraph({ text: `CO₂ evitado por ano: ${formatarNumero(item.co2_ton_ano, 2)} toneladas` }));
+  }
+
+  children.push(
+    new Paragraph({ text: `${numeroSecao++}. Quantificação de Materiais e Mão de Obra`, heading: HeadingLevel.HEADING_2, spacing: { before: 200 } })
+  );
+  children.push(...blocoQuantificacao(itens, orcamento));
 
   children.push(new Paragraph({ text: `${numeroSecao++}. Metodologia e padrões técnicos`, heading: HeadingLevel.HEADING_2, spacing: { before: 200 } }));
   children.push(

@@ -21,7 +21,14 @@
 
 import { Document, Page, Text, View, Image } from "@react-pdf/renderer";
 import { formatarData, formatarMoeda, formatarNumero } from "@/lib/format";
-import { descricaoMaterialCompleta, itensContemplados, itensNaoContemplados, linhasEspecificacoesTecnicas } from "@/lib/usecases/orcamento";
+import {
+  descricaoMaterialCompleta,
+  itensContemplados,
+  itensNaoContemplados,
+  linhasEspecificacoesTecnicas,
+  linhasOperacionaisIncluso,
+  linhasQuantificacaoMateriais,
+} from "@/lib/usecases/orcamento";
 import { CORES, estilos } from "./estilos";
 import CapaProposta from "./CapaProposta";
 import type { ConfigEmpresa, Orcamento } from "@/lib/types";
@@ -104,6 +111,9 @@ export default function PropostaTecnicaDocument({ orcamento, imagens = [], confi
   const contempla = itensContemplados(orcamento.tipo_proposta);
   const naoContempla = itensNaoContemplados(orcamento.tipo_proposta);
   const linhasEspecificacoes = linhasEspecificacoesTecnicas(itens);
+  const somenteMaoObra = orcamento.tipo_proposta === "somente_mo";
+  const quadroMateriais = linhasQuantificacaoMateriais(itens);
+  const quadroOperacional = linhasOperacionaisIncluso(orcamento);
 
   let numeroSecao = 2; // 1. já é "Por que isolar termicamente"
 
@@ -158,28 +168,14 @@ export default function PropostaTecnicaDocument({ orcamento, imagens = [], confi
         {temQuente && (
           <View style={estilos.secao} wrap={false}>
             <Text style={estilos.secaoTitulo}>{numeroSecao++}. Eficiência energética e redução de carbono</Text>
-            <Text style={{ ...estilos.paragrafo, marginBottom: 6 }}>
+            <Text style={estilos.paragrafo}>
               Em sistemas quentes, cada grau de temperatura perdido pela superfície para o ambiente representa
               energia comprada e não aproveitada no processo. Isolar reduz essa perda, o que se traduz em menor
               consumo de combustível ou eletricidade, menor custo operacional recorrente e menor emissão de CO₂
-              associada à queima desse combustível.
+              associada à queima desse combustível. Os valores calculados por trecho (perda térmica, economia e CO₂
+              evitado) estão detalhados na seção "Especificações Técnicas", junto com as demais características de
+              cada trecho.
             </Text>
-            {itensQuentes.map((item) => (
-              <View key={item.id} style={estilos.blocoDestaque}>
-                <Text style={estilos.blocoTitulo}>{descricaoMaterialCompleta(item)}</Text>
-                <Text style={estilos.paragrafo}>Perda de calor sem isolante: {formatarNumero(item.perda_sem_isolante, 3)} kW/m²</Text>
-                <Text style={estilos.paragrafo}>Perda de calor com isolante: {formatarNumero(item.perda_com_isolante, 3)} kW/m²</Text>
-                <Text style={estilos.paragrafo}>
-                  Subtotal do trecho: {formatarNumero(item.perda_com_isolante * item.area_m2, 2)} kW em {formatarNumero(item.area_m2)} m²
-                </Text>
-                {item.economia_anual != null && (
-                  <Text style={estilos.paragrafo}>Economia anual estimada: {formatarMoeda(item.economia_anual)}</Text>
-                )}
-                {item.co2_ton_ano != null && (
-                  <Text style={estilos.paragrafo}>CO₂ evitado por ano: {formatarNumero(item.co2_ton_ano, 2)} toneladas</Text>
-                )}
-              </View>
-            ))}
           </View>
         )}
 
@@ -292,6 +288,60 @@ export default function PropostaTecnicaDocument({ orcamento, imagens = [], confi
               </View>
             ))}
           </View>
+
+          {/* Valores calculados de perda/economia por trecho quente —
+              relocados pra cá (pedido explícito), antes ficavam na seção
+              "Eficiência energética". */}
+          {itensQuentes.map((item) => (
+            <View key={item.id} style={{ ...estilos.blocoDestaque, marginTop: 10 }}>
+              <Text style={estilos.blocoTitulo}>{descricaoMaterialCompleta(item)}</Text>
+              <Text style={estilos.paragrafo}>Perda de calor sem isolante: {formatarNumero(item.perda_sem_isolante, 3)} kW/m²</Text>
+              <Text style={estilos.paragrafo}>Perda de calor com isolante: {formatarNumero(item.perda_com_isolante, 3)} kW/m²</Text>
+              <Text style={estilos.paragrafo}>
+                Subtotal do trecho: {formatarNumero(item.perda_com_isolante * item.area_m2, 2)} kW em {formatarNumero(item.area_m2)} m²
+              </Text>
+              {item.economia_anual != null && (
+                <Text style={estilos.paragrafo}>Economia anual estimada: {formatarMoeda(item.economia_anual)}</Text>
+              )}
+              {item.co2_ton_ano != null && (
+                <Text style={estilos.paragrafo}>CO₂ evitado por ano: {formatarNumero(item.co2_ton_ano, 2)} toneladas</Text>
+              )}
+            </View>
+          ))}
+        </View>
+
+        <View style={estilos.secao}>
+          <Text style={estilos.secaoTitulo}>{numeroSecao++}. Quantificação de Materiais e Mão de Obra</Text>
+          {!somenteMaoObra && quadroMateriais.length > 0 && (
+            <>
+              <Text style={estilos.blocoTitulo}>Materiais</Text>
+              <View style={estilos.tabela}>
+                <View style={estilos.linhaCabecalho}>
+                  {itens.length > 1 && <Text style={estilos.celulaCabecalho}>Trecho</Text>}
+                  <Text style={{ ...estilos.celulaCabecalho, flex: 2 }}>Item</Text>
+                  <Text style={estilos.celulaCabecalho}>Quantidade</Text>
+                </View>
+                {quadroMateriais.map((linha, i) => (
+                  <View key={i} style={estilos.linha}>
+                    {itens.length > 1 && <Text style={estilos.celula}>{linha.trechoNumero}</Text>}
+                    <Text style={{ ...estilos.celula, flex: 2 }}>{linha.titulo}</Text>
+                    <Text style={estilos.celula}>
+                      {formatarNumero(linha.quantidade, linha.unidade === "g" ? 1 : 2)} {linha.unidade}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </>
+          )}
+
+          <Text style={{ ...estilos.blocoTitulo, marginTop: !somenteMaoObra && quadroMateriais.length > 0 ? 10 : 0 }}>
+            Mão de obra e custos operacionais
+          </Text>
+          {quadroOperacional.map((label) => (
+            <Text key={label} style={estilos.listaItem}>
+              • {label}: <Text style={{ fontFamily: "Helvetica-Bold" }}>Incluso</Text>
+            </Text>
+          ))}
         </View>
 
         <View style={estilos.secao} wrap={false}>

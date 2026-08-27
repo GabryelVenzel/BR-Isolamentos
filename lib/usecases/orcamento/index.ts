@@ -32,8 +32,16 @@ export {
   itensContemplados,
   itensNaoContemplados,
   linhasEspecificacoesTecnicas,
+  linhasOperacionaisIncluso,
+  linhasQuantificacaoMateriais,
   prazoExecucaoDiasUteis,
   projetarEconomiaAcumulada,
   temAnaliseFinanceira,
 } from "./analiseProposta";
-export type { BeneficiosConsolidados, LinhaEspecificacaoTecnica, LinhaProjecao, ResumoFinanceiroSimplificado } from "./analiseProposta";
+export type {
+  BeneficiosConsolidados,
+  LinhaEspecificacaoTecnica,
+  LinhaProjecao,
+  LinhaQuantidadeMaterial,
+  ResumoFinanceiroSimplificado,
+} from "./analiseProposta";
