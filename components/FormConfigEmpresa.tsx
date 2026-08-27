@@ -27,8 +27,8 @@ const CAMPOS_MARGEM: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo: s
 // que já protege o resto do sistema (ver decisão 1 em
 // sql-migration-019-motor-quantificacao-mao-obra.sql).
 const CAMPOS_QUANTIFICACAO: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo: string }> = [
-  { nome: "isolante_acrescimo_percentual", label: "Isolante (acréscimo)", sufixo: "%" },
-  { nome: "acabamento_acrescimo_percentual", label: "Acabamento (acréscimo)", sufixo: "%" },
+  { nome: "isolante_acrescimo_percentual", label: "Isolante (acréscimo sobre a área já isolada)", sufixo: "%" },
+  { nome: "acabamento_acrescimo_percentual", label: "Chaparia (acréscimo sobre a área já isolada)", sufixo: "%" },
   { nome: "rebite_por_m2", label: "Rebites por m²", sufixo: "un." },
   { nome: "parafusos_por_m2", label: "Parafusos por m²", sufixo: "un." },
   { nome: "arame_gramas_por_m2", label: "Arame por m²", sufixo: "g" },
@@ -187,7 +187,10 @@ export default function FormConfigEmpresa({ config }: Props) {
       <div>
         <h3 className="mb-2 text-sm font-semibold text-gray-600">Quantificação de materiais</h3>
         <p className="mb-3 text-xs text-gray-500">
-          Multiplicadores aplicados sobre a metragem total do trecho (m²) — ver{" "}
+          Isolante e chaparia (acabamento) são calculados sobre a área da superfície JÁ ISOLADA — diâmetro do
+          tubo/curva mais 2 espessuras de isolante, não a área do tubo nu (migração 023, mais precisa que só aplicar
+          um acréscimo sobre a metragem de projeto). Rebite/parafuso/arame/silicone continuam proporcionais à
+          metragem de projeto do trecho, como antes — ver{" "}
           <a href="/novo-orcamento/step-4-precos" className="text-brand hover:underline">
             Tela 4 do orçamento
           </a>

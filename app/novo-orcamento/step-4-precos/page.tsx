@@ -96,12 +96,23 @@ export default function Step4PrecosPage() {
     siliconeFrasco: precoAcessorio(precos, "acessorio_silicone"),
   };
 
+  // Espessura do trecho — do cálculo térmico (quente) ou da espessura
+  // mínima calculada (frio); 0 em material customizado, que pula o cálculo
+  // térmico (ver step-3-especificacoes). Só usada pra achar o diâmetro já
+  // isolado na quantificação de isolante/chaparia (migração 023) — mesma
+  // lógica já usada em step-5-revisao pra `espessura_necessaria_mm`.
+  const espessuraMm =
+    especificacoes.tipo_trabalho === "quente"
+      ? especificacoes.espessura_mm ?? 0
+      : resultadoTermicoFrioAtual?.espessura_minima_mm ?? 0;
+
   // Baseline: quantificação automática + mão de obra automática (motor da
   // migração 019), ainda SEM os overrides manuais desta tela.
   const base =
     config && temResultado
       ? precificarTrecho({
           escopoItens: escopoAtual,
+          espessuraMm,
           tipoProposta,
           precoIsolanteM2: precoIsolanteBase,
           precoAcabamentoM2: precoAcabamentoBase,

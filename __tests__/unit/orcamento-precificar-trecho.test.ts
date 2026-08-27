@@ -43,6 +43,7 @@ describe("precificarTrecho", () => {
   it("subtotal material = (isolante m² × preço) + (acabamento m² × preço), sem acréscimo nem acessórios", () => {
     const resultado = precificarTrecho({
       escopoItens: [planoDe(10)],
+      espessuraMm: 50,
       tipoProposta: "material_mo",
       precoIsolanteM2: 50,
       precoAcabamentoM2: 85,
@@ -63,6 +64,7 @@ describe("precificarTrecho", () => {
   it("tipo_proposta 'somente_mo' zera o subtotal de material, mão de obra continua normal", () => {
     const resultado = precificarTrecho({
       escopoItens: [planoDe(10)],
+      espessuraMm: 50,
       tipoProposta: "somente_mo",
       precoIsolanteM2: 50,
       precoAcabamentoM2: 85,
@@ -81,6 +83,7 @@ describe("precificarTrecho", () => {
   it("trabalho em altura reduz a eficiência e aumenta as horas (e o custo de mão de obra)", () => {
     const semAltura = precificarTrecho({
       escopoItens: [planoDe(10)],
+      espessuraMm: 50,
       tipoProposta: "somente_mo",
       precoIsolanteM2: 0,
       precoAcabamentoM2: 0,
@@ -92,6 +95,7 @@ describe("precificarTrecho", () => {
     });
     const comAltura = precificarTrecho({
       escopoItens: [planoDe(10)],
+      espessuraMm: 50,
       tipoProposta: "somente_mo",
       precoIsolanteM2: 0,
       precoAcabamentoM2: 0,
@@ -110,6 +114,7 @@ describe("precificarTrecho", () => {
   it("sem itens de escopo, subtotal material e mão de obra são zero", () => {
     const resultado = precificarTrecho({
       escopoItens: [],
+      espessuraMm: 50,
       tipoProposta: "material_mo",
       precoIsolanteM2: 50,
       precoAcabamentoM2: 85,

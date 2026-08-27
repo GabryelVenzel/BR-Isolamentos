@@ -61,6 +61,12 @@ export interface PrecificacaoTrecho {
 
 export function precificarTrecho(input: {
   escopoItens: ItemEscopo[];
+  /** Espessura de isolante do trecho (mm) — do cálculo térmico (quente) ou
+   * da espessura mínima calculada (frio); 0 em material customizado sem
+   * cálculo térmico. Só usada pra achar o diâmetro já isolado de itens
+   * tubulação/curva na quantificação (migração 023, ver
+   * quantificarMateriais.ts) — não afeta preço nem mão de obra. */
+  espessuraMm: number;
   /** "somente_mo" zera a quantificação/custo de material inteiro — só mão de
    * obra entra no subtotal (pedido explícito, ver Orcamento.tipo_proposta). */
   tipoProposta: "material_mo" | "somente_mo";
@@ -75,7 +81,7 @@ export function precificarTrecho(input: {
   const metragem = somarMetragemEscopo(input.escopoItens);
   const round2 = (n: number) => Number(n.toFixed(2));
 
-  const quantidades = quantificarMateriais(metragem, input.parametrosQuantificacao);
+  const quantidades = quantificarMateriais(input.escopoItens, input.espessuraMm, input.parametrosQuantificacao);
 
   const maoObra = calcularMaoObraAutomatica(
     metragem,

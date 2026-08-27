@@ -3,6 +3,8 @@ export { calcularOrcamento } from "./calcularOrcamento";
 export { criarOrcamento } from "./criarOrcamento";
 export type { CriarOrcamentoInput } from "./criarOrcamento";
 export {
+  areaBaseIsolamentoEscopo,
+  areaBaseIsolamentoItem,
   calcularMetragemCurva,
   calcularMetragemItem,
   calcularMetragemTubulacao,

@@ -9,6 +9,15 @@
 //              não 2,15 m²/curva. Confirmado com o usuário: seguir a fórmula
 //              escrita, não o número do exemplo — ver commit para o contexto.)
 //   Plano:     metragem = entrada do usuário (sem fórmula)
+//
+// `metragemFinalItem`/`somarMetragemEscopo` acima são a área "de projeto"
+// (do tubo/curva/plano nu) — é o que continua aparecendo na Proposta
+// (Especificações Técnicas) e o que ainda alimenta a quantificação de
+// rebite/parafuso/arame/silicone. `areaBaseIsolamentoItem`/
+// `areaBaseIsolamentoEscopo` (migração 023) são uma área DIFERENTE, só para
+// quantificar isolante/chaparia com mais precisão: a área da superfície JÁ
+// ISOLADA (diâmetro do tubo + 2 espessuras de isolante), que é o que
+// realmente precisa ser coberto de material — ver comentário na função.
 
 import type { Geometria, ItemEscopo, TipoItemEscopo } from "../../types";
 
@@ -53,6 +62,43 @@ export function metragemFinalItem(item: ItemEscopo): number {
 
 export function somarMetragemEscopo(itens: ItemEscopo[]): number {
   return Number(itens.reduce((acc, item) => acc + metragemFinalItem(item), 0).toFixed(2));
+}
+
+/** Diâmetro externo já isolado, em metros — soma 2 espessuras de isolante
+ * ao diâmetro do tubo (a camada envolve o tubo por igual em toda a volta,
+ * então cada lado "ganha" uma espessura). */
+function diametroIsoladoM(diametroMm: number, espessuraMm: number): number {
+  return (diametroMm + 2 * espessuraMm) / 1000;
+}
+
+/** Área de referência para quantificar ISOLANTE/CHAPARIA de um item de
+ * Escopo (migração 023) — a área da superfície já isolada, não a do tubo
+ * nu. Mesma fórmula de `calcularMetragemTubulacao`/`calcularMetragemCurva`,
+ * só trocando o diâmetro do tubo pelo diâmetro já somado às 2 espessuras de
+ * isolante (`diametroIsoladoM`).
+ *
+ * Plano não tem diâmetro pra "crescer" com a espessura (superfície plana,
+ * não envolve nada) — usa a própria área do item. Item com metragem editada
+ * manualmente (`metragem_editada`) cai no mesmo caso: não há como
+ * decompor um número digitado à mão de volta em diâmetro/comprimento pra
+ * recalcular. Nos dois casos, quem chama aplica o acréscimo percentual em
+ * cima dessa mesma área (não fica sem nenhum acréscimo). */
+export function areaBaseIsolamentoItem(item: ItemEscopo, espessuraMm: number): number {
+  if (item.tipo === "plano" || item.metragem_editada) return metragemFinalItem(item);
+
+  if (item.tipo === "tubulacao") {
+    return Math.PI * diametroIsoladoM(item.diametro_mm ?? 0, espessuraMm) * (item.comprimento_m ?? 0);
+  }
+
+  // curva — mesmo "comprimento" fixo (Ø × 1,5 × 0,5) da fórmula original,
+  // só que aplicado ao diâmetro já isolado.
+  return Math.PI * diametroIsoladoM(item.diametro_mm ?? 0, espessuraMm) * FATOR_CURVA * (item.quantidade ?? 0);
+}
+
+/** Soma `areaBaseIsolamentoItem` de todos os itens do trecho — a área de
+ * isolante/chaparia usada por `quantificarMateriais`. */
+export function areaBaseIsolamentoEscopo(itens: ItemEscopo[], espessuraMm: number): number {
+  return Number(itens.reduce((acc, item) => acc + areaBaseIsolamentoItem(item, espessuraMm), 0).toFixed(2));
 }
 
 /** 4 polegadas em milímetros — limiar de "tubulação pequena" pro fator de

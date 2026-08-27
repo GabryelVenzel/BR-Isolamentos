@@ -1,4 +1,6 @@
 import {
+  areaBaseIsolamentoEscopo,
+  areaBaseIsolamentoItem,
   calcularMetragemCurva,
   calcularMetragemItem,
   calcularMetragemTubulacao,
@@ -127,5 +129,52 @@ describe("quantidadeEscopoItem", () => {
 
   it("plano: sempre \"1\" (não tem quantidade física própria)", () => {
     expect(quantidadeEscopoItem(item({ tipo: "plano", metragem_manual_m2: 5 }))).toBe("1");
+  });
+});
+
+describe("areaBaseIsolamentoItem (migração 023)", () => {
+  it("tubulação: usa o diâmetro + 2 espessuras de isolante, maior que a área do tubo nu", () => {
+    // Ø100mm, 10m, espessura 50mm → diâmetro isolado 200mm = 0,2m
+    const area = areaBaseIsolamentoItem(item({ tipo: "tubulacao", diametro_mm: 100, comprimento_m: 10 }), 50);
+    expect(area).toBeCloseTo(Math.PI * 0.2 * 10, 4);
+    expect(area).toBeGreaterThan(calcularMetragemTubulacao(100, 10));
+  });
+
+  it("tubulação com espessura 0 é igual à área do tubo nu", () => {
+    const area = areaBaseIsolamentoItem(item({ tipo: "tubulacao", diametro_mm: 100, comprimento_m: 10 }), 0);
+    expect(area).toBeCloseTo(calcularMetragemTubulacao(100, 10), 4);
+  });
+
+  it("curva: mesmo comprimento fixo (Ø × 1,5 × 0,5) da fórmula original, com o diâmetro isolado", () => {
+    const area = areaBaseIsolamentoItem(item({ tipo: "curva", diametro_mm: 100, quantidade: 2 }), 50);
+    expect(area).toBeCloseTo(Math.PI * 0.2 * 0.75 * 2, 4);
+    expect(area).toBeGreaterThan(calcularMetragemCurva(100, 2));
+  });
+
+  it("plano: não cresce com a espessura, usa a própria área do item", () => {
+    const area = areaBaseIsolamentoItem(item({ tipo: "plano", metragem_manual_m2: 7 }), 50);
+    expect(area).toBe(7);
+  });
+
+  it("metragem editada manualmente: usa a área digitada, não recalcula pelo diâmetro", () => {
+    const area = areaBaseIsolamentoItem(
+      item({ tipo: "tubulacao", diametro_mm: 100, comprimento_m: 10, metragem_editada: true, metragem_manual_m2: 3 }),
+      50
+    );
+    expect(area).toBe(3);
+  });
+});
+
+describe("areaBaseIsolamentoEscopo", () => {
+  it("soma a área base de todos os itens do trecho", () => {
+    const total = areaBaseIsolamentoEscopo(
+      [item({ tipo: "tubulacao", diametro_mm: 100, comprimento_m: 10 }), item({ tipo: "plano", metragem_manual_m2: 5 })],
+      50
+    );
+    expect(total).toBeCloseTo(Math.PI * 0.2 * 10 + 5, 2);
+  });
+
+  it("lista vazia dá zero", () => {
+    expect(areaBaseIsolamentoEscopo([], 50)).toBe(0);
   });
 });
