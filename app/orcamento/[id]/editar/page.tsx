@@ -2,11 +2,27 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { formatarMoeda } from "@/lib/format";
+import { formatarMoeda, formatarNumero } from "@/lib/format";
 import type { Orcamento, StatusOrcamento } from "@/lib/types";
 
 const STATUS_OPCOES: StatusOrcamento[] = ["rascunho", "proposta", "enviado", "aceito", "rejeitado"];
 
+const LABEL_TIPO_TRABALHO: Record<string, string> = { quente: "Quente", frio: "Frio", misto: "Misto" };
+
+/** Editar Orçamento (refinada — pedido explícito: "o popup de margem não
+ * deixa ver o orçamento completo"). Mostra os trechos do orçamento (lidos
+ * via join `itens_orcamento`, já disponível em GET /api/orcamentos/[id]) pra
+ * dar contexto — mas continua editando só os campos financeiros do
+ * ORÇAMENTO (status/margem/desconto), não os trechos em si.
+ *
+ * NÃO reconstrói o wizard de 5 telas pra reeditar escopo/materiais de um
+ * trecho existente: os dados salvos em `itens_orcamento` não cobrem todos os
+ * campos que o wizard usa durante a criação (ex.: combustível/horas de
+ * operação usados só no cálculo de economia, nunca persistidos) — recarregar
+ * isso de volta no wizard recalcularia números que já foram cobrados/
+ * propostos ao cliente de um jeito que pode não bater com o que foi salvo.
+ * Pra mudar material/escopo de um trecho, o caminho é criar um novo
+ * orçamento — o que já existe. */
 export default function EditarOrcamentoPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
@@ -61,15 +77,42 @@ export default function EditarOrcamentoPage() {
     }
   }
 
+  const itensOrdenados = [...(orcamento.itens ?? [])].sort((a, b) => a.ordem - b.ordem);
+
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="max-w-3xl space-y-6">
       <div>
         <h1 className="text-xl font-bold">Editar {orcamento.numero}</h1>
         <p className="text-sm text-gray-500">
-          Ajuste o status, a margem de lucro ou o desconto aplicado. Para alterar especificações
-          técnicas ou materiais, gere um novo orçamento (ou duplique este no Histórico).
+          Confira os trechos deste orçamento abaixo e ajuste status, margem de lucro ou desconto. Para alterar
+          especificações técnicas ou materiais de um trecho, gere um novo orçamento.
         </p>
       </div>
+
+      {itensOrdenados.length > 0 && (
+        <div className="card space-y-3">
+          <h2 className="text-lg font-semibold">Trechos deste orçamento ({itensOrdenados.length})</h2>
+          <div className="space-y-2">
+            {itensOrdenados.map((item, index) => (
+              <div key={item.id} className="rounded-lg border border-gray-200 p-3 text-sm">
+                <p className="font-medium text-gray-800">
+                  Trecho {index + 1} — {LABEL_TIPO_TRABALHO[item.tipo_trabalho] ?? item.tipo_trabalho}
+                </p>
+                <div className="mt-1 grid grid-cols-1 gap-1 text-gray-500 sm:grid-cols-2">
+                  <p>Material: {item.material}</p>
+                  {item.acabamento && <p>Acabamento: {item.acabamento}</p>}
+                  <p>Metragem: {formatarNumero(item.area_m2, 2)} m²</p>
+                  <p>Mão de obra: {formatarNumero(item.horas_mao_obra, 1)}h</p>
+                </div>
+                <div className="mt-2 flex justify-between border-t border-gray-100 pt-1.5 text-xs text-gray-500">
+                  <span>Material: {formatarMoeda(item.subtotal_material)}</span>
+                  <span>Mão de obra: {formatarMoeda(item.subtotal_mao_obra)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="card space-y-4">
         <div>

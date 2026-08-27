@@ -7,7 +7,8 @@ import PropostaTecnicaDocument from "@/components/pdf-native/PropostaTecnicaDocu
 import PropostaComercialDocument from "@/components/pdf-native/PropostaComercialDocument";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { baixarPdf } from "@/lib/pdf-generator";
-import { gerarPropostaComercialDocx, nomeArquivoDocxComercial } from "@/lib/docx-generator";
+import Link from "next/link";
+import { gerarPropostaComercialDocx, gerarPropostaTecnicaDocx, nomeArquivoDocxComercial, nomeArquivoDocxTecnica } from "@/lib/docx-generator";
 import type { ConfigEmpresa, Orcamento } from "@/lib/types";
 
 // <PDFViewer> usa um <iframe> interno — só existe no navegador, precisa
@@ -44,7 +45,7 @@ export default function DownloadPdfPage() {
   const [orcamento, setOrcamento] = useState<Orcamento | null>(null);
   const [imagens, setImagens] = useState<ImagemProposta[]>([]);
   const [configEmpresa, setConfigEmpresa] = useState<ConfigEmpresa | null>(null);
-  const [gerando, setGerando] = useState<"comercial" | "tecnica" | "comercial-word" | null>(null);
+  const [gerando, setGerando] = useState<"comercial" | "tecnica" | "comercial-word" | "tecnica-word" | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [erroCarregamento, setErroCarregamento] = useState<string | null>(null);
   const [abaPrevia, setAbaPrevia] = useState<"tecnica" | "comercial">("tecnica");
@@ -119,6 +120,20 @@ export default function DownloadPdfPage() {
     }
   }
 
+  async function baixarTecnicaWord() {
+    if (!orcamento) return;
+    setErro(null);
+    setGerando("tecnica-word");
+    try {
+      const blob = await gerarPropostaTecnicaDocx(orcamento, configEmpresa);
+      baixarPdf(blob, nomeArquivoDocxTecnica(orcamento));
+    } catch (err) {
+      setErro(`Não foi possível gerar o Word da proposta técnica.${err instanceof Error ? ` (${err.message})` : ""}`);
+    } finally {
+      setGerando(null);
+    }
+  }
+
   async function baixarComercialWord() {
     if (!orcamento) return;
     setErro(null);
@@ -148,14 +163,23 @@ export default function DownloadPdfPage() {
 
   return (
     <div className="space-y-8">
+      <div>
+        <Link href="/historico" className="btn-secondary inline-block text-xs">
+          ← Retornar ao Histórico
+        </Link>
+      </div>
+
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-xl font-bold">Propostas — {orcamento.numero}</h1>
-          <p className="text-sm text-gray-500">Duas propostas prontas para download: técnica e comercial.</p>
+          <p className="text-sm text-gray-500">Propostas prontas para download: técnica e comercial.</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <button type="button" className="btn-accent" onClick={baixarTecnica} disabled={gerando !== null}>
-            {gerando === "tecnica" ? "Gerando..." : "Baixar Proposta Técnica"}
+            {gerando === "tecnica" ? "Gerando..." : "Baixar Proposta Técnica (PDF)"}
+          </button>
+          <button type="button" className="btn-secondary" onClick={baixarTecnicaWord} disabled={gerando !== null}>
+            {gerando === "tecnica-word" ? "Gerando..." : "Baixar Proposta Técnica (Word)"}
           </button>
           <button type="button" className="btn-primary" onClick={baixarComercial} disabled={gerando !== null}>
             {gerando === "comercial" ? "Gerando..." : "Baixar Proposta Comercial (PDF)"}
@@ -166,7 +190,7 @@ export default function DownloadPdfPage() {
         </div>
       </div>
 
-      {/* Só a Proposta Comercial tem versão Word — ver comentário no topo de
+      {/* Agora as duas propostas têm versão Word — ver comentário no topo de
           lib/docx-generator.ts pra decisão de escopo. */}
 
       {erro && <p className="text-sm text-red-600">{erro}</p>}

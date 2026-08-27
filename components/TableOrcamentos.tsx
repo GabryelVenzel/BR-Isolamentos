@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { formatarData, formatarMoeda, classesStatus, formatarStatus } from "@/lib/format";
 import type { Orcamento } from "@/lib/types";
 
@@ -10,23 +9,12 @@ interface Props {
   onExcluir?: (id: number) => void;
 }
 
+/** "Duplicar" removida (pedido explícito — ações confusas/desnecessárias
+ * demais na tabela). "Editar" continua indo pra /orcamento/[id]/editar, que
+ * agora mostra o orçamento completo (trechos) além dos campos de status/
+ * margem/desconto — ver comentário no topo daquela página pro porquê de não
+ * ter virado o wizard inteiro de novo. */
 export default function TableOrcamentos({ orcamentos, onExcluir }: Props) {
-  const router = useRouter();
-
-  async function duplicar(orcamento: Orcamento) {
-    const { id, criado_em, atualizado_em, numero, cliente, itens, ...resto } = orcamento;
-    const itensSemId = (itens ?? []).map(({ id: _id, orcamento_id: _orcamentoId, ...item }) => item);
-    const response = await fetch("/api/orcamentos", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...resto, status: "rascunho", itens: itensSemId }),
-    });
-    if (response.ok) {
-      const novo = await response.json();
-      router.push(`/orcamento/${novo.id}`);
-    }
-  }
-
   if (orcamentos.length === 0) {
     return (
       <div className="card text-center text-sm text-gray-500">
@@ -67,9 +55,6 @@ export default function TableOrcamentos({ orcamentos, onExcluir }: Props) {
                   <Link href={`/orcamento/${orcamento.id}/editar`} className="text-brand hover:underline">
                     Editar
                   </Link>
-                  <button type="button" onClick={() => duplicar(orcamento)} className="text-gray-600 hover:underline">
-                    Duplicar
-                  </button>
                   <Link href={`/orcamento/${orcamento.id}/download-pdf`} className="text-gray-600 hover:underline">
                     PDF
                   </Link>
