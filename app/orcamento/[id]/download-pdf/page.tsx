@@ -5,12 +5,9 @@ import { useParams } from "next/navigation";
 import dynamic from "next/dynamic";
 import PropostaTecnicaDocument from "@/components/pdf-native/PropostaTecnicaDocument";
 import PropostaComercialDocument from "@/components/pdf-native/PropostaComercialDocument";
-import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { baixarPdf } from "@/lib/pdf-generator";
 import Link from "next/link";
 import { gerarPropostaComercialDocx, gerarPropostaTecnicaDocx, nomeArquivoDocxComercial, nomeArquivoDocxTecnica } from "@/lib/docx-generator";
-import { imagensRelevantesParaTipo } from "@/lib/usecases/orcamento";
-import GaleriaImagensProposta from "@/components/GaleriaImagensProposta";
 import type { ConfigEmpresa, Orcamento } from "@/lib/types";
 
 // <PDFViewer> usa um <iframe> interno — só existe no navegador, precisa
@@ -18,12 +15,6 @@ import type { ConfigEmpresa, Orcamento } from "@/lib/types";
 // dinâmico no resto do app: essas libs mexem em `window`/`document`, que não
 // existem durante a renderização no servidor).
 const PDFViewer = dynamic(() => import("@react-pdf/renderer").then((m) => m.PDFViewer), { ssr: false });
-
-interface ImagemProposta {
-  url: string;
-  legenda: string | null;
-  tipo_trabalho: "quente" | "frio" | "ambos" | null;
-}
 
 /** Propostas em PDF NATIVO (vetorial, texto selecionável, paginação A4 real)
  * via @react-pdf/renderer — substituiu a captura de tela (html2canvas +
@@ -42,27 +33,21 @@ interface ImagemProposta {
  * (Recharts, SVG renderizado no navegador), que @react-pdf/renderer não
  * consegue desenhar diretamente (só entende os primitivos próprios dele, não
  * componentes React arbitrários) — reconstruir cada gráfico como desenho
- * vetorial nativo é um escopo bem maior, fora desta rodada. */
+ * vetorial nativo é um escopo bem maior, fora desta rodada.
+ *
+ * Sem galeria de imagens de referência (removida a pedido explícito — o
+ * usuário vai montar um documento de portfólio à parte, com fotos das obras,
+ * fora deste gerador). A infraestrutura (components/GaleriaImagensProposta.tsx,
+ * tabela imagens_proposta, migração 022) continua existindo, só não é mais
+ * usada aqui. */
 export default function DownloadPdfPage() {
   const { id } = useParams<{ id: string }>();
   const [orcamento, setOrcamento] = useState<Orcamento | null>(null);
-  const [imagens, setImagens] = useState<ImagemProposta[]>([]);
   const [configEmpresa, setConfigEmpresa] = useState<ConfigEmpresa | null>(null);
   const [gerando, setGerando] = useState<"comercial" | "tecnica" | "comercial-word" | "tecnica-word" | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [erroCarregamento, setErroCarregamento] = useState<string | null>(null);
   const [abaPrevia, setAbaPrevia] = useState<"tecnica" | "comercial">("tecnica");
-
-  const carregarImagens = useCallback(async () => {
-    try {
-      const supabase = createSupabaseBrowserClient();
-      const { data, error } = await supabase.from("imagens_proposta").select("url, legenda, tipo_trabalho");
-      if (error) throw error;
-      setImagens(data ?? []);
-    } catch {
-      setImagens([]);
-    }
-  }, []);
 
   const carregar = useCallback(async () => {
     setErroCarregamento(null);
@@ -83,9 +68,7 @@ export default function DownloadPdfPage() {
       .then((r) => r.json())
       .then(setConfigEmpresa)
       .catch(() => setConfigEmpresa(null));
-
-    await carregarImagens();
-  }, [id, carregarImagens]);
+  }, [id]);
 
   useEffect(() => {
     carregar();
@@ -97,13 +80,7 @@ export default function DownloadPdfPage() {
     setGerando("comercial");
     try {
       const { pdf } = await import("@react-pdf/renderer");
-      const blob = await pdf(
-        <PropostaComercialDocument
-          orcamento={orcamento}
-          imagens={imagensRelevantesParaTipo(imagens, orcamento.tipo_trabalho)}
-          configEmpresa={configEmpresa}
-        />
-      ).toBlob();
+      const blob = await pdf(<PropostaComercialDocument orcamento={orcamento} configEmpresa={configEmpresa} />).toBlob();
       baixarPdf(blob, `Proposta_Comercial_${orcamento.numero}.pdf`);
     } catch (err) {
       setErro(`Não foi possível gerar o PDF comercial.${err instanceof Error ? ` (${err.message})` : ""}`);
@@ -118,13 +95,7 @@ export default function DownloadPdfPage() {
     setGerando("tecnica");
     try {
       const { pdf } = await import("@react-pdf/renderer");
-      const blob = await pdf(
-        <PropostaTecnicaDocument
-          orcamento={orcamento}
-          imagens={imagensRelevantesParaTipo(imagens, orcamento.tipo_trabalho)}
-          configEmpresa={configEmpresa}
-        />
-      ).toBlob();
+      const blob = await pdf(<PropostaTecnicaDocument orcamento={orcamento} configEmpresa={configEmpresa} />).toBlob();
       baixarPdf(blob, `Proposta_Tecnica_${orcamento.numero}.pdf`);
     } catch (err) {
       setErro(`Não foi possível gerar o PDF técnico.${err instanceof Error ? ` (${err.message})` : ""}`);
@@ -174,11 +145,6 @@ export default function DownloadPdfPage() {
 
   if (!orcamento) return <p className="text-sm text-gray-500">Carregando...</p>;
 
-  // Filtrada por tipo do orçamento na hora de usar (não no fetch) — evita
-  // depender da ordem de atualização dos dois estados assíncronos
-  // (orcamento/imagens) carregados em paralelo.
-  const imagensFiltradas = imagensRelevantesParaTipo(imagens, orcamento.tipo_trabalho);
-
   return (
     <div className="space-y-8">
       <div>
@@ -213,10 +179,6 @@ export default function DownloadPdfPage() {
 
       {erro && <p className="text-sm text-red-600">{erro}</p>}
 
-      {/* Reintroduzida (pedido explícito) — agora dentro de um <details>
-          recolhível, pra não voltar a poluir a tela como antes. */}
-      <GaleriaImagensProposta onChange={carregarImagens} />
-
       <div>
         <div className="mb-2 flex gap-1 border-b border-gray-200">
           {(
@@ -243,9 +205,9 @@ export default function DownloadPdfPage() {
             HTML/CSS que poderia divergir do PDF real. */}
         <PDFViewer style={{ width: "100%", height: "80vh", border: "1px solid #e5e7eb", borderRadius: "12px" }}>
           {abaPrevia === "tecnica" ? (
-            <PropostaTecnicaDocument orcamento={orcamento} imagens={imagensFiltradas} configEmpresa={configEmpresa} />
+            <PropostaTecnicaDocument orcamento={orcamento} configEmpresa={configEmpresa} />
           ) : (
-            <PropostaComercialDocument orcamento={orcamento} imagens={imagensFiltradas} configEmpresa={configEmpresa} />
+            <PropostaComercialDocument orcamento={orcamento} configEmpresa={configEmpresa} />
           )}
         </PDFViewer>
       </div>

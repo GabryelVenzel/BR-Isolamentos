@@ -9,6 +9,7 @@ import {
   itensContemplados,
   itensNaoContemplados,
   linhasEspecificacoesTecnicas,
+  linhasMaoDeObra,
   linhasOperacionaisIncluso,
   linhasQuantificacaoMateriais,
   prazoExecucaoDiasUteis,
@@ -319,13 +320,27 @@ describe("linhasQuantificacaoMateriais", () => {
 });
 
 describe("linhasOperacionaisIncluso", () => {
-  it("mão de obra e alimentação sempre aparecem; deslocamento/hospedagem/frete só quando > 0", () => {
-    const linhas = linhasOperacionaisIncluso({ valor_mao_obra: 1000, valor_deslocamento: 0, valor_hospedagem: 0, valor_frete: 0 });
-    expect(linhas).toEqual(["Mão de obra", "Alimentação"]);
+  it("mão de obra NÃO aparece aqui (foi pra linhasMaoDeObra, com horas reais); alimentação sempre aparece", () => {
+    const linhas = linhasOperacionaisIncluso({ valor_deslocamento: 0, valor_hospedagem: 0, valor_frete: 0 });
+    expect(linhas).toEqual(["Alimentação"]);
   });
 
   it("inclui deslocamento/hospedagem/frete quando o orçamento tem esse custo", () => {
-    const linhas = linhasOperacionaisIncluso({ valor_mao_obra: 1000, valor_deslocamento: 200, valor_hospedagem: 300, valor_frete: 100 });
-    expect(linhas).toEqual(["Mão de obra", "Deslocamento", "Hospedagem", "Frete", "Alimentação"]);
+    const linhas = linhasOperacionaisIncluso({ valor_deslocamento: 200, valor_hospedagem: 300, valor_frete: 100 });
+    expect(linhas).toEqual(["Deslocamento", "Hospedagem", "Frete", "Alimentação"]);
+  });
+});
+
+describe("linhasMaoDeObra", () => {
+  it("uma linha por trecho, deixando explícito que é uma dupla (2 pessoas)", () => {
+    const linhas = linhasMaoDeObra([item({ id: 1, horas_mao_obra: 13.1 }), item({ id: 2, horas_mao_obra: 5 })]);
+    expect(linhas).toEqual([
+      { trechoNumero: 1, titulo: "Mão de obra (dupla de 2 pessoas)", quantidade: 13.1, unidade: "h" },
+      { trechoNumero: 2, titulo: "Mão de obra (dupla de 2 pessoas)", quantidade: 5, unidade: "h" },
+    ]);
+  });
+
+  it("trecho sem horas de mão de obra não gera linha", () => {
+    expect(linhasMaoDeObra([item({ horas_mao_obra: 0 })])).toEqual([]);
   });
 });

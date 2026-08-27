@@ -18,14 +18,21 @@
 // A tabela "Especificações Técnicas" (mesmo nome/formato nas duas
 // Propostas) tem uma linha POR ITEM DE ESCOPO (não por trecho) — ver
 // lib/usecases/orcamento/analiseProposta.ts#linhasEspecificacoesTecnicas.
+//
+// Sem galeria de imagens de referência (pedido explícito, rodada "Correções
+// simples") — o usuário vai montar um documento de portfólio à parte, com
+// fotos/referências de trabalhos, fora deste gerador. A infraestrutura
+// (GaleriaImagensProposta.tsx, tabela imagens_proposta, migração 022)
+// continua existindo, só não é mais usada aqui.
 
-import { Document, Page, Text, View, Image } from "@react-pdf/renderer";
+import { Document, Page, Text, View } from "@react-pdf/renderer";
 import { formatarData, formatarMoeda, formatarNumero } from "@/lib/format";
 import {
   descricaoMaterialCompleta,
   itensContemplados,
   itensNaoContemplados,
   linhasEspecificacoesTecnicas,
+  linhasMaoDeObra,
   linhasOperacionaisIncluso,
   linhasQuantificacaoMateriais,
 } from "@/lib/usecases/orcamento";
@@ -33,14 +40,8 @@ import { CORES, estilos } from "./estilos";
 import CapaProposta from "./CapaProposta";
 import type { ConfigEmpresa, Orcamento } from "@/lib/types";
 
-interface ImagemProposta {
-  url: string;
-  legenda: string | null;
-}
-
 interface Props {
   orcamento: Orcamento;
-  imagens?: ImagemProposta[];
   configEmpresa?: ConfigEmpresa | null;
 }
 
@@ -89,7 +90,7 @@ function Rodape({ configEmpresa, validadeDias }: { configEmpresa?: ConfigEmpresa
   );
 }
 
-export default function PropostaTecnicaDocument({ orcamento, imagens = [], configEmpresa }: Props) {
+export default function PropostaTecnicaDocument({ orcamento, configEmpresa }: Props) {
   const itens = [...(orcamento.itens ?? [])].sort((a, b) => a.ordem - b.ordem);
   const itensQuentes = itens.filter((i) => i.tipo_trabalho === "quente");
   const itensFrios = itens.filter((i) => i.tipo_trabalho === "frio");
@@ -112,7 +113,10 @@ export default function PropostaTecnicaDocument({ orcamento, imagens = [], confi
   const naoContempla = itensNaoContemplados(orcamento.tipo_proposta);
   const linhasEspecificacoes = linhasEspecificacoesTecnicas(itens);
   const somenteMaoObra = orcamento.tipo_proposta === "somente_mo";
-  const quadroMateriais = linhasQuantificacaoMateriais(itens);
+  // Mão de obra entra na MESMA lista dos materiais, com horas reais (pedido
+  // explícito) — ver comentário de linhasMaoDeObra. "Custos Operacionais"
+  // (deslocamento/hospedagem/frete/alimentação) continua só "Incluso".
+  const linhasQuadro1 = [...(somenteMaoObra ? [] : linhasQuantificacaoMateriais(itens)), ...linhasMaoDeObra(itens)];
   const quadroOperacional = linhasOperacionaisIncluso(orcamento);
 
   let numeroSecao = 2; // 1. já é "Por que isolar termicamente"
@@ -196,7 +200,8 @@ export default function PropostaTecnicaDocument({ orcamento, imagens = [], confi
               </View>
             ))}
             <Text style={{ ...estilos.notaRodape, marginTop: 4 }}>
-              ⚠ Variação estimada de ±5%: os cálculos de perda térmica no lado frio dependem de condições
+              <Text style={{ fontFamily: "Helvetica-Bold" }}>Atenção — </Text>
+              Variação estimada de ±5%: os cálculos de perda térmica no lado frio dependem de condições
               operacionais e de propriedades dos materiais isolantes em campo, que podem variar em relação ao
               projetado — a espessura especificada já incorpora essa margem de segurança.
             </Text>
@@ -223,9 +228,11 @@ export default function PropostaTecnicaDocument({ orcamento, imagens = [], confi
             </View>
           ))}
 
-          {/* Empilhado (não em duas colunas) — pedido explícito. */}
+          {/* Empilhado (não em duas colunas) — pedido explícito. Sem emoji
+              (✅/❌): a fonte Helvetica padrão do react-pdf não tem esses
+              glifos — renderizavam quebrados/cortados (bug relatado). */}
           <View style={{ marginTop: 10 }}>
-            <Text style={{ ...estilos.blocoTitulo, fontSize: 9.5 }}>✅ O orçamento contempla</Text>
+            <Text style={{ ...estilos.blocoTitulo, fontSize: 9.5, color: CORES.accent }}>O orçamento contempla</Text>
             {contempla.map((texto) => (
               <Text key={texto} style={estilos.listaItem}>
                 • {texto}
@@ -233,7 +240,7 @@ export default function PropostaTecnicaDocument({ orcamento, imagens = [], confi
             ))}
           </View>
           <View style={{ marginTop: 8 }}>
-            <Text style={{ ...estilos.blocoTitulo, fontSize: 9.5, color: CORES.erro }}>❌ Não contemplado</Text>
+            <Text style={{ ...estilos.blocoTitulo, fontSize: 9.5, color: CORES.erro }}>Não contemplado</Text>
             {naoContempla.map((texto) => (
               <Text key={texto} style={estilos.listaItem}>
                 • {texto}
@@ -312,16 +319,16 @@ export default function PropostaTecnicaDocument({ orcamento, imagens = [], confi
 
         <View style={estilos.secao}>
           <Text style={estilos.secaoTitulo}>{numeroSecao++}. Quantificação de Materiais e Mão de Obra</Text>
-          {!somenteMaoObra && quadroMateriais.length > 0 && (
+          {linhasQuadro1.length > 0 && (
             <>
-              <Text style={estilos.blocoTitulo}>Materiais</Text>
+              <Text style={estilos.blocoTitulo}>Materiais e Mão de Obra</Text>
               <View style={estilos.tabela}>
                 <View style={estilos.linhaCabecalho}>
                   {itens.length > 1 && <Text style={estilos.celulaCabecalho}>Trecho</Text>}
                   <Text style={{ ...estilos.celulaCabecalho, flex: 2 }}>Item</Text>
                   <Text style={estilos.celulaCabecalho}>Quantidade</Text>
                 </View>
-                {quadroMateriais.map((linha, i) => (
+                {linhasQuadro1.map((linha, i) => (
                   <View key={i} style={estilos.linha}>
                     {itens.length > 1 && <Text style={estilos.celula}>{linha.trechoNumero}</Text>}
                     <Text style={{ ...estilos.celula, flex: 2 }}>{linha.titulo}</Text>
@@ -334,9 +341,7 @@ export default function PropostaTecnicaDocument({ orcamento, imagens = [], confi
             </>
           )}
 
-          <Text style={{ ...estilos.blocoTitulo, marginTop: !somenteMaoObra && quadroMateriais.length > 0 ? 10 : 0 }}>
-            Mão de obra e custos operacionais
-          </Text>
+          <Text style={{ ...estilos.blocoTitulo, marginTop: linhasQuadro1.length > 0 ? 10 : 0 }}>Custos Operacionais</Text>
           {quadroOperacional.map((label) => (
             <Text key={label} style={estilos.listaItem}>
               • {label}: <Text style={{ fontFamily: "Helvetica-Bold" }}>Incluso</Text>
@@ -396,21 +401,6 @@ export default function PropostaTecnicaDocument({ orcamento, imagens = [], confi
             detalha investimento, prazo de execução e condições de pagamento.
           </Text>
         </View>
-
-        {imagens.length > 0 && (
-          <View style={estilos.secao}>
-            <Text style={estilos.secaoTitulo}>Referências de obras executadas</Text>
-            <View style={estilos.imagensLinha}>
-              {imagens.map((imagem, index) => (
-                <View key={index} style={{ width: "48%", marginBottom: 8 }}>
-                  {/* eslint-disable-next-line jsx-a11y/alt-text */}
-                  <Image src={imagem.url} style={estilos.imagem} />
-                  {imagem.legenda && <Text style={estilos.legenda}>{imagem.legenda}</Text>}
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
 
         <Rodape configEmpresa={configEmpresa} validadeDias={validadeDias} />
         <Text

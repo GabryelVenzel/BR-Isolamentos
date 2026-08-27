@@ -23,6 +23,7 @@ import {
   itensContemplados,
   itensNaoContemplados,
   linhasEspecificacoesTecnicas,
+  linhasMaoDeObra,
   linhasOperacionaisIncluso,
   linhasQuantificacaoMateriais,
   prazoExecucaoDiasUteis,
@@ -152,25 +153,25 @@ function tabelaEspecificacoesTecnicas(itens: Orcamento["itens"]): Table {
 }
 
 /** "Quantificação de Materiais e Mão de Obra" — 2 quadros, mesmo conteúdo
- * nas duas Propostas (reinserida nesta rodada, sem preços): materiais com
- * quantidade (`linhasQuantificacaoMateriais`) e mão de obra/deslocamento/
- * hospedagem/alimentação como "Incluso" (`linhasOperacionaisIncluso`). O
- * quadro de materiais só aparece quando há dado real (persistido desde a
- * migração 020 — "somente_mo" e orçamentos legados não têm); o quadro de
- * mão de obra/operacional sempre aparece, então o tópico nunca fica vazio. */
+ * nas duas Propostas: materiais + mão de obra (com horas reais, pedido
+ * explícito — "a mão de obra fica na lista de materiais... com a
+ * quantidade de horas") numa tabela só, e deslocamento/hospedagem/frete/
+ * alimentação como "Custos Operacionais — Incluso" (sem quantidade/valor).
+ * Mão de obra sempre tem alguma linha, então o primeiro quadro nunca fica
+ * vazio. */
 function blocoQuantificacao(itens: NonNullable<Orcamento["itens"]>, orcamento: Orcamento): Array<Paragraph | Table> {
   const somenteMaoObra = orcamento.tipo_proposta === "somente_mo";
-  const materiais = somenteMaoObra ? [] : linhasQuantificacaoMateriais(itens);
+  const linhasQuadro1 = [...(somenteMaoObra ? [] : linhasQuantificacaoMateriais(itens)), ...linhasMaoDeObra(itens)];
 
   const children: Array<Paragraph | Table> = [];
-  if (materiais.length > 0) {
+  if (linhasQuadro1.length > 0) {
     children.push(
-      titulo3("Materiais"),
+      titulo3("Materiais e Mão de Obra"),
       new Table({
         width: { size: 100, type: WidthType.PERCENTAGE },
         rows: [
           linhaCabecalho(itens.length > 1 ? ["Trecho", "Item", "Quantidade"] : ["Item", "Quantidade"]),
-          ...materiais.map(
+          ...linhasQuadro1.map(
             (linha) =>
               new TableRow({
                 children: [
@@ -184,7 +185,7 @@ function blocoQuantificacao(itens: NonNullable<Orcamento["itens"]>, orcamento: O
       })
     );
   }
-  children.push(titulo3("Mão de obra e custos operacionais", materiais.length > 0 ? 200 : 0));
+  children.push(titulo3("Custos Operacionais", linhasQuadro1.length > 0 ? 200 : 0));
   children.push(...linhasOperacionaisIncluso(orcamento).map((label) => new Paragraph({ text: `• ${label}: Incluso` })));
   return children;
 }

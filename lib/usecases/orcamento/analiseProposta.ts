@@ -231,20 +231,39 @@ export function linhasQuantificacaoMateriais(itens: ItemOrcamento[]): LinhaQuant
   return linhas;
 }
 
-/** Quadro 2 da Quantificação — mão de obra + custos operacionais, exibidos
- * só como "Incluso" (sem valor, sem quantidade) — pedido explícito. Mão de
- * obra sempre aparece; deslocamento/hospedagem/frete só quando o orçamento
- * de fato tem esse custo (> 0). "Alimentação" não tem campo próprio no
- * orçamento (não existe custo rastreado separado pra isso) — entra sempre
- * como item padrão, é só uma descrição do que está incluso no preço, não
- * uma quantia calculada. */
+/** Quadro "Custos Operacionais" da Quantificação — deslocamento/hospedagem/
+ * frete/alimentação, exibidos só como "Incluso" (sem valor, sem
+ * quantidade). Deslocamento/hospedagem/frete só quando o orçamento de fato
+ * tem esse custo (> 0). "Alimentação" não tem campo próprio no orçamento
+ * (não existe custo rastreado separado pra isso) — entra sempre como item
+ * padrão, é só uma descrição do que está incluso no preço, não uma quantia
+ * calculada.
+ *
+ * Mão de obra NÃO entra mais aqui (pedido explícito, rodada "Correções
+ * simples": "preciso que a mão de obra fique na lista de materiais... com a
+ * quantidade de horas") — ver `linhasMaoDeObra`, que mostra as horas reais
+ * junto com os materiais em vez de só "Incluso". */
 export function linhasOperacionaisIncluso(
-  orcamento: Pick<Orcamento, "valor_mao_obra" | "valor_deslocamento" | "valor_hospedagem" | "valor_frete">
+  orcamento: Pick<Orcamento, "valor_deslocamento" | "valor_hospedagem" | "valor_frete">
 ): string[] {
-  const linhas = ["Mão de obra"];
+  const linhas: string[] = [];
   if (orcamento.valor_deslocamento > 0) linhas.push("Deslocamento");
   if (orcamento.valor_hospedagem > 0) linhas.push("Hospedagem");
   if (orcamento.valor_frete > 0) linhas.push("Frete");
   linhas.push("Alimentação");
   return linhas;
+}
+
+/** Mão de obra por trecho, com horas reais — entra na MESMA lista/tabela dos
+ * materiais (pedido explícito), não mais como "Incluso" no quadro
+ * operacional: o cliente precisa ver quantas horas de trabalho estão
+ * previstas. O título deixa explícito que a equipe padrão é uma dupla (2
+ * pessoas) — sem isso, "13,1 h" sozinho poderia ser lido como 1 pessoa por
+ * 13,1h, quando na verdade são 2 pessoas dividindo esse total. Aparece pros
+ * dois tipos de proposta (inclusive "somente_mo", onde é a única linha desta
+ * lista) — mão de obra sempre existe, diferente de material. */
+export function linhasMaoDeObra(itens: ItemOrcamento[]): LinhaQuantidadeMaterial[] {
+  return itens
+    .map((item, index) => ({ trechoNumero: index + 1, titulo: "Mão de obra (dupla de 2 pessoas)", quantidade: item.horas_mao_obra, unidade: "h" }))
+    .filter((linha) => linha.quantidade > 0);
 }

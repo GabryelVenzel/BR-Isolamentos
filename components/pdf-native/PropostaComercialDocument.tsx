@@ -28,8 +28,11 @@
 //      1) e Responsabilidades empilhadas, não em duas colunas.
 //   [Observações Adicionais, só quando preenchida]
 //   8. Próximos Passos.
+//
+// Sem galeria de imagens de referência (pedido explícito, rodada "Correções
+// simples") — ver mesmo comentário no topo de PropostaTecnicaDocument.tsx.
 
-import { Document, Page, Text, View, Image } from "@react-pdf/renderer";
+import { Document, Page, Text, View } from "@react-pdf/renderer";
 import { formatarData, formatarMoeda, formatarNumero } from "@/lib/format";
 import {
   arvoresEquivalentes,
@@ -40,6 +43,7 @@ import {
   itensContemplados,
   itensNaoContemplados,
   linhasEspecificacoesTecnicas,
+  linhasMaoDeObra,
   linhasOperacionaisIncluso,
   linhasQuantificacaoMateriais,
   prazoExecucaoDiasUteis,
@@ -50,14 +54,8 @@ import { CORES, estilos } from "./estilos";
 import CapaProposta from "./CapaProposta";
 import type { ConfigEmpresa, Orcamento } from "@/lib/types";
 
-interface ImagemProposta {
-  url: string;
-  legenda: string | null;
-}
-
 interface Props {
   orcamento: Orcamento;
-  imagens?: ImagemProposta[];
   configEmpresa?: ConfigEmpresa | null;
 }
 
@@ -117,7 +115,7 @@ function Linha({ label, valor, destaque }: { label: string; valor: string; desta
 const NOTA_ESTIMATIVA_COMPARATIVA =
   "Estimativa comparativa entre o cenário COM isolamento térmico (proposto) e o cenário SEM isolamento (situação atual), com base nos parâmetros informados nesta proposta — não é uma garantia contratual.";
 
-export default function PropostaComercialDocument({ orcamento, imagens = [], configEmpresa }: Props) {
+export default function PropostaComercialDocument({ orcamento, configEmpresa }: Props) {
   const itens = [...(orcamento.itens ?? [])].sort((a, b) => a.ordem - b.ordem);
   const somenteMaoObra = orcamento.tipo_proposta === "somente_mo";
 
@@ -138,7 +136,10 @@ export default function PropostaComercialDocument({ orcamento, imagens = [], con
   const linhasEspecificacoes = linhasEspecificacoesTecnicas(itens);
   const resumoSimplificado = distribuirResumoFinanceiroSimplificado(orcamento);
   const temTopicoRoi = economiaAnualTotal > 0;
-  const quadroMateriais = linhasQuantificacaoMateriais(itens);
+  // Mão de obra entra na MESMA lista dos materiais, com horas reais (pedido
+  // explícito) — ver comentário de linhasMaoDeObra. "Custos Operacionais"
+  // (deslocamento/hospedagem/frete/alimentação) continua só "Incluso".
+  const linhasQuadro1 = [...(somenteMaoObra ? [] : linhasQuantificacaoMateriais(itens)), ...linhasMaoDeObra(itens)];
   const quadroOperacional = linhasOperacionaisIncluso(orcamento);
 
   let n = 1;
@@ -183,8 +184,10 @@ export default function PropostaComercialDocument({ orcamento, imagens = [], con
               )}
             </View>
           ))}
+          {/* Sem emoji (✅/❌): a fonte Helvetica padrão do react-pdf não tem
+              esses glifos — renderizavam quebrados/cortados (bug relatado). */}
           <View style={{ marginTop: 10 }}>
-            <Text style={{ ...estilos.blocoTitulo, fontSize: 9.5 }}>✅ O orçamento contempla</Text>
+            <Text style={{ ...estilos.blocoTitulo, fontSize: 9.5, color: CORES.accent }}>O orçamento contempla</Text>
             {contempla.map((texto) => (
               <Text key={texto} style={estilos.listaItem}>
                 • {texto}
@@ -192,7 +195,7 @@ export default function PropostaComercialDocument({ orcamento, imagens = [], con
             ))}
           </View>
           <View style={{ marginTop: 8 }}>
-            <Text style={{ ...estilos.blocoTitulo, fontSize: 9.5, color: CORES.erro }}>❌ Não contemplado</Text>
+            <Text style={{ ...estilos.blocoTitulo, fontSize: 9.5, color: CORES.erro }}>Não contemplado</Text>
             {naoContempla.map((texto) => (
               <Text key={texto} style={estilos.listaItem}>
                 • {texto}
@@ -227,16 +230,16 @@ export default function PropostaComercialDocument({ orcamento, imagens = [], con
 
         <View style={estilos.secao}>
           <Text style={estilos.secaoTitulo}>{n++}. Quantificação de Materiais e Mão de Obra</Text>
-          {!somenteMaoObra && quadroMateriais.length > 0 && (
+          {linhasQuadro1.length > 0 && (
             <>
-              <Text style={estilos.blocoTitulo}>Materiais</Text>
+              <Text style={estilos.blocoTitulo}>Materiais e Mão de Obra</Text>
               <View style={estilos.tabela}>
                 <View style={estilos.linhaCabecalho}>
                   {itens.length > 1 && <Text style={estilos.celulaCabecalho}>Trecho</Text>}
                   <Text style={{ ...estilos.celulaCabecalho, flex: 2 }}>Item</Text>
                   <Text style={estilos.celulaCabecalho}>Quantidade</Text>
                 </View>
-                {quadroMateriais.map((linha, i) => (
+                {linhasQuadro1.map((linha, i) => (
                   <View key={i} style={estilos.linha}>
                     {itens.length > 1 && <Text style={estilos.celula}>{linha.trechoNumero}</Text>}
                     <Text style={{ ...estilos.celula, flex: 2 }}>{linha.titulo}</Text>
@@ -249,9 +252,7 @@ export default function PropostaComercialDocument({ orcamento, imagens = [], con
             </>
           )}
 
-          <Text style={{ ...estilos.blocoTitulo, marginTop: !somenteMaoObra && quadroMateriais.length > 0 ? 10 : 0 }}>
-            Mão de obra e custos operacionais
-          </Text>
+          <Text style={{ ...estilos.blocoTitulo, marginTop: linhasQuadro1.length > 0 ? 10 : 0 }}>Custos Operacionais</Text>
           {quadroOperacional.map((label) => (
             <Text key={label} style={estilos.listaItem}>
               • {label}: <Text style={{ fontFamily: "Helvetica-Bold" }}>Incluso</Text>
@@ -419,21 +420,6 @@ export default function PropostaComercialDocument({ orcamento, imagens = [], con
             alterar os valores estimados.
           </Text>
         </View>
-
-        {imagens.length > 0 && (
-          <View style={estilos.secao}>
-            <Text style={estilos.secaoTitulo}>Nossa Experiência</Text>
-            <View style={estilos.imagensLinha}>
-              {imagens.map((imagem, index) => (
-                <View key={index} style={{ width: "48%", marginBottom: 8 }}>
-                  {/* eslint-disable-next-line jsx-a11y/alt-text */}
-                  <Image src={imagem.url} style={estilos.imagem} />
-                  {imagem.legenda && <Text style={estilos.legenda}>{imagem.legenda}</Text>}
-                </View>
-              ))}
-            </View>
-          </View>
-        )}
 
         <Rodape configEmpresa={configEmpresa} validadeDias={validadeDias} />
         <Text style={estilos.paginaNumero} render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} fixed />

@@ -195,6 +195,10 @@ export const estilos = StyleSheet.create({
     borderRadius: 4,
     padding: 12,
     marginTop: 6,
+    // Bug relatado: o quadro (Resumo Financeiro) encostava no título do
+    // tópico seguinte — a caixa não tinha nenhuma margem inferior própria
+    // (diferente de `secao.marginBottom: 14`, que ela não usa).
+    marginBottom: 14,
   },
   totalLinha: {
     flexDirection: "row",
