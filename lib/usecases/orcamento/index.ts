@@ -9,6 +9,7 @@ export {
   descreverItemEscopo,
   geometriaRepresentativa,
   metragemFinalItem,
+  quantidadeEscopoItem,
   somarMetragemEscopo,
   temCurvasNoEscopo,
   temTubulacaoPequena,
@@ -26,10 +27,13 @@ export {
   calcularPaybackDias,
   calcularPaybackMeses,
   descricaoMaterialCompleta,
+  distribuirResumoFinanceiroSimplificado,
+  imagensRelevantesParaTipo,
   itensContemplados,
   itensNaoContemplados,
+  linhasEspecificacoesTecnicas,
   prazoExecucaoDiasUteis,
   projetarEconomiaAcumulada,
   temAnaliseFinanceira,
 } from "./analiseProposta";
-export type { BeneficiosConsolidados, LinhaProjecao } from "./analiseProposta";
+export type { BeneficiosConsolidados, LinhaEspecificacaoTecnica, LinhaProjecao, ResumoFinanceiroSimplificado } from "./analiseProposta";

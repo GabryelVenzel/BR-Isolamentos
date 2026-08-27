@@ -3,6 +3,7 @@ import {
   calcularMetragemItem,
   calcularMetragemTubulacao,
   metragemFinalItem,
+  quantidadeEscopoItem,
   somarMetragemEscopo,
   temCurvasNoEscopo,
   temTubulacaoPequena,
@@ -112,5 +113,19 @@ describe("temTubulacaoPequena", () => {
 
   it("lista vazia é false", () => {
     expect(temTubulacaoPequena([])).toBe(false);
+  });
+});
+
+describe("quantidadeEscopoItem", () => {
+  it("tubulação: comprimento em metros", () => {
+    expect(quantidadeEscopoItem(item({ tipo: "tubulacao", comprimento_m: 25 }))).toBe("25 m");
+  });
+
+  it("curva: quantidade em unidades", () => {
+    expect(quantidadeEscopoItem(item({ tipo: "curva", quantidade: 2 }))).toBe("2 un.");
+  });
+
+  it("plano: sempre \"1\" (não tem quantidade física própria)", () => {
+    expect(quantidadeEscopoItem(item({ tipo: "plano", metragem_manual_m2: 5 }))).toBe("1");
   });
 });

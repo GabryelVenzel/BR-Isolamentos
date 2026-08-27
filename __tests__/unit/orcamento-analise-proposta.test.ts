@@ -4,8 +4,11 @@ import {
   calcularPaybackDias,
   calcularPaybackMeses,
   descricaoMaterialCompleta,
+  distribuirResumoFinanceiroSimplificado,
+  imagensRelevantesParaTipo,
   itensContemplados,
   itensNaoContemplados,
+  linhasEspecificacoesTecnicas,
   prazoExecucaoDiasUteis,
   projetarEconomiaAcumulada,
   temAnaliseFinanceira,
@@ -186,5 +189,99 @@ describe("itensContemplados / itensNaoContemplados", () => {
     for (const tipo of ["material_mo", "somente_mo"] as const) {
       expect(itensNaoContemplados(tipo).some((t) => t.includes("trabalho em altura"))).toBe(true);
     }
+  });
+});
+
+describe("linhasEspecificacoesTecnicas", () => {
+  it("uma linha por item de Escopo, não por trecho", () => {
+    const linhas = linhasEspecificacoesTecnicas([
+      item({
+        id: 1,
+        material: "Lã de Rocha",
+        escopo_itens: [
+          { id: "a", nome: 'Tubo 2"', tipo: "tubulacao", diametro_mm: 50, comprimento_m: 25, quantidade: null, metragem_manual_m2: null, metragem_editada: false },
+          { id: "b", nome: 'Curva 2"', tipo: "curva", diametro_mm: 50, comprimento_m: null, quantidade: 2, metragem_manual_m2: null, metragem_editada: false },
+        ],
+      }),
+    ]);
+    expect(linhas).toHaveLength(2);
+    expect(linhas[0]).toMatchObject({ trechoNumero: 1, isolamento: "Lã de Rocha", descricao: 'Tubo 2"', qtd: "25 m" });
+    expect(linhas[1]).toMatchObject({ trechoNumero: 1, isolamento: "Lã de Rocha", descricao: 'Curva 2"', qtd: "2 un." });
+  });
+
+  it("trecho sem Escopo detalhado (orçamento legado) cai numa única linha de fallback", () => {
+    const linhas = linhasEspecificacoesTecnicas([item({ escopo_itens: [], area_m2: 7.5 })]);
+    expect(linhas).toEqual([expect.objectContaining({ descricao: "—", qtd: "—", areaM2: 7.5 })]);
+  });
+
+  it("numeração de trecho soma corretamente em múltiplos trechos", () => {
+    const linhas = linhasEspecificacoesTecnicas([item({ id: 1, escopo_itens: [] }), item({ id: 2, escopo_itens: [] })]);
+    expect(linhas.map((l) => l.trechoNumero)).toEqual([1, 2]);
+  });
+});
+
+describe("distribuirResumoFinanceiroSimplificado", () => {
+  it("reparte valor_final proporcionalmente entre material e mão de obra (mesma % embutida)", () => {
+    const resultado = distribuirResumoFinanceiroSimplificado({
+      valor_materiais: 8000,
+      valor_mao_obra: 2000,
+      valor_deslocamento: 0,
+      valor_hospedagem: 0,
+      valor_frete: 0,
+      subtotal: 10000,
+      valor_final: 15000, // 50% de impostos+margem embutidos
+    });
+    expect(resultado.material).toBe(12000); // 8000 × 1.5
+    expect(resultado.maoDeObra).toBe(3000); // 15000 - 12000
+    expect(resultado.material + resultado.maoDeObra).toBe(15000);
+  });
+
+  it("deslocamento/hospedagem/frete são absorvidos pela linha de mão de obra", () => {
+    const resultado = distribuirResumoFinanceiroSimplificado({
+      valor_materiais: 0,
+      valor_mao_obra: 1000,
+      valor_deslocamento: 200,
+      valor_hospedagem: 300,
+      valor_frete: 500,
+      subtotal: 2000,
+      valor_final: 2000,
+    });
+    expect(resultado.material).toBe(0);
+    expect(resultado.maoDeObra).toBe(2000);
+  });
+
+  it("subtotal zero não gera divisão por zero — tudo cai em mão de obra", () => {
+    expect(
+      distribuirResumoFinanceiroSimplificado({
+        valor_materiais: 0,
+        valor_mao_obra: 0,
+        valor_deslocamento: 0,
+        valor_hospedagem: 0,
+        valor_frete: 0,
+        subtotal: 0,
+        valor_final: 500,
+      })
+    ).toEqual({ material: 0, maoDeObra: 500 });
+  });
+});
+
+describe("imagensRelevantesParaTipo", () => {
+  const foto = (tipo: "quente" | "frio" | "ambos" | null) => ({ id: tipo ?? "legado", tipo_trabalho: tipo });
+
+  it("orçamento misto mostra todas as fotos, de qualquer tipo", () => {
+    const fotos = [foto("quente"), foto("frio"), foto("ambos"), foto(null)];
+    expect(imagensRelevantesParaTipo(fotos, "misto")).toHaveLength(4);
+  });
+
+  it("orçamento quente mostra fotos 'quente', 'ambos' e não classificadas — não mostra 'frio'", () => {
+    const fotos = [foto("quente"), foto("frio"), foto("ambos"), foto(null)];
+    const resultado = imagensRelevantesParaTipo(fotos, "quente");
+    expect(resultado.map((f) => f.tipo_trabalho)).toEqual(["quente", "ambos", null]);
+  });
+
+  it("orçamento frio mostra fotos 'frio', 'ambos' e não classificadas — não mostra 'quente'", () => {
+    const fotos = [foto("quente"), foto("frio"), foto("ambos"), foto(null)];
+    const resultado = imagensRelevantesParaTipo(fotos, "frio");
+    expect(resultado.map((f) => f.tipo_trabalho)).toEqual(["frio", "ambos", null]);
   });
 });

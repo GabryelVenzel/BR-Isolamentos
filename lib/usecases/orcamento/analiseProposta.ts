@@ -7,7 +7,8 @@
 // CO₂ por árvore) é fixo aqui — sempre recebido como parâmetro
 // (ConfigEmpresa), ver decisão 2 em sql-migration-020-detalhamento-propostas.sql.
 
-import type { ItemOrcamento, Orcamento } from "../../types";
+import type { ItemOrcamento, Orcamento, TipoTrabalho } from "../../types";
+import { metragemFinalItem, quantidadeEscopoItem } from "./escopo";
 
 export interface BeneficiosConsolidados {
   economiaAnualTotal: number;
@@ -126,4 +127,76 @@ export function itensNaoContemplados(tipoProposta: "material_mo" | "somente_mo")
     "Adequações civis/estruturais e remoção de isolamento antigo, salvo se explicitamente incluídas"
   );
   return itens;
+}
+
+export interface LinhaEspecificacaoTecnica {
+  trechoNumero: number;
+  tipoTrabalho: TipoTrabalho;
+  /** Só o isolante (`item.material`) — a chaparia/acabamento não entra
+   * nesta tabela (pedido explícito: "não precisamos colocar a chaparia
+   * nessa tabela"). */
+  isolamento: string;
+  /** Nome do item de escopo (ex.: "Tubo 2\"", "Curva 2\"") — "—" quando o
+   * trecho não tem Escopo detalhado (orçamentos legados, só `area_m2`). */
+  descricao: string;
+  /** Quantidade física na unidade do tipo (ex.: "25 m", "2 un.") — ver
+   * `quantidadeEscopoItem`. "—" no fallback legado. */
+  qtd: string;
+  areaM2: number;
+}
+
+/** Uma linha por item de Escopo (não por trecho) — tabela "Especificações
+ * Técnicas", igual nas duas Propostas (mesmo nome, mesmo formato). Trechos
+ * sem Escopo detalhado (orçamentos anteriores à migração 010) caem numa
+ * única linha de fallback com a área total do trecho. */
+export function linhasEspecificacoesTecnicas(itens: ItemOrcamento[]): LinhaEspecificacaoTecnica[] {
+  const linhas: LinhaEspecificacaoTecnica[] = [];
+  itens.forEach((item, index) => {
+    const base = { trechoNumero: index + 1, tipoTrabalho: item.tipo_trabalho, isolamento: item.material };
+    if ((item.escopo_itens?.length ?? 0) > 0) {
+      for (const escopo of item.escopo_itens) {
+        linhas.push({ ...base, descricao: escopo.nome, qtd: quantidadeEscopoItem(escopo), areaM2: metragemFinalItem(escopo) });
+      }
+    } else {
+      linhas.push({ ...base, descricao: "—", qtd: "—", areaM2: item.area_m2 });
+    }
+  });
+  return linhas;
+}
+
+export interface ResumoFinanceiroSimplificado {
+  material: number;
+  maoDeObra: number;
+}
+
+/** Resumo financeiro reduzido a 2 linhas + total (pedido explícito: "o
+ * cliente não pode ver nossas informações brutas, nem saber quanto temos de
+ * margens e impostos") — reparte `valor_final` (já com impostos/margem)
+ * proporcionalmente entre Material e Mão de Obra (que absorve também
+ * deslocamento/hospedagem/frete, ver comentário abaixo), preservando a MESMA
+ * % de imposto/margem embutida nas duas categorias. `maoDeObra` absorve o
+ * arredondamento — a soma das duas linhas bate exatamente com `valor_final`
+ * (mesma técnica de `alocarValorFinalPorTrecho`). */
+/** Filtra a galeria de imagens de referência (`imagens_proposta`, migração
+ * 022) pro tipo do orçamento — "misto" mostra todas (o projeto toca os dois
+ * sistemas); "quente"/"frio" mostram só as marcadas com esse tipo, mais as
+ * marcadas "ambos" e as ainda não classificadas (`null`, fotos cadastradas
+ * antes da migração 022 — tratadas como "ambos" pra não sumirem da
+ * Proposta). */
+export function imagensRelevantesParaTipo<T extends { tipo_trabalho: "quente" | "frio" | "ambos" | null }>(
+  imagens: T[],
+  tipoOrcamento: TipoTrabalho
+): T[] {
+  if (tipoOrcamento === "misto") return imagens;
+  return imagens.filter((img) => img.tipo_trabalho == null || img.tipo_trabalho === "ambos" || img.tipo_trabalho === tipoOrcamento);
+}
+
+export function distribuirResumoFinanceiroSimplificado(
+  orcamento: Pick<Orcamento, "valor_materiais" | "valor_mao_obra" | "valor_deslocamento" | "valor_hospedagem" | "valor_frete" | "subtotal" | "valor_final">
+): ResumoFinanceiroSimplificado {
+  if (orcamento.subtotal <= 0) return { material: 0, maoDeObra: orcamento.valor_final };
+  const fator = orcamento.valor_final / orcamento.subtotal;
+  const material = Number((orcamento.valor_materiais * fator).toFixed(2));
+  const maoDeObra = Number((orcamento.valor_final - material).toFixed(2));
+  return { material, maoDeObra };
 }

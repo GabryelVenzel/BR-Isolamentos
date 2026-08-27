@@ -8,29 +8,20 @@
 // manual — cada <Page> é uma folha real, o conteúdo que não cabe flui pra
 // próxima página sozinho.
 //
-// Estrutura elaborada (pedidos "PROPOSTAS TÉCNICA E COMERCIAL ELABORADAS" e
-// "REFATORAÇÃO PROPOSTAS TÉCNICA E COMERCIAL") — ver decisão de arquitetura
-// no topo de PropostaComercialDocument.tsx: as "6 variações" (Material+MO/
-// Somente MO × Quente/Frio/Mista) não viraram 6 templates separados, e sim
-// um único documento que reage aos dados reais do orçamento (presença de
-// trechos quentes/frios, tipo_proposta) — mais fácil de manter e sem
-// duplicação de texto entre variações.
+// Estrutura elaborada ao longo de várias rodadas ("PROPOSTAS TÉCNICA E
+// COMERCIAL ELABORADAS", "REFATORAÇÃO PROPOSTAS TÉCNICA E COMERCIAL",
+// "AJUSTES NAS PROPOSTAS") — ver decisão de arquitetura no topo de
+// PropostaComercialDocument.tsx: as "6 variações" (Material+MO/Somente MO ×
+// Quente/Frio/Mista) não viraram 6 templates separados, e sim um único
+// documento que reage aos dados reais do orçamento.
 //
-// O segundo pedido ("REFATORAÇÃO...") descreve arquivos/rotas que não
-// existem neste projeto (app/orcamento/etapas/..., componentes em Tailwind
-// com <img>/gradiente) — ver decisão 1 em
-// sql-migration-021-observacoes-e-validade-proposta.sql. O conteúdo pedido
-// foi adaptado pra cá. Também substituí as normas citadas nesse pedido
-// (ASHRAE 90.1, NBR 15220, ISO 9001) pelas normas REAIS que o motor de
-// cálculo (lib/calculadora-termica.ts) de fato implementa — ASTM C680, ISO
-// 12241, ABNT NBR 16281 — pra não afirmar conformidade com norma que o
-// sistema não verifica. Pelo mesmo motivo, não incluí o "fator de segurança
-// 1.5x" nem "vida útil de 15-20 anos" do pedido original: são números que o
-// motor não calcula e que eu não tenho como validar como fato da empresa.
+// A tabela "Especificações Técnicas" (mesmo nome/formato nas duas
+// Propostas) tem uma linha POR ITEM DE ESCOPO (não por trecho) — ver
+// lib/usecases/orcamento/analiseProposta.ts#linhasEspecificacoesTecnicas.
 
 import { Document, Page, Text, View, Image } from "@react-pdf/renderer";
 import { formatarData, formatarMoeda, formatarNumero } from "@/lib/format";
-import { descricaoMaterialCompleta, itensContemplados, itensNaoContemplados } from "@/lib/usecases/orcamento";
+import { descricaoMaterialCompleta, itensContemplados, itensNaoContemplados, linhasEspecificacoesTecnicas } from "@/lib/usecases/orcamento";
 import { CORES, estilos } from "./estilos";
 import CapaProposta from "./CapaProposta";
 import type { ConfigEmpresa, Orcamento } from "@/lib/types";
@@ -47,6 +38,14 @@ interface Props {
 }
 
 const LABEL_TIPO: Record<string, string> = { quente: "Quente", frio: "Frio", misto: "Misto (quente + frio)" };
+// Nome completo pro cabeçalho e pro quadro "Dados do Projeto" (pedido
+// explícito) — nas tabelas/legendas mais compactas o LABEL_TIPO curto
+// continua sendo usado, senão as colunas ficam largas demais.
+const LABEL_TIPO_COMPLETO: Record<string, string> = {
+  quente: "Isolamento Térmico Quente",
+  frio: "Isolamento Térmico Frio",
+  misto: "Isolamento Térmico Misto (Quente + Frio)",
+};
 const LABEL_PROPOSTA: Record<string, string> = { material_mo: "Material + Mão de Obra", somente_mo: "Somente Mão de Obra" };
 
 function Cabecalho({ orcamento }: { orcamento: Orcamento }) {
@@ -60,7 +59,7 @@ function Cabecalho({ orcamento }: { orcamento: Orcamento }) {
         <View style={estilos.cabecalhoDireita}>
           <Text style={estilos.cabecalhoNumero}>Nº {orcamento.numero}</Text>
           <Text style={estilos.cabecalhoTexto}>{formatarData(orcamento.data_criacao)}</Text>
-          <Text style={estilos.cabecalhoTexto}>{LABEL_TIPO[orcamento.tipo_trabalho] ?? orcamento.tipo_trabalho}</Text>
+          <Text style={estilos.cabecalhoTexto}>{LABEL_TIPO_COMPLETO[orcamento.tipo_trabalho] ?? orcamento.tipo_trabalho}</Text>
         </View>
       </View>
       <View style={estilos.divisorMarca} />
@@ -104,6 +103,7 @@ export default function PropostaTecnicaDocument({ orcamento, imagens = [], confi
 
   const contempla = itensContemplados(orcamento.tipo_proposta);
   const naoContempla = itensNaoContemplados(orcamento.tipo_proposta);
+  const linhasEspecificacoes = linhasEspecificacoesTecnicas(itens);
 
   let numeroSecao = 2; // 1. já é "Por que isolar termicamente"
 
@@ -123,7 +123,7 @@ export default function PropostaTecnicaDocument({ orcamento, imagens = [], confi
             </Text>
           )}
           <Text style={estilos.caixaClienteLinha}>
-            Tipo de sistema: {LABEL_TIPO[orcamento.tipo_trabalho] ?? orcamento.tipo_trabalho} · Modalidade:{" "}
+            Tipo de sistema: {LABEL_TIPO_COMPLETO[orcamento.tipo_trabalho] ?? orcamento.tipo_trabalho} · Modalidade:{" "}
             {LABEL_PROPOSTA[orcamento.tipo_proposta] ?? orcamento.tipo_proposta}
           </Text>
           <Text style={estilos.caixaClienteLinha}>
@@ -208,7 +208,7 @@ export default function PropostaTecnicaDocument({ orcamento, imagens = [], confi
         )}
 
         <View style={estilos.secao}>
-          <Text style={estilos.secaoTitulo}>{numeroSecao++}. Escopo contemplado</Text>
+          <Text style={estilos.secaoTitulo}>{numeroSecao++}. Escopo</Text>
           {itens.map((item, index) => (
             <View key={item.id} style={{ marginBottom: 4 }}>
               <Text style={estilos.blocoTitulo}>
@@ -227,44 +227,21 @@ export default function PropostaTecnicaDocument({ orcamento, imagens = [], confi
             </View>
           ))}
 
-          <View style={{ marginTop: 10, flexDirection: "row", gap: 16 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ ...estilos.blocoTitulo, fontSize: 9.5 }}>✅ O orçamento contempla</Text>
-              {contempla.map((texto) => (
-                <Text key={texto} style={estilos.listaItem}>
-                  • {texto}
-                </Text>
-              ))}
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ ...estilos.blocoTitulo, fontSize: 9.5, color: CORES.erro }}>❌ Não contemplado</Text>
-              {naoContempla.map((texto) => (
-                <Text key={texto} style={estilos.listaItem}>
-                  • {texto}
-                </Text>
-              ))}
-            </View>
+          {/* Empilhado (não em duas colunas) — pedido explícito. */}
+          <View style={{ marginTop: 10 }}>
+            <Text style={{ ...estilos.blocoTitulo, fontSize: 9.5 }}>✅ O orçamento contempla</Text>
+            {contempla.map((texto) => (
+              <Text key={texto} style={estilos.listaItem}>
+                • {texto}
+              </Text>
+            ))}
           </View>
-        </View>
-
-        <View style={estilos.secao} wrap={false}>
-          <Text style={estilos.secaoTitulo}>{numeroSecao++}. Especificação técnica por trecho</Text>
-          <View style={estilos.tabela}>
-            <View style={estilos.linhaCabecalho}>
-              <Text style={estilos.celulaCabecalho}>Trecho</Text>
-              <Text style={{ ...estilos.celulaCabecalho, flex: 3 }}>Material</Text>
-              <Text style={estilos.celulaCabecalho}>Geometria</Text>
-              <Text style={estilos.celulaCabecalho}>Área</Text>
-            </View>
-            {itens.map((item, index) => (
-              <View key={item.id} style={estilos.linha}>
-                <Text style={estilos.celula}>
-                  {index + 1} ({LABEL_TIPO[item.tipo_trabalho]})
-                </Text>
-                <Text style={{ ...estilos.celula, flex: 3 }}>{descricaoMaterialCompleta(item)}</Text>
-                <Text style={estilos.celula}>{item.geometria === "tubulacao" ? "Tubulação" : "Sup. plana"}</Text>
-                <Text style={estilos.celula}>{formatarNumero(item.area_m2)} m²</Text>
-              </View>
+          <View style={{ marginTop: 8 }}>
+            <Text style={{ ...estilos.blocoTitulo, fontSize: 9.5, color: CORES.erro }}>❌ Não contemplado</Text>
+            {naoContempla.map((texto) => (
+              <Text key={texto} style={estilos.listaItem}>
+                • {texto}
+              </Text>
             ))}
           </View>
         </View>
@@ -288,6 +265,30 @@ export default function PropostaTecnicaDocument({ orcamento, imagens = [], confi
                 <Text style={estilos.celula}>{item.velocidade_vento != null ? `${formatarNumero(item.velocidade_vento, 1)} m/s` : "—"}</Text>
                 <Text style={estilos.celula}>{item.umidade_relativa != null ? `${formatarNumero(item.umidade_relativa, 0)}%` : "—"}</Text>
                 <Text style={estilos.celula}>{item.trabalho_altura ? "Sim" : "Não"}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        <View style={estilos.secao} wrap={false}>
+          <Text style={estilos.secaoTitulo}>{numeroSecao++}. Especificações Técnicas</Text>
+          <View style={estilos.tabela}>
+            <View style={estilos.linhaCabecalho}>
+              <Text style={estilos.celulaCabecalho}>Trecho</Text>
+              <Text style={estilos.celulaCabecalho}>Tipo</Text>
+              <Text style={{ ...estilos.celulaCabecalho, flex: 2 }}>Isolamento</Text>
+              <Text style={{ ...estilos.celulaCabecalho, flex: 2 }}>Descrição</Text>
+              <Text style={estilos.celulaCabecalho}>Qtd.</Text>
+              <Text style={estilos.celulaCabecalho}>Área</Text>
+            </View>
+            {linhasEspecificacoes.map((linha, i) => (
+              <View key={i} style={estilos.linha}>
+                <Text style={estilos.celula}>{linha.trechoNumero}</Text>
+                <Text style={estilos.celula}>{LABEL_TIPO[linha.tipoTrabalho]}</Text>
+                <Text style={{ ...estilos.celula, flex: 2 }}>{linha.isolamento}</Text>
+                <Text style={{ ...estilos.celula, flex: 2 }}>{linha.descricao}</Text>
+                <Text style={estilos.celula}>{linha.qtd}</Text>
+                <Text style={estilos.celula}>{formatarNumero(linha.areaM2)} m²</Text>
               </View>
             ))}
           </View>

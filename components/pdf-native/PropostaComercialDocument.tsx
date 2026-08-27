@@ -2,53 +2,74 @@
 // PropostaTecnicaDocument.tsx pra decisão geral. Mesmas seções de
 // components/PDFPreviewComercial.tsx (mantido só pro preview em tela).
 //
-// Estrutura elaborada (pedidos "PROPOSTAS TÉCNICA E COMERCIAL ELABORADAS",
-// "PROPOSTAS DIFERENCIADAS POR TIPO" e "REFATORAÇÃO PROPOSTAS TÉCNICA E
-// COMERCIAL") — DECISÃO DE ARQUITETURA: os pedidos descrevem "6 variações"
-// de proposta (Material+MO/Somente MO × Quente/Frio/Mista). Em vez de 6
-// templates hardcoded (muita duplicação de texto, alto risco de divergência
-// entre eles), este documento é UM template que se adapta aos dados reais do
-// orçamento — filtra itens por `tipo_trabalho` e ramifica texto/seções por
-// `orcamento.tipo_proposta`. Uma proposta "mista" já sai com as duas seções
-// (quente e frio) automaticamente, sem template dedicado.
+// Estrutura elaborada ao longo de várias rodadas ("PROPOSTAS TÉCNICA E
+// COMERCIAL ELABORADAS", "PROPOSTAS DIFERENCIADAS POR TIPO", "REFATORAÇÃO
+// PROPOSTAS TÉCNICA E COMERCIAL", "AJUSTES NAS PROPOSTAS") — DECISÃO DE
+// ARQUITETURA: os pedidos descrevem "6 variações" de proposta (Material+MO/
+// Somente MO × Quente/Frio/Mista). Em vez de 6 templates hardcoded, este
+// documento é UM template que se adapta aos dados reais do orçamento.
 //
-// Os números de política comercial citados nos pedidos (desconto à vista,
-// garantia, reajuste tarifário assumido na projeção de 10 anos, fator de
-// CO₂/árvore, validade, forma de pagamento) vêm de `configEmpresa`
-// (migrações 020/021), nunca hardcoded.
+// ORDEM ATUAL DOS TÓPICOS (pedido "AJUSTES NAS PROPOSTAS", numeração dada
+// pelo próprio usuário observando o PDF gerado):
+//   1. Escopo — mesmo conteúdo/formato da Proposta Técnica.
+//   2. Especificações Técnicas — mesma tabela/nome da Proposta Técnica
+//      (uma linha por item de Escopo, sem chaparia).
+//   3. Resumo Financeiro — reduzido a Material + Mão de Obra + Total, sem
+//      impostos/margem visíveis (pedido explícito: "o cliente não pode ver
+//      nossas informações brutas").
+//   4. ROI e Projeção Econômica — caixa de payback + projeção de 10 anos
+//      no MESMO tópico (antes eram dois).
+//   5. Benefícios Ambientais.
+//   6. Condições Comerciais — sem mais "Não contemplado" (já coberto pelo
+//      tópico 1) e Responsabilidades empilhadas, não em duas colunas.
+//   [Observações Adicionais, só quando preenchida]
+//   7. Próximos Passos.
 //
-// REVISÃO NESTA RODADA ("REFATORAÇÃO..."): a tabela de quantificação
-// perdeu as colunas de preço unitário/subtotal por material (mostra só
-// item + quantidade) e o Resumo Financeiro parou de listar cada imposto
-// por nome/percentual — agora soma tudo numa linha "Impostos & Encargos"
-// e uma "Margem Operacional", sem percentuais. Pedido explícito: "cliente
-// vê apenas os valores, não os percentuais de impostos ou margem". Isso
-// substitui o comportamento da rodada anterior (tabela detalhada com preço
-// unitário por material, impostos itemizados por nome) — ver histórico do
-// commit anterior se precisar recuperar aquele nível de detalhe.
+// A tabela de "Quantificação de Materiais e Mão de Obra" (rebite/parafuso/
+// arame/silicone + horas) que existia como tópico próprio nas rodadas
+// anteriores SAIU do documento nesta rodada — os números 3/4/7 que o
+// usuário deu só batem com essa contagem se ela não ocupar mais um tópico
+// (ver comentário acima); e ela já era, no fundo, mais um nível de
+// "informação bruta" de composição do preço, o que o pedido pede pra
+// esconder do cliente. Se essa leitura estiver errada, é fácil reverter —
+// os dados continuam persistidos em `detalhamento_materiais` (migração 020).
 
-import { Document, Page, Text, View } from "@react-pdf/renderer";
+import { Document, Page, Text, View, Image } from "@react-pdf/renderer";
 import { formatarData, formatarMoeda, formatarNumero } from "@/lib/format";
 import {
   arvoresEquivalentes,
   calcularBeneficiosConsolidados,
   calcularPaybackDias,
   calcularPaybackMeses,
+  distribuirResumoFinanceiroSimplificado,
+  itensContemplados,
   itensNaoContemplados,
+  linhasEspecificacoesTecnicas,
   prazoExecucaoDiasUteis,
   projetarEconomiaAcumulada,
   temAnaliseFinanceira,
 } from "@/lib/usecases/orcamento";
-import { estilos } from "./estilos";
+import { CORES, estilos } from "./estilos";
 import CapaProposta from "./CapaProposta";
 import type { ConfigEmpresa, Orcamento } from "@/lib/types";
 
+interface ImagemProposta {
+  url: string;
+  legenda: string | null;
+}
+
 interface Props {
   orcamento: Orcamento;
+  imagens?: ImagemProposta[];
   configEmpresa?: ConfigEmpresa | null;
 }
 
 const LABEL_TIPO: Record<string, string> = { quente: "Quente", frio: "Frio", misto: "Misto (quente + frio)" };
+const LABEL_TIPO_COMPLETO: Record<string, string> = {
+  quente: "Isolamento Térmico Quente",
+  frio: "Isolamento Térmico Frio",
+  misto: "Isolamento Térmico Misto (Quente + Frio)",
+};
 const LABEL_PROPOSTA: Record<string, string> = { material_mo: "Material + Mão de Obra", somente_mo: "Somente Mão de Obra" };
 
 function Cabecalho({ orcamento }: { orcamento: Orcamento }) {
@@ -62,7 +83,7 @@ function Cabecalho({ orcamento }: { orcamento: Orcamento }) {
         <View style={estilos.cabecalhoDireita}>
           <Text style={estilos.cabecalhoNumero}>Nº {orcamento.numero}</Text>
           <Text style={estilos.cabecalhoTexto}>{formatarData(orcamento.data_criacao)}</Text>
-          <Text style={estilos.cabecalhoTexto}>{LABEL_TIPO[orcamento.tipo_trabalho] ?? orcamento.tipo_trabalho}</Text>
+          <Text style={estilos.cabecalhoTexto}>{LABEL_TIPO_COMPLETO[orcamento.tipo_trabalho] ?? orcamento.tipo_trabalho}</Text>
         </View>
       </View>
       <View style={estilos.divisorMarca} />
@@ -96,16 +117,14 @@ function Linha({ label, valor, destaque }: { label: string; valor: string; desta
   );
 }
 
-export default function PropostaComercialDocument({ orcamento, configEmpresa }: Props) {
+const NOTA_ESTIMATIVA_COMPARATIVA =
+  "Estimativa comparativa entre o cenário COM isolamento térmico (proposto) e o cenário SEM isolamento (situação atual), com base nos parâmetros informados nesta proposta — não é uma garantia contratual.";
+
+export default function PropostaComercialDocument({ orcamento, imagens = [], configEmpresa }: Props) {
   const itens = [...(orcamento.itens ?? [])].sort((a, b) => a.ordem - b.ordem);
-  const ehLegado = itens.length > 0 && itens[0].manta_kg != null;
   const somenteMaoObra = orcamento.tipo_proposta === "somente_mo";
 
   const { economiaAnualTotal, co2ToneladasAno } = calcularBeneficiosConsolidados(itens);
-
-  const itensComDetalhamento = itens.filter((i) => (i.detalhamento_materiais?.length ?? 0) > 0);
-  const temDetalhamentoNovo = !somenteMaoObra && itensComDetalhamento.length > 0;
-
   const temFinanceiro = temAnaliseFinanceira(orcamento, economiaAnualTotal);
   const paybackMeses = !somenteMaoObra && temFinanceiro ? calcularPaybackMeses(orcamento.valor_final, economiaAnualTotal) : null;
   const paybackDias = somenteMaoObra && temFinanceiro ? calcularPaybackDias(orcamento.valor_final, economiaAnualTotal) : null;
@@ -117,9 +136,13 @@ export default function PropostaComercialDocument({ orcamento, configEmpresa }: 
   const garantiaMeses = configEmpresa?.garantia_mao_obra_meses ?? 12;
   const validadeDias = configEmpresa?.validade_proposta_dias ?? 30;
   const formaPagamentoPadrao = configEmpresa?.forma_pagamento_padrao || "50% de entrada + 50% na conclusão dos trabalhos";
+  const contempla = itensContemplados(orcamento.tipo_proposta);
   const naoContempla = itensNaoContemplados(orcamento.tipo_proposta);
+  const linhasEspecificacoes = linhasEspecificacoesTecnicas(itens);
+  const resumoSimplificado = distribuirResumoFinanceiroSimplificado(orcamento);
+  const temTopicoRoi = economiaAnualTotal > 0;
 
-  let n = 1; // numeração dos tópicos principais (pedido explícito: "Títulos Numerados em Tópicos")
+  let n = 1;
 
   return (
     <Document title={`Proposta Comercial ${orcamento.numero}`}>
@@ -137,8 +160,46 @@ export default function PropostaComercialDocument({ orcamento, configEmpresa }: 
             {[orcamento.cliente?.telefone, orcamento.cliente?.email].filter(Boolean).join("  ·  ")}
           </Text>
           <Text style={estilos.caixaClienteLinha}>
-            Escopo: {LABEL_PROPOSTA[orcamento.tipo_proposta] ?? orcamento.tipo_proposta} · {LABEL_TIPO[orcamento.tipo_trabalho] ?? orcamento.tipo_trabalho}
+            Escopo: {LABEL_PROPOSTA[orcamento.tipo_proposta] ?? orcamento.tipo_proposta} ·{" "}
+            {LABEL_TIPO_COMPLETO[orcamento.tipo_trabalho] ?? orcamento.tipo_trabalho}
           </Text>
+        </View>
+
+        <View style={estilos.secao}>
+          <Text style={estilos.secaoTitulo}>{n++}. Escopo</Text>
+          {itens.map((item, index) => (
+            <View key={item.id} style={{ marginBottom: 4 }}>
+              <Text style={estilos.blocoTitulo}>
+                Trecho {index + 1} ({LABEL_TIPO[item.tipo_trabalho]})
+                {item.trabalho_altura ? " · trabalho em altura" : ""}
+              </Text>
+              {(item.escopo_itens?.length ?? 0) > 0 ? (
+                item.escopo_itens.map((escopo) => (
+                  <Text key={escopo.id} style={estilos.listaItem}>
+                    • {escopo.nome}
+                  </Text>
+                ))
+              ) : (
+                <Text style={estilos.listaItem}>{formatarNumero(item.area_m2)} m²</Text>
+              )}
+            </View>
+          ))}
+          <View style={{ marginTop: 10 }}>
+            <Text style={{ ...estilos.blocoTitulo, fontSize: 9.5 }}>✅ O orçamento contempla</Text>
+            {contempla.map((texto) => (
+              <Text key={texto} style={estilos.listaItem}>
+                • {texto}
+              </Text>
+            ))}
+          </View>
+          <View style={{ marginTop: 8 }}>
+            <Text style={{ ...estilos.blocoTitulo, fontSize: 9.5, color: CORES.erro }}>❌ Não contemplado</Text>
+            {naoContempla.map((texto) => (
+              <Text key={texto} style={estilos.listaItem}>
+                • {texto}
+              </Text>
+            ))}
+          </View>
         </View>
 
         <View style={estilos.secao} wrap={false}>
@@ -146,199 +207,108 @@ export default function PropostaComercialDocument({ orcamento, configEmpresa }: 
           <View style={estilos.tabela}>
             <View style={estilos.linhaCabecalho}>
               <Text style={estilos.celulaCabecalho}>Trecho</Text>
-              <Text style={{ ...estilos.celulaCabecalho, flex: 3 }}>Material</Text>
               <Text style={estilos.celulaCabecalho}>Tipo</Text>
+              <Text style={{ ...estilos.celulaCabecalho, flex: 2 }}>Isolamento</Text>
+              <Text style={{ ...estilos.celulaCabecalho, flex: 2 }}>Descrição</Text>
+              <Text style={estilos.celulaCabecalho}>Qtd.</Text>
               <Text style={estilos.celulaCabecalho}>Área</Text>
             </View>
-            {itens.map((item, index) => (
-              <View key={item.id} style={estilos.linha}>
-                <Text style={estilos.celula}>{index + 1}</Text>
-                <Text style={{ ...estilos.celula, flex: 3 }}>
-                  {item.material}
-                  {item.acabamento ? ` · ${item.acabamento}` : ""}
-                </Text>
-                <Text style={estilos.celula}>{LABEL_TIPO[item.tipo_trabalho] ?? item.tipo_trabalho}</Text>
-                <Text style={estilos.celula}>{formatarNumero(item.area_m2)} m²</Text>
+            {linhasEspecificacoes.map((linha, i) => (
+              <View key={i} style={estilos.linha}>
+                <Text style={estilos.celula}>{linha.trechoNumero}</Text>
+                <Text style={estilos.celula}>{LABEL_TIPO[linha.tipoTrabalho]}</Text>
+                <Text style={{ ...estilos.celula, flex: 2 }}>{linha.isolamento}</Text>
+                <Text style={{ ...estilos.celula, flex: 2 }}>{linha.descricao}</Text>
+                <Text style={estilos.celula}>{linha.qtd}</Text>
+                <Text style={estilos.celula}>{formatarNumero(linha.areaM2)} m²</Text>
               </View>
             ))}
           </View>
         </View>
 
-        {(() => {
-          const numeroQuantificacao = n++;
-          return somenteMaoObra ? (
-            <View style={estilos.secao} wrap={false}>
-              <Text style={estilos.secaoTitulo}>{numeroQuantificacao}. Quantificação de Mão de Obra</Text>
-              <Text style={{ ...estilos.paragrafo, fontSize: 9, marginBottom: 6 }}>
-                Proposta "Somente Mão de Obra" — o material é fornecido pelo cliente e não entra neste investimento.
-              </Text>
-              <View style={estilos.tabela}>
-                <View style={estilos.linhaCabecalho}>
-                  <Text style={{ ...estilos.celulaCabecalho, flex: 2 }}>Trecho</Text>
-                  <Text style={estilos.celulaCabecalho}>Horas</Text>
-                </View>
-                {itens.map((item, index) => (
-                  <View key={item.id} style={estilos.linha}>
-                    <Text style={{ ...estilos.celula, flex: 2 }}>
-                      Trecho {index + 1} ({LABEL_TIPO[item.tipo_trabalho]})
-                    </Text>
-                    <Text style={estilos.celula}>{formatarNumero(item.horas_mao_obra ?? 0, 1)} h</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          ) : temDetalhamentoNovo ? (
-            <View style={estilos.secao}>
-              <Text style={estilos.secaoTitulo}>{numeroQuantificacao}. Quantificação de Materiais e Mão de Obra</Text>
-              {itens.map((item, index) => {
-                if ((item.detalhamento_materiais?.length ?? 0) === 0 && item.horas_mao_obra <= 0) return null;
-                return (
-                  <View key={item.id} style={{ marginBottom: 10 }} wrap={false}>
-                    {itens.length > 1 && (
-                      <Text style={estilos.blocoTitulo}>
-                        Trecho {index + 1} — {item.material}
-                      </Text>
-                    )}
-                    <View style={estilos.tabela}>
-                      <View style={estilos.linhaCabecalho}>
-                        <Text style={{ ...estilos.celulaCabecalho, flex: 3 }}>Item</Text>
-                        <Text style={estilos.celulaCabecalho}>Quantidade</Text>
-                      </View>
-                      {item.detalhamento_materiais.map((linha, i) => (
-                        <View key={i} style={estilos.linha}>
-                          <Text style={{ ...estilos.celula, flex: 3 }}>{linha.titulo}</Text>
-                          <Text style={estilos.celula}>
-                            {formatarNumero(linha.quantidade, linha.unidade === "g" ? 1 : 2)} {linha.unidade}
-                          </Text>
-                        </View>
-                      ))}
-                      {item.horas_mao_obra > 0 && (
-                        <View style={estilos.linha}>
-                          <Text style={{ ...estilos.celula, flex: 3 }}>Mão de obra (dupla)</Text>
-                          <Text style={estilos.celula}>{formatarNumero(item.horas_mao_obra, 1)} h</Text>
-                        </View>
-                      )}
-                    </View>
-                  </View>
-                );
-              })}
-            </View>
-          ) : (
-            !ehLegado &&
-            itens.length > 0 && (
-              <View style={estilos.secao} wrap={false}>
-                <Text style={estilos.secaoTitulo}>{numeroQuantificacao}. Materiais por Trecho</Text>
-                <View style={estilos.tabela}>
-                  <View style={estilos.linhaCabecalho}>
-                    <Text style={estilos.celulaCabecalho}>Trecho</Text>
-                    <Text style={{ ...estilos.celulaCabecalho, flex: 2 }}>Isolante</Text>
-                    <Text style={{ ...estilos.celulaCabecalho, flex: 2 }}>Acabamento</Text>
-                    <Text style={estilos.celulaCabecalho}>Metragem</Text>
-                    <Text style={estilos.celulaCabecalho}>Mão de obra</Text>
-                  </View>
-                  {itens.map((item, index) => (
-                    <View key={item.id} style={estilos.linha}>
-                      <Text style={estilos.celula}>{index + 1}</Text>
-                      <Text style={{ ...estilos.celula, flex: 2 }}>{item.material}</Text>
-                      <Text style={{ ...estilos.celula, flex: 2 }}>{item.acabamento ?? "—"}</Text>
-                      <Text style={estilos.celula}>{formatarNumero(item.area_m2)} m²</Text>
-                      <Text style={estilos.celula}>{formatarNumero(item.horas_mao_obra ?? 0, 1)}h</Text>
-                    </View>
-                  ))}
-                </View>
-              </View>
-            )
-          );
-        })()}
-
         <View style={estilos.totalCaixa} wrap={false}>
           <Text style={estilos.secaoTitulo}>{n++}. Resumo Financeiro</Text>
-          {!somenteMaoObra && <Linha label="Materiais" valor={formatarMoeda(orcamento.valor_materiais)} />}
-          <Linha label="Mão de Obra" valor={formatarMoeda(orcamento.valor_mao_obra)} />
-          {orcamento.valor_deslocamento > 0 && <Linha label="Deslocamento" valor={formatarMoeda(orcamento.valor_deslocamento)} />}
-          {orcamento.valor_hospedagem > 0 && <Linha label="Hospedagem" valor={formatarMoeda(orcamento.valor_hospedagem)} />}
-          {orcamento.valor_frete > 0 && <Linha label="Frete" valor={formatarMoeda(orcamento.valor_frete)} />}
-          <Linha label="Subtotal" valor={formatarMoeda(orcamento.subtotal)} destaque />
-          <Linha label="Impostos & Encargos" valor={formatarMoeda(orcamento.total_impostos)} />
-          <Linha label="Margem Operacional" valor={formatarMoeda(orcamento.margem_lucro)} />
-          {orcamento.valor_desconto > 0 && <Linha label="Desconto comercial" valor={`- ${formatarMoeda(orcamento.valor_desconto)}`} />}
+          {!somenteMaoObra && <Linha label="Material" valor={formatarMoeda(resumoSimplificado.material)} />}
+          <Linha label="Mão de Obra" valor={formatarMoeda(resumoSimplificado.maoDeObra)} />
           <View style={estilos.totalLinha}>
             <Text style={estilos.totalLabel}>Valor Total</Text>
             <Text style={estilos.totalValor}>{formatarMoeda(orcamento.valor_final)}</Text>
           </View>
         </View>
 
-        {!somenteMaoObra && paybackMeses != null && (
-          <View style={estilos.caixaRoi} wrap={false}>
-            <Text style={estilos.roiTitulo}>Análise de Retorno do Investimento</Text>
-            <View style={estilos.roiLinhaGrande}>
-              <Text style={estilos.roiLabelGrande}>Investimento</Text>
-              <Text style={estilos.roiValorGrande}>{formatarMoeda(orcamento.valor_final)}</Text>
-            </View>
-            <View style={estilos.roiLinhaGrande}>
-              <Text style={estilos.roiLabelGrande}>Economia anual estimada</Text>
-              <Text style={estilos.roiValorGrande}>{formatarMoeda(economiaAnualTotal)}</Text>
-            </View>
-            <View style={estilos.roiLinhaGrande}>
-              <Text style={estilos.roiLabelGrande}>Payback estimado</Text>
-              <Text style={estilos.roiValorGrande}>{formatarNumero(paybackMeses, 1)} meses</Text>
-            </View>
-            <Text style={estilos.notaRodape}>
-              Estimativa com base na economia de energia calculada para os trechos quentes desta proposta (ver
-              Proposta Técnica). Considera o valor investido total, sem reajuste tarifário.
-            </Text>
-          </View>
-        )}
-
-        {somenteMaoObra && paybackDias != null && (
-          <View style={estilos.caixaRoi} wrap={false}>
-            <Text style={estilos.roiTitulo}>Retorno do Investimento em Mão de Obra</Text>
-            <View style={estilos.roiLinhaGrande}>
-              <Text style={estilos.roiLabelGrande}>Investimento em mão de obra</Text>
-              <Text style={estilos.roiValorGrande}>{formatarMoeda(orcamento.valor_final)}</Text>
-            </View>
-            <View style={estilos.roiLinhaGrande}>
-              <Text style={estilos.roiLabelGrande}>Economia anual estimada</Text>
-              <Text style={estilos.roiValorGrande}>{formatarMoeda(economiaAnualTotal)}</Text>
-            </View>
-            <View style={estilos.roiLinhaGrande}>
-              <Text style={estilos.roiLabelGrande}>Payback estimado</Text>
-              <Text style={estilos.roiValorGrande}>{paybackDias} dias</Text>
-            </View>
-            <Text style={estilos.notaRodape}>
-              Material já fornecido pelo cliente — o investimento considerado aqui é só a mão de obra desta proposta.
-            </Text>
-          </View>
-        )}
-
-        {projecaoDezAnos.length > 0 && (
+        {temTopicoRoi && (
           <View style={estilos.secao}>
-            <Text style={estilos.secaoTitulo}>{n++}. Projeção de Economia Acumulada (10 anos)</Text>
-            <Text style={{ ...estilos.paragrafo, fontSize: 9, marginBottom: 6 }}>
-              {reajuste > 0
-                ? `Projeção com reajuste tarifário estimado de ${formatarNumero(reajuste, 1)}% ao ano — estimativa de mercado, não uma garantia contratual.`
-                : "Projeção com economia anual constante (sem reajuste tarifário assumido)."}
-            </Text>
-            <View style={estilos.tabela}>
-              <View style={estilos.linhaCabecalho}>
-                <Text style={estilos.celulaCabecalho}>Ano</Text>
-                <Text style={estilos.celulaCabecalho}>Economia do ano</Text>
-                <Text style={estilos.celulaCabecalho}>Acumulado</Text>
-              </View>
-              {projecaoDezAnos.map((linha) => (
-                <View key={linha.ano} style={estilos.linha}>
-                  <Text style={estilos.celula}>{linha.ano}</Text>
-                  <Text style={estilos.celula}>{formatarMoeda(linha.economiaDoAno)}</Text>
-                  <Text style={estilos.celula}>{formatarMoeda(linha.acumulado)}</Text>
+            <Text style={estilos.secaoTitulo}>{n++}. ROI e Projeção Econômica</Text>
+            <Text style={{ ...estilos.paragrafo, fontSize: 9, marginBottom: 6, fontStyle: "italic" }}>{NOTA_ESTIMATIVA_COMPARATIVA}</Text>
+
+            {!somenteMaoObra && paybackMeses != null && (
+              <View style={estilos.caixaRoi} wrap={false}>
+                <Text style={estilos.roiTitulo}>Retorno do Investimento</Text>
+                <View style={estilos.roiLinhaGrande}>
+                  <Text style={estilos.roiLabelGrande}>Investimento</Text>
+                  <Text style={estilos.roiValorGrande}>{formatarMoeda(orcamento.valor_final)}</Text>
                 </View>
-              ))}
-            </View>
+                <View style={estilos.roiLinhaGrande}>
+                  <Text style={estilos.roiLabelGrande}>Economia anual estimada</Text>
+                  <Text style={estilos.roiValorGrande}>{formatarMoeda(economiaAnualTotal)}</Text>
+                </View>
+                <View style={estilos.roiLinhaGrande}>
+                  <Text style={estilos.roiLabelGrande}>Payback estimado</Text>
+                  <Text style={estilos.roiValorGrande}>{formatarNumero(paybackMeses, 1)} meses</Text>
+                </View>
+              </View>
+            )}
+
+            {somenteMaoObra && paybackDias != null && (
+              <View style={estilos.caixaRoi} wrap={false}>
+                <Text style={estilos.roiTitulo}>Retorno do Investimento em Mão de Obra</Text>
+                <View style={estilos.roiLinhaGrande}>
+                  <Text style={estilos.roiLabelGrande}>Investimento em mão de obra</Text>
+                  <Text style={estilos.roiValorGrande}>{formatarMoeda(orcamento.valor_final)}</Text>
+                </View>
+                <View style={estilos.roiLinhaGrande}>
+                  <Text style={estilos.roiLabelGrande}>Economia anual estimada</Text>
+                  <Text style={estilos.roiValorGrande}>{formatarMoeda(economiaAnualTotal)}</Text>
+                </View>
+                <View style={estilos.roiLinhaGrande}>
+                  <Text style={estilos.roiLabelGrande}>Payback estimado</Text>
+                  <Text style={estilos.roiValorGrande}>{paybackDias} dias</Text>
+                </View>
+                <Text style={estilos.notaRodape}>Material já fornecido pelo cliente — o investimento aqui é só a mão de obra.</Text>
+              </View>
+            )}
+
+            {projecaoDezAnos.length > 0 && (
+              <View style={{ marginTop: 10 }}>
+                <Text style={estilos.blocoTitulo}>Projeção de economia acumulada (10 anos)</Text>
+                <Text style={{ ...estilos.paragrafo, fontSize: 9, marginBottom: 6 }}>
+                  {reajuste > 0
+                    ? `Projeção com reajuste tarifário estimado de ${formatarNumero(reajuste, 1)}% ao ano — estimativa de mercado, não uma garantia contratual.`
+                    : "Projeção com economia anual constante (sem reajuste tarifário assumido)."}
+                </Text>
+                <View style={estilos.tabela}>
+                  <View style={estilos.linhaCabecalho}>
+                    <Text style={estilos.celulaCabecalho}>Ano</Text>
+                    <Text style={estilos.celulaCabecalho}>Economia do ano</Text>
+                    <Text style={estilos.celulaCabecalho}>Acumulado</Text>
+                  </View>
+                  {projecaoDezAnos.map((linha) => (
+                    <View key={linha.ano} style={estilos.linha}>
+                      <Text style={estilos.celula}>{linha.ano}</Text>
+                      <Text style={estilos.celula}>{formatarMoeda(linha.economiaDoAno)}</Text>
+                      <Text style={estilos.celula}>{formatarMoeda(linha.acumulado)}</Text>
+                    </View>
+                  ))}
+                </View>
+              </View>
+            )}
           </View>
         )}
 
         {(economiaAnualTotal > 0 || co2ToneladasAno > 0) && (
           <View style={{ ...estilos.blocoDestaque, marginTop: 4 }} wrap={false}>
             <Text style={estilos.secaoTitulo}>{n++}. Benefícios Ambientais</Text>
+            <Text style={{ ...estilos.paragrafo, fontSize: 9, marginBottom: 4, fontStyle: "italic" }}>{NOTA_ESTIMATIVA_COMPARATIVA}</Text>
             {economiaAnualTotal > 0 && (
               <Text style={estilos.listaItem}>• Economia anual estimada de energia: {formatarMoeda(economiaAnualTotal)}</Text>
             )}
@@ -351,8 +321,8 @@ export default function PropostaComercialDocument({ orcamento, configEmpresa }: 
               </Text>
             )}
             <Text style={estilos.notaRodape}>
-              Contribui para metas de sustentabilidade/ESG da operação. Equivalência de árvores é uma estimativa
-              ilustrativa (fator configurável), não uma métrica de compensação de carbono certificada.
+              Equivalência de árvores é uma estimativa ilustrativa (fator configurável), não uma métrica de
+              compensação de carbono certificada.
             </Text>
           </View>
         )}
@@ -377,42 +347,29 @@ export default function PropostaComercialDocument({ orcamento, configEmpresa }: 
           <Text style={estilos.listaItem}>• Mão de obra: {garantiaMeses} meses</Text>
           <Text style={estilos.listaItem}>• Materiais: conforme garantia do fabricante</Text>
 
-          <Text style={{ ...estilos.blocoTitulo, marginTop: 10 }}>Responsabilidades</Text>
-          <View style={{ flexDirection: "row", gap: 16, marginTop: 2 }}>
-            <View style={{ flex: 1 }}>
-              <Text style={{ ...estilos.blocoTitulo, fontSize: 9.5 }}>BR Isolamentos</Text>
-              <Text style={estilos.listaItem}>• Execução conforme especificações técnicas desta proposta</Text>
-              <Text style={estilos.listaItem}>• Equipe especializada e qualificada</Text>
-              {!somenteMaoObra && <Text style={estilos.listaItem}>• Materiais conforme escopo aprovado</Text>}
-              <Text style={estilos.listaItem}>• Garantia de mão de obra ({garantiaMeses} meses)</Text>
-              <Text style={estilos.listaItem}>• EPI da própria equipe</Text>
-              <Text style={estilos.listaItem}>• Limpeza da área de trabalho após a execução</Text>
-              <Text style={estilos.listaItem}>• Cumprimento das normas de segurança aplicáveis (NRs)</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={{ ...estilos.blocoTitulo, fontSize: 9.5 }}>Cliente</Text>
-              <Text style={estilos.listaItem}>• Acesso seguro ao local de trabalho</Text>
-              <Text style={estilos.listaItem}>• Liberação de segurança conforme protocolos internos</Text>
-              <Text style={estilos.listaItem}>• Energia e água disponíveis quando necessário</Text>
-              <Text style={estilos.listaItem}>• Área para estocagem de materiais, quando aplicável</Text>
-              <Text style={estilos.listaItem}>• Estrutura de apoio para trabalho em altura, quando aplicável</Text>
-              <Text style={estilos.listaItem}>• Comunicação de mudanças de cronograma com antecedência</Text>
-              <Text style={estilos.listaItem}>• Coordenação de paradas de equipamento, quando necessário</Text>
-            </View>
-          </View>
+          {/* Empilhado (não em duas colunas) — pedido explícito. */}
+          <Text style={{ ...estilos.blocoTitulo, marginTop: 10 }}>Responsabilidades — BR Isolamentos</Text>
+          <Text style={estilos.listaItem}>• Execução conforme especificações técnicas desta proposta</Text>
+          <Text style={estilos.listaItem}>• Equipe especializada e qualificada</Text>
+          {!somenteMaoObra && <Text style={estilos.listaItem}>• Materiais conforme escopo aprovado</Text>}
+          <Text style={estilos.listaItem}>• Garantia de mão de obra ({garantiaMeses} meses)</Text>
+          <Text style={estilos.listaItem}>• EPI da própria equipe</Text>
+          <Text style={estilos.listaItem}>• Limpeza da área de trabalho após a execução</Text>
+          <Text style={estilos.listaItem}>• Cumprimento das normas de segurança aplicáveis (NRs)</Text>
 
-          <Text style={{ ...estilos.blocoTitulo, marginTop: 10 }}>Não contemplado nesta proposta</Text>
-          <Text style={estilos.listaItem}>• Modificações de escopo não descritas nesta proposta</Text>
-          {naoContempla.map((texto) => (
-            <Text key={texto} style={estilos.listaItem}>
-              • {texto}
-            </Text>
-          ))}
+          <Text style={{ ...estilos.blocoTitulo, marginTop: 10 }}>Responsabilidades — Cliente</Text>
+          <Text style={estilos.listaItem}>• Acesso seguro ao local de trabalho</Text>
+          <Text style={estilos.listaItem}>• Liberação de segurança conforme protocolos internos</Text>
+          <Text style={estilos.listaItem}>• Energia e água disponíveis quando necessário</Text>
+          <Text style={estilos.listaItem}>• Área para estocagem de materiais, quando aplicável</Text>
+          <Text style={estilos.listaItem}>• Estrutura de apoio para trabalho em altura, quando aplicável</Text>
+          <Text style={estilos.listaItem}>• Comunicação de mudanças de cronograma com antecedência</Text>
+          <Text style={estilos.listaItem}>• Coordenação de paradas de equipamento, quando necessário</Text>
         </View>
 
         {orcamento.observacoes_adicionais && (
           <View style={estilos.secao} wrap={false}>
-            <Text style={estilos.secaoTitulo}>{n++}. Observações Adicionais</Text>
+            <Text style={estilos.secaoTitulo}>Observações Adicionais</Text>
             <Text style={estilos.paragrafo}>{orcamento.observacoes_adicionais}</Text>
           </View>
         )}
@@ -429,6 +386,21 @@ export default function PropostaComercialDocument({ orcamento, configEmpresa }: 
             alterar os valores estimados.
           </Text>
         </View>
+
+        {imagens.length > 0 && (
+          <View style={estilos.secao}>
+            <Text style={estilos.secaoTitulo}>Nossa Experiência</Text>
+            <View style={estilos.imagensLinha}>
+              {imagens.map((imagem, index) => (
+                <View key={index} style={{ width: "48%", marginBottom: 8 }}>
+                  {/* eslint-disable-next-line jsx-a11y/alt-text */}
+                  <Image src={imagem.url} style={estilos.imagem} />
+                  {imagem.legenda && <Text style={estilos.legenda}>{imagem.legenda}</Text>}
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
 
         <Rodape configEmpresa={configEmpresa} validadeDias={validadeDias} />
         <Text style={estilos.paginaNumero} render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} fixed />

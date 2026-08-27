@@ -94,6 +94,21 @@ const NOME_TIPO: Record<TipoItemEscopo, string> = {
   plano: "Plano",
 };
 
+/** Quantidade "física" de um item de escopo, na unidade natural do tipo —
+ * usada na coluna QTD. da tabela "Especificações Técnicas" das Propostas
+ * (ex.: "25 m" de tubulação, "2 un." de curva). Diferente de
+ * `metragemFinalItem`, que é sempre em m² (a área que entra no cálculo). */
+export function quantidadeEscopoItem(item: ItemEscopo): string {
+  switch (item.tipo) {
+    case "tubulacao":
+      return `${item.comprimento_m ?? "—"} m`;
+    case "curva":
+      return `${item.quantidade ?? "—"} un.`;
+    case "plano":
+      return "1";
+  }
+}
+
 export function descreverItemEscopo(item: ItemEscopo): string {
   switch (item.tipo) {
     case "tubulacao":

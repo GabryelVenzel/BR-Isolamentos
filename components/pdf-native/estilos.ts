@@ -29,7 +29,17 @@ export const CORES = {
 
 export const estilos = StyleSheet.create({
   pagina: {
-    padding: "18mm 15mm",
+    // Padding vertical assimétrico (bug reportado: texto sobrepondo o
+    // rodapé) — o rodapé é `position: absolute, bottom: 12mm` (ver
+    // `rodape` abaixo) e ocupa uns 3-4 linhas de texto acima disso; um
+    // `paddingBottom` de só 18mm não deixava espaço suficiente pro
+    // conteúdo normal do fluxo parar ANTES de onde o rodapé fixo é
+    // desenhado por cima. 34mm dá folga pro rodapé inteiro (~20mm de
+    // altura real) + uma margem de segurança.
+    paddingTop: "18mm",
+    paddingBottom: "34mm",
+    paddingLeft: "15mm",
+    paddingRight: "15mm",
     fontSize: 10.5,
     fontFamily: "Helvetica",
     color: CORES.cinza,

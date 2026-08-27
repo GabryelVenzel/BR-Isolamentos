@@ -3,42 +3,53 @@
 import { useEffect, useState, type ChangeEvent } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 
+type TipoImagem = "quente" | "frio" | "ambos" | null;
+
 interface ImagemProposta {
   id: number;
   storage_path: string;
   url: string;
   legenda: string | null;
+  /** Migração 022 — de que tipo de sistema é a instalação da foto, pra
+   * Proposta Técnica/Comercial filtrar por `orcamento.tipo_trabalho`. `null`
+   * = fotos cadastradas antes da migração, tratadas como "ambos". */
+  tipo_trabalho: TipoImagem;
 }
 
 const BUCKET = "propostas-imagens";
+const LABEL_TIPO: Record<Exclude<TipoImagem, null>, string> = { quente: "Quente", frio: "Frio", ambos: "Ambos" };
 
 interface Props {
-  /** Chamado depois de qualquer mudança na galeria (upload/remoção/legenda)
-   * — quem usa este componente embutido numa tela que também mostra essas
-   * imagens (ex.: app/orcamento/[id]/download-pdf/page.tsx, na prévia da
-   * Proposta Técnica) usa isso pra recarregar a própria lista, já que este
-   * componente gerencia seu estado internamente. */
+  /** Chamado depois de qualquer mudança na galeria (upload/remoção/legenda/
+   * tipo) — quem usa este componente embutido numa tela que também mostra
+   * essas imagens (app/orcamento/[id]/download-pdf/page.tsx) usa isso pra
+   * recarregar a própria lista, já que este componente gerencia seu estado
+   * internamente. */
   onChange?: () => void;
 }
 
 /**
- * Fotos institucionais reutilizadas em todas as Propostas Técnicas (ver
- * components/PDFPreviewTecnica.tsx). Fica vazio até o usuário subir as primeiras fotos
- * reais da empresa — nenhuma imagem é inventada/baixada da internet.
+ * Fotos institucionais reutilizadas nas Propostas Técnica e Comercial (ver
+ * components/pdf-native/*.tsx), filtradas por tipo de sistema (quente/frio/
+ * ambos, migração 022) conforme `orcamento.tipo_trabalho` de cada proposta
+ * gerada. Fica vazio até o usuário subir as primeiras fotos reais da
+ * empresa — nenhuma imagem é inventada/baixada da internet.
  *
- * Vive na tela de Gerar Proposta (não mais em Configurar Preços — preço e
- * fotos são assuntos diferentes) porque é ali que as imagens são
- * efetivamente usadas/visualizadas na prévia, não faz sentido gerenciá-las
- * numa tela de configuração financeira. Não lê a pasta local
- * `3-FotosEvideos` diretamente: é uma pasta do disco do desenvolvedor, fora
- * de `public/` e fora do controle de versão — o app publicado na Vercel não
- * tem acesso a ela (serverless não enxerga o disco local de quem
- * desenvolveu). O Supabase Storage é o único jeito de fotos ficarem
- * disponíveis pro app já publicado, então o mecanismo de upload continua
- * sendo este, só que relocado. */
+ * Não lê a pasta local `3-FotosEvideos` diretamente: é uma pasta do disco de
+ * quem desenvolve, fora de `public/` e fora do controle de versão — o app
+ * publicado na Vercel não tem acesso a ela (serverless não enxerga o disco
+ * local de quem desenvolveu). O Supabase Storage é o único jeito de fotos
+ * ficarem disponíveis pro app já publicado, então o upload continua sendo
+ * feito por aqui, pelo navegador, por quem já está logado no sistema.
+ *
+ * Vive na tela de Gerar Proposta (app/orcamento/[id]/download-pdf), dentro
+ * de um bloco recolhível — já foi removida daqui e de Configurar Preços em
+ * rodadas anteriores por deixar a tela poluída; o `<details>` resolve isso
+ * sem tirar a funcionalidade de novo. */
 export default function GaleriaImagensProposta({ onChange }: Props) {
   const [imagens, setImagens] = useState<ImagemProposta[]>([]);
-  const [enviando, setEnviando] = useState(false);
+  const [tipoNovoUpload, setTipoNovoUpload] = useState<TipoImagem>("ambos");
+  const [enviando, setEnviando] = useState<string | null>(null);
   const [erro, setErro] = useState<string | null>(null);
 
   async function carregar() {
@@ -52,37 +63,36 @@ export default function GaleriaImagensProposta({ onChange }: Props) {
     carregar();
   }, []);
 
-  async function enviarArquivo(event: ChangeEvent<HTMLInputElement>) {
-    const arquivo = event.target.files?.[0];
-    if (!arquivo) return;
+  async function enviarArquivos(event: ChangeEvent<HTMLInputElement>) {
+    const arquivos = Array.from(event.target.files ?? []);
+    if (arquivos.length === 0) return;
 
     setErro(null);
-    setEnviando(true);
-    try {
-      const supabase = createSupabaseBrowserClient();
+    const supabase = createSupabaseBrowserClient();
+
+    for (const arquivo of arquivos) {
+      setEnviando(arquivo.name);
       const caminho = `${Date.now()}-${arquivo.name}`;
 
       const { error: erroUpload } = await supabase.storage.from(BUCKET).upload(caminho, arquivo);
       if (erroUpload) {
-        setErro(`Erro ao enviar imagem: ${erroUpload.message}`);
-        return;
+        setErro(`Erro ao enviar "${arquivo.name}": ${erroUpload.message}`);
+        continue;
       }
 
       const { data: publicUrl } = supabase.storage.from(BUCKET).getPublicUrl(caminho);
 
       const { error: erroInsert } = await supabase
         .from("imagens_proposta")
-        .insert({ storage_path: caminho, url: publicUrl.publicUrl, legenda: null });
+        .insert({ storage_path: caminho, url: publicUrl.publicUrl, legenda: null, tipo_trabalho: tipoNovoUpload });
       if (erroInsert) {
-        setErro(`Erro ao salvar imagem: ${erroInsert.message}`);
-        return;
+        setErro(`Erro ao salvar "${arquivo.name}": ${erroInsert.message}`);
       }
-
-      await carregar();
-    } finally {
-      setEnviando(false);
-      event.target.value = "";
     }
+
+    await carregar();
+    setEnviando(null);
+    event.target.value = "";
   }
 
   async function remover(imagem: ImagemProposta) {
@@ -100,43 +110,74 @@ export default function GaleriaImagensProposta({ onChange }: Props) {
     onChange?.();
   }
 
+  async function atualizarTipo(imagem: ImagemProposta, tipo: TipoImagem) {
+    const supabase = createSupabaseBrowserClient();
+    await supabase.from("imagens_proposta").update({ tipo_trabalho: tipo }).eq("id", imagem.id);
+    setImagens((prev) => prev.map((i) => (i.id === imagem.id ? { ...i, tipo_trabalho: tipo } : i)));
+    onChange?.();
+  }
+
   return (
-    <div className="card space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold">Imagens da proposta técnica</h2>
+    <details className="card group">
+      <summary className="cursor-pointer text-lg font-semibold">📷 Gerenciar fotos de referência ({imagens.length})</summary>
+
+      <div className="mt-4 space-y-4">
         <p className="text-sm text-gray-500">
-          Fotos institucionais/de obras da BR Isolamentos, reutilizadas em toda Proposta
-          Técnica gerada. Nenhuma foto genérica é usada — só o que você subir aqui.
+          Fotos institucionais/de obras da BR Isolamentos, reutilizadas nas Propostas Técnica e Comercial — filtradas
+          automaticamente pelo tipo do orçamento (uma proposta "Frio" não mostra fotos marcadas só "Quente", e
+          vice-versa). Nenhuma foto genérica é usada — só o que você subir aqui.
         </p>
-      </div>
 
-      <div>
-        <input type="file" accept="image/*" onChange={enviarArquivo} disabled={enviando} />
-        {enviando && <p className="mt-1 text-sm text-gray-500">Enviando...</p>}
-        {erro && <p className="mt-1 text-sm text-red-600">{erro}</p>}
-      </div>
-
-      {imagens.length === 0 ? (
-        <p className="text-sm text-gray-400">Nenhuma imagem cadastrada ainda.</p>
-      ) : (
-        <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
-          {imagens.map((imagem) => (
-            <div key={imagem.id} className="space-y-2">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={imagem.url} alt={imagem.legenda ?? ""} className="h-32 w-full rounded-lg object-cover" />
-              <input
-                className="input-field text-xs"
-                placeholder="Legenda (opcional)"
-                defaultValue={imagem.legenda ?? ""}
-                onBlur={(e) => atualizarLegenda(imagem, e.target.value)}
-              />
-              <button type="button" className="text-xs text-red-500 hover:underline" onClick={() => remover(imagem)}>
-                remover
-              </button>
-            </div>
-          ))}
+        <div className="flex flex-wrap items-center gap-3">
+          <div>
+            <label className="label-field">Tipo das próximas fotos</label>
+            <select className="input-field" value={tipoNovoUpload ?? "ambos"} onChange={(e) => setTipoNovoUpload(e.target.value as TipoImagem)}>
+              <option value="ambos">Ambos (quente e frio)</option>
+              <option value="quente">Quente</option>
+              <option value="frio">Frio</option>
+            </select>
+          </div>
+          <div>
+            <label className="label-field">Selecionar fotos</label>
+            <input type="file" accept="image/*" multiple onChange={enviarArquivos} disabled={enviando !== null} />
+          </div>
         </div>
-      )}
-    </div>
+        {enviando && <p className="text-sm text-gray-500">Enviando "{enviando}"...</p>}
+        {erro && <p className="text-sm text-red-600">{erro}</p>}
+
+        {imagens.length === 0 ? (
+          <p className="text-sm text-gray-400">Nenhuma imagem cadastrada ainda.</p>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3">
+            {imagens.map((imagem) => (
+              <div key={imagem.id} className="space-y-2">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={imagem.url} alt={imagem.legenda ?? ""} className="h-32 w-full rounded-lg object-cover" />
+                <select
+                  className="input-field text-xs"
+                  value={imagem.tipo_trabalho ?? "ambos"}
+                  onChange={(e) => atualizarTipo(imagem, e.target.value as TipoImagem)}
+                >
+                  {(Object.keys(LABEL_TIPO) as Array<Exclude<TipoImagem, null>>).map((tipo) => (
+                    <option key={tipo} value={tipo}>
+                      {LABEL_TIPO[tipo]}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  className="input-field text-xs"
+                  placeholder="Legenda (opcional)"
+                  defaultValue={imagem.legenda ?? ""}
+                  onBlur={(e) => atualizarLegenda(imagem, e.target.value)}
+                />
+                <button type="button" className="text-xs text-red-500 hover:underline" onClick={() => remover(imagem)}>
+                  remover
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </details>
   );
 }
