@@ -138,8 +138,37 @@ export default function Step4PrecosPage() {
   const subtotalMaoObra = Number((horasMaoObraEfetiva * valorHoraEfetivo).toFixed(2));
   const subtotalTrecho = Number((subtotalMaterial + subtotalMaoObra).toFixed(2));
 
+  // Título real de cada linha (material/acabamento escolhido) — precificarTrecho()
+  // só conhece preços, não os nomes; sobrescrevemos aqui antes de persistir
+  // (migração 020) para a Proposta Comercial exibir "Fibra Cerâmica 96kg/m³",
+  // não um genérico "Isolante".
+  const TITULOS: Partial<Record<ChaveLinha, string>> = { isolante: nomeIsolante, acabamento: nomeAcabamento };
+
   function montarPayloadConfirmacao() {
     if (!base) return null;
+
+    // Reconstrói o detalhamento com o título real + quantidade/preço já com
+    // overrides aplicados (mesmas linhas exibidas na tabela acima) — é isso
+    // que fica persistido em `itens_orcamento.detalhamento_materiais` para a
+    // Proposta Comercial poder reconstruir a tabela depois de salvo.
+    const detalhamentoFinal =
+      tipoProposta === "somente_mo"
+        ? []
+        : linhas
+            .map((l) => {
+              const quantidade = valor(l.chave, "quantidade", l.quantidadeBase);
+              const precoUnitario = valor(l.chave, "precoUnitario", l.precoBase);
+              return {
+                chave: l.chave as "isolante" | "acabamento" | "rebite" | "parafuso" | "arame" | "silicone",
+                titulo: TITULOS[l.chave] ?? l.titulo,
+                quantidade,
+                unidade: l.unidadeQuantidade,
+                preco_unitario: precoUnitario,
+                subtotal: Number((quantidade * precoUnitario).toFixed(2)),
+              };
+            })
+            .filter((l) => l.quantidade > 0);
+
     return {
       materialNome: nomeIsolante,
       acabamentoNome: nomeAcabamento,
@@ -154,6 +183,7 @@ export default function Step4PrecosPage() {
         subtotal_material: subtotalMaterial,
         subtotal_mao_obra: subtotalMaoObra,
         subtotal_trecho: subtotalTrecho,
+        detalhamentoMateriais: detalhamentoFinal,
       },
     };
   }

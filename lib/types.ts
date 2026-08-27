@@ -126,8 +126,30 @@ export interface ItemOrcamento {
   subtotal_material: number;
   subtotal_mao_obra: number;
 
+  /** Detalhamento por material (isolante/acabamento/rebite/parafuso/arame/
+   * silicone) deste trecho, já com quantidade e preço finais (inclui
+   * overrides feitos no lápis da Tela 4) — persistido a partir da migração
+   * 020 especificamente para a Proposta Comercial poder reconstruir a
+   * mesma tabela de quantificação mostrada no wizard (antes disso só o
+   * total agregado em `subtotal_material` sobrevivia ao salvar). Vazio em
+   * orçamentos "somente_mo" e em orçamentos criados antes da migração 020,
+   * que só têm o agregado. */
+  detalhamento_materiais: LinhaDetalhamentoMaterial[];
+
   // Custo de materiais só deste item
   valor_materiais: number;
+}
+
+/** Uma linha da tabela de quantificação de materiais (ver `precificarTrecho`
+ * em lib/usecases/orcamento/precificarTrecho.ts) — mesmas linhas mostradas
+ * (com botão de editar) na Tela 4 do wizard, agora persistidas por trecho. */
+export interface LinhaDetalhamentoMaterial {
+  chave: "isolante" | "acabamento" | "rebite" | "parafuso" | "arame" | "silicone";
+  titulo: string;
+  quantidade: number;
+  unidade: string;
+  preco_unitario: number;
+  subtotal: number;
 }
 
 export interface Orcamento {
@@ -305,6 +327,27 @@ export interface ConfigEmpresa {
   /** Fator de rendimento da dupla brasileira — sempre aplicado. */
   eficiencia_fator_br: number;
   horas_uteis_dia: number;
+
+  // Condições comerciais e projeções exibidas nas Propostas (migração 020) —
+  // parâmetros de exibição/negociação, não entram no cálculo do orçamento em
+  // si (ver lib/orcamento.ts) — nunca hardcoded no template do PDF/Word, pra
+  // o dono da empresa poder ajustar sem precisar de um novo deploy.
+  /** Desconto oferecido para pagamento à vista, exibido nas Condições
+   * Comerciais da Proposta — é uma condição OFERECIDA ao cliente, não é
+   * aplicado automaticamente no cálculo do orçamento. */
+  desconto_avista_percentual: number;
+  /** Garantia de mão de obra (meses) exibida nas Propostas. */
+  garantia_mao_obra_meses: number;
+  /** Reajuste tarifário anual assumido SÓ na projeção de economia de 10 anos
+   * da Proposta Comercial — uma estimativa de mercado exibida como tal, não
+   * uma garantia contratual. 0 desliga a projeção com reajuste (mostra só a
+   * economia constante, sem crescimento). */
+  projecao_reajuste_tarifario_percentual: number;
+  /** kg de CO₂ absorvido por uma árvore adulta por ano — converte o CO₂
+   * evitado em "equivalência de árvores plantadas" na seção ambiental da
+   * proposta. Estimativa ilustrativa (varia muito por espécie/idade/fonte),
+   * não uma métrica de compensação de carbono certificada. */
+  co2_kg_por_arvore_ano: number;
 }
 
 /** Imposto/taxa adicional configurável livremente (ex.: INSS retido em cessão de mão

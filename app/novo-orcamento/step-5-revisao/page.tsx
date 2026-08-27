@@ -150,6 +150,7 @@ export default function Step5RevisaoPage() {
           horas_mao_obra: item.precificacao.horas_mao_obra,
           subtotal_material: item.precificacao.subtotal_material,
           subtotal_mao_obra: item.precificacao.subtotal_mao_obra,
+          detalhamento_materiais: item.precificacao.detalhamentoMateriais,
 
           valor_materiais: item.precificacao.subtotal_material,
         };

@@ -62,6 +62,23 @@ export const ItemOrcamentoSchema = z.object({
   horas_mao_obra: z.number().nonnegative().optional().default(0),
   subtotal_material: z.number().nonnegative().optional().default(0),
   subtotal_mao_obra: z.number().nonnegative().optional().default(0),
+  // Migração 020 — detalhamento por material (persistido para a Proposta
+  // Comercial poder reconstruir a tabela de quantificação). Default `[]`
+  // mantém compatibilidade com qualquer chamador antigo que ainda não manda
+  // esse campo.
+  detalhamento_materiais: z
+    .array(
+      z.object({
+        chave: z.enum(["isolante", "acabamento", "rebite", "parafuso", "arame", "silicone"]),
+        titulo: z.string(),
+        quantidade: z.number(),
+        unidade: z.string(),
+        preco_unitario: z.number(),
+        subtotal: z.number(),
+      })
+    )
+    .optional()
+    .default([]),
   valor_materiais: z.number().nonnegative(),
 });
 

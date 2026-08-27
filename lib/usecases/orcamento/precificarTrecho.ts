@@ -21,7 +21,7 @@
 // virar um cálculo automático (eficiência × horas base). Ver
 // quantificarMateriais.ts / calcularMaoObraAutomatica.ts.
 
-import type { ItemEscopo } from "../../types";
+import type { ItemEscopo, LinhaDetalhamentoMaterial } from "../../types";
 import { somarMetragemEscopo, temCurvasNoEscopo, temTubulacaoPequena } from "./escopo";
 import { calcularMaoObraAutomatica, type ParametrosMaoObra } from "./calcularMaoObraAutomatica";
 import { quantificarMateriais, type ParametrosQuantificacao } from "./quantificarMateriais";
@@ -48,9 +48,15 @@ export interface PrecificacaoTrecho {
   subtotal_material: number;
   subtotal_mao_obra: number;
   subtotal_trecho: number;
-  /** Só pra exibição/edição na Tela 4 — não persistido campo a campo (ver
-   * decisão 3 em sql-migration-019). */
+  /** Quantidades cruas (sem preço) — só apoio de cálculo/exibição na Tela 4. */
   quantidades: ReturnType<typeof quantificarMateriais>;
+  /** Mesmas linhas de `quantidades`, já com preço/subtotal e prontas para
+   * persistir (migração 020, `ItemOrcamento.detalhamento_materiais`) — a
+   * Tela 4 sobrescreve `titulo` (nome real do material/acabamento escolhido,
+   * que esta função não conhece) e os valores de linhas com override antes
+   * de salvar. Vazio quando `tipoProposta === "somente_mo"` ou quando a
+   * quantidade calculada é zero (acessório não usado pela empresa). */
+  detalhamentoMateriais: LinhaDetalhamentoMaterial[];
 }
 
 export function precificarTrecho(input: {
@@ -95,6 +101,22 @@ export function precificarTrecho(input: {
 
   const subtotalMaoObra = round2(maoObra.horasAjustadas * input.valorHoraMaoObra);
 
+  const detalhamentoMateriais: LinhaDetalhamentoMaterial[] =
+    input.tipoProposta === "somente_mo"
+      ? []
+      : (
+          [
+            { chave: "isolante", titulo: "Isolante", quantidade: quantidades.isolanteM2, unidade: "m²", preco_unitario: input.precoIsolanteM2 },
+            { chave: "acabamento", titulo: "Acabamento", quantidade: quantidades.acabamentoM2, unidade: "m²", preco_unitario: input.precoAcabamentoM2 },
+            { chave: "rebite", titulo: "Rebite", quantidade: quantidades.rebiteUn, unidade: "un.", preco_unitario: input.precosAcessorios.rebiteUn },
+            { chave: "parafuso", titulo: "Parafuso", quantidade: quantidades.parafusoUn, unidade: "un.", preco_unitario: input.precosAcessorios.parafusoUn },
+            { chave: "arame", titulo: "Arame", quantidade: quantidades.arameGramas, unidade: "g", preco_unitario: input.precosAcessorios.arameKg / 1000 },
+            { chave: "silicone", titulo: "Silicone", quantidade: quantidades.siliconeFrascos, unidade: "frasco(s)", preco_unitario: input.precosAcessorios.siliconeFrasco },
+          ] as const
+        )
+          .filter((l) => l.quantidade > 0)
+          .map((l) => ({ ...l, subtotal: round2(l.quantidade * l.preco_unitario) }));
+
   return {
     metragem_m2: metragem,
     preco_isolante_m2: input.precoIsolanteM2,
@@ -106,6 +128,7 @@ export function precificarTrecho(input: {
     subtotal_mao_obra: subtotalMaoObra,
     subtotal_trecho: round2(subtotalMaterial + subtotalMaoObra),
     quantidades,
+    detalhamentoMateriais,
   };
 }
 

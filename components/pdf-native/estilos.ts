@@ -248,4 +248,44 @@ export const estilos = StyleSheet.create({
     fontSize: 8,
     color: CORES.cinzaClaro,
   },
+  // Caixa de destaque para Análise de Payback/ROI (Proposta Comercial) —
+  // mesma ideia visual de `totalCaixa`, mas com borda de cor pra chamar mais
+  // atenção (é o "argumento de fechamento" da proposta).
+  caixaRoi: {
+    backgroundColor: CORES.accentLight,
+    borderWidth: 1.5,
+    borderColor: CORES.accent,
+    borderRadius: 6,
+    padding: 12,
+    marginTop: 10,
+    marginBottom: 10,
+  },
+  roiTitulo: {
+    fontSize: 11,
+    fontFamily: "Helvetica-Bold",
+    color: CORES.accent,
+    textTransform: "uppercase",
+    marginBottom: 6,
+  },
+  roiLinhaGrande: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "baseline",
+    marginTop: 4,
+  },
+  roiLabelGrande: {
+    fontSize: 10,
+    color: CORES.cinza,
+  },
+  roiValorGrande: {
+    fontSize: 18,
+    fontFamily: "Helvetica-Bold",
+    color: CORES.accent,
+  },
+  notaRodape: {
+    fontSize: 7.5,
+    color: CORES.cinzaClaro,
+    marginTop: 4,
+    fontStyle: "italic",
+  },
 });

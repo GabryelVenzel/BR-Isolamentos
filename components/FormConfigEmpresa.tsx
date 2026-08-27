@@ -44,6 +44,16 @@ const CAMPOS_MAO_OBRA: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo:
   { nome: "horas_uteis_dia", label: "Horas úteis por dia", sufixo: "h" },
 ];
 
+// Condições comerciais e projeções exibidas nas Propostas (migração 020) —
+// nunca hardcoded no template do PDF/Word, ver decisão 2 em
+// sql-migration-020-detalhamento-propostas.sql.
+const CAMPOS_PROPOSTA: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo: string }> = [
+  { nome: "desconto_avista_percentual", label: "Desconto à vista", sufixo: "%" },
+  { nome: "garantia_mao_obra_meses", label: "Garantia de mão de obra", sufixo: "meses" },
+  { nome: "projecao_reajuste_tarifario_percentual", label: "Reajuste tarifário (projeção 10 anos)", sufixo: "% a.a." },
+  { nome: "co2_kg_por_arvore_ano", label: "CO₂ absorvido por árvore", sufixo: "kg/ano" },
+];
+
 export default function FormConfigEmpresa({ config }: Props) {
   const [valores, setValores] = useState<ConfigEmpresa>(config);
   const [salvando, setSalvando] = useState(false);
@@ -202,6 +212,25 @@ export default function FormConfigEmpresa({ config }: Props) {
         </p>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {CAMPOS_MAO_OBRA.map((campo) => (
+            <div key={campo.nome}>
+              <label className="label-field">
+                {campo.label} <span className="text-gray-400">({campo.sufixo})</span>
+              </label>
+              {numero(campo.nome)}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <h3 className="mb-2 text-sm font-semibold text-gray-600">Propostas — condições comerciais e projeções</h3>
+        <p className="mb-3 text-xs text-gray-500">
+          Exibidos nas Propostas Técnica/Comercial (Condições Comerciais, Análise de Payback e Benefícios
+          Ambientais). O reajuste tarifário é uma estimativa de mercado usada só na projeção de 10 anos — não altera
+          o cálculo do orçamento em si.
+        </p>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {CAMPOS_PROPOSTA.map((campo) => (
             <div key={campo.nome}>
               <label className="label-field">
                 {campo.label} <span className="text-gray-400">({campo.sufixo})</span>

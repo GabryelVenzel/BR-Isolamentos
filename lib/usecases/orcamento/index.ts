@@ -20,3 +20,13 @@ export { quantificarMateriais } from "./quantificarMateriais";
 export type { ParametrosQuantificacao, QuantificacaoMateriais } from "./quantificarMateriais";
 export { calcularMaoObraAutomatica } from "./calcularMaoObraAutomatica";
 export type { FatoresMaoObra, MaoObraAutomatica, ParametrosMaoObra } from "./calcularMaoObraAutomatica";
+export {
+  arvoresEquivalentes,
+  calcularBeneficiosConsolidados,
+  calcularPaybackDias,
+  calcularPaybackMeses,
+  prazoExecucaoDiasUteis,
+  projetarEconomiaAcumulada,
+  temAnaliseFinanceira,
+} from "./analiseProposta";
+export type { BeneficiosConsolidados, LinhaProjecao } from "./analiseProposta";
