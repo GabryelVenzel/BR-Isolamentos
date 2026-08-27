@@ -26,6 +26,10 @@ export default function Step5RevisaoPage() {
   const [recalculando, setRecalculando] = useState(false);
   const [salvando, setSalvando] = useState<"rascunho" | "proposta" | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  // Nota livre pro orçamento — não faz parte do estado persistido do wizard
+  // (Zustand), só existe nesta tela; vai direto no payload de salvar. Também
+  // editável depois em /orcamento/[id]/editar (migração 021).
+  const [observacoesAdicionais, setObservacoesAdicionais] = useState("");
 
   useEffect(() => {
     Promise.all([fetch("/api/config-empresa").then((r) => r.json()), fetch("/api/impostos-config").then((r) => r.json())]).then(
@@ -176,6 +180,7 @@ export default function Step5RevisaoPage() {
 
         status,
         itens: itensPayload,
+        observacoes_adicionais: observacoesAdicionais.trim() || null,
       };
 
       const response = await fetch("/api/orcamentos", {
@@ -271,6 +276,19 @@ export default function Step5RevisaoPage() {
       {/* Custos operacionais: campos de edição movidos pra Tela 4 (pedido
           explícito) — aqui só o resumo financeiro final (abaixo), que já
           mostra Deslocamento/Hospedagem/Frete calculados. */}
+
+      <div className="card space-y-2">
+        <h2 className="text-lg font-semibold">Observações adicionais (opcional)</h2>
+        <p className="text-xs text-gray-400">
+          Aparece numa seção própria da Proposta Comercial, quando preenchida. Editável depois em Editar Orçamento.
+        </p>
+        <textarea
+          className="input-field h-24"
+          value={observacoesAdicionais}
+          onChange={(e) => setObservacoesAdicionais(e.target.value)}
+          placeholder="Ex.: Cliente optou por isolante com melhor custo-benefício..."
+        />
+      </div>
 
       {resultadoOrcamento && (
         <div className="card space-y-2 text-sm">

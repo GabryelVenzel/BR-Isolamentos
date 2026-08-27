@@ -3,6 +3,9 @@ import {
   calcularBeneficiosConsolidados,
   calcularPaybackDias,
   calcularPaybackMeses,
+  descricaoMaterialCompleta,
+  itensContemplados,
+  itensNaoContemplados,
   prazoExecucaoDiasUteis,
   projetarEconomiaAcumulada,
   temAnaliseFinanceira,
@@ -147,5 +150,41 @@ describe("temAnaliseFinanceira", () => {
     expect(temAnaliseFinanceira({ valor_final: 1000 }, 500)).toBe(true);
     expect(temAnaliseFinanceira({ valor_final: 0 }, 500)).toBe(false);
     expect(temAnaliseFinanceira({ valor_final: 1000 }, 0)).toBe(false);
+  });
+});
+
+describe("descricaoMaterialCompleta", () => {
+  it("combina material + especificação + espessura num único texto", () => {
+    expect(
+      descricaoMaterialCompleta({ material: "Fibra Cerâmica", especificacao_isolante: "96kg/m³", espessura_necessaria_mm: 51 })
+    ).toBe("Fibra Cerâmica 96kg/m³ 51mm");
+  });
+
+  it("omite a espessura quando zero (ex.: material customizado sem cálculo térmico)", () => {
+    expect(descricaoMaterialCompleta({ material: "Manta X", especificacao_isolante: null, espessura_necessaria_mm: 0 })).toBe("Manta X");
+  });
+
+  it("omite a especificação quando null, sem deixar espaço duplo", () => {
+    expect(descricaoMaterialCompleta({ material: "Lã de Rocha", especificacao_isolante: null, espessura_necessaria_mm: 40 })).toBe(
+      "Lã de Rocha 40mm"
+    );
+  });
+});
+
+describe("itensContemplados / itensNaoContemplados", () => {
+  it("material_mo contempla material e acabamento; somente_mo não", () => {
+    expect(itensContemplados("material_mo")).toContain("Material isolante completo");
+    expect(itensContemplados("somente_mo")).not.toContain("Material isolante completo");
+  });
+
+  it("somente_mo lista material/acabamento como não contemplado; material_mo não", () => {
+    expect(itensNaoContemplados("somente_mo").some((t) => t.includes("Material isolante"))).toBe(true);
+    expect(itensNaoContemplados("material_mo").some((t) => t.includes("Material isolante"))).toBe(false);
+  });
+
+  it("acesso para trabalho em altura nunca está contemplado, em nenhum dos dois tipos", () => {
+    for (const tipo of ["material_mo", "somente_mo"] as const) {
+      expect(itensNaoContemplados(tipo).some((t) => t.includes("trabalho em altura"))).toBe(true);
+    }
   });
 });

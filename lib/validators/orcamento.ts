@@ -103,6 +103,8 @@ export const CreateOrcamentoSchema = z.object({
   preco_cheio: z.number().nonnegative(),
   valor_final: z.number().nonnegative(),
   status: StatusOrcamentoSchema.optional(),
+  // Migração 021 — nota livre exibida na Proposta Comercial quando preenchida.
+  observacoes_adicionais: z.string().nullable().optional(),
 });
 
 export const UpdateOrcamentoSchema = CreateOrcamentoSchema.partial();

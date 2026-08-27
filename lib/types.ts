@@ -197,6 +197,10 @@ export interface Orcamento {
   // do dashboard executivo (módulo Resumo).
   atribuido_a: string | null;
 
+  /** Nota livre digitada na Revisão (Tela 5) ou depois em Editar Orçamento —
+   * exibida na Proposta Comercial quando preenchida (migração 021). */
+  observacoes_adicionais: string | null;
+
   // Preenchido via join, opcional
   cliente?: Cliente;
   itens?: ItemOrcamento[];
@@ -348,6 +352,13 @@ export interface ConfigEmpresa {
    * proposta. Estimativa ilustrativa (varia muito por espécie/idade/fonte),
    * não uma métrica de compensação de carbono certificada. */
   co2_kg_por_arvore_ano: number;
+  /** Validade da proposta (dias) — exibida nas Propostas (migração 021),
+   * substitui o "30 dias" que antes era fixo no template. */
+  validade_proposta_dias: number;
+  /** Descrição padrão da forma de pagamento (linha principal, além do
+   * desconto à vista e do "parcelado: consulte" que continuam fixos) —
+   * migração 021. */
+  forma_pagamento_padrao: string;
 }
 
 /** Imposto/taxa adicional configurável livremente (ex.: INSS retido em cessão de mão

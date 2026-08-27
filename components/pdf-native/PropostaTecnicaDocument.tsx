@@ -8,16 +8,31 @@
 // manual — cada <Page> é uma folha real, o conteúdo que não cabe flui pra
 // próxima página sozinho.
 //
-// Estrutura elaborada (pedido "PROPOSTAS TÉCNICA E COMERCIAL ELABORADAS") —
-// ver decisão de arquitetura no topo de PropostaComercialDocument.tsx: as
-// "6 variações" (Material+MO/Somente MO × Quente/Frio/Mista) não viraram 6
-// templates separados, e sim um único documento que reage aos dados reais do
-// orçamento (presença de trechos quentes/frios, tipo_proposta) — mais fácil
-// de manter e sem duplicação de texto entre variações.
+// Estrutura elaborada (pedidos "PROPOSTAS TÉCNICA E COMERCIAL ELABORADAS" e
+// "REFATORAÇÃO PROPOSTAS TÉCNICA E COMERCIAL") — ver decisão de arquitetura
+// no topo de PropostaComercialDocument.tsx: as "6 variações" (Material+MO/
+// Somente MO × Quente/Frio/Mista) não viraram 6 templates separados, e sim
+// um único documento que reage aos dados reais do orçamento (presença de
+// trechos quentes/frios, tipo_proposta) — mais fácil de manter e sem
+// duplicação de texto entre variações.
+//
+// O segundo pedido ("REFATORAÇÃO...") descreve arquivos/rotas que não
+// existem neste projeto (app/orcamento/etapas/..., componentes em Tailwind
+// com <img>/gradiente) — ver decisão 1 em
+// sql-migration-021-observacoes-e-validade-proposta.sql. O conteúdo pedido
+// foi adaptado pra cá. Também substituí as normas citadas nesse pedido
+// (ASHRAE 90.1, NBR 15220, ISO 9001) pelas normas REAIS que o motor de
+// cálculo (lib/calculadora-termica.ts) de fato implementa — ASTM C680, ISO
+// 12241, ABNT NBR 16281 — pra não afirmar conformidade com norma que o
+// sistema não verifica. Pelo mesmo motivo, não incluí o "fator de segurança
+// 1.5x" nem "vida útil de 15-20 anos" do pedido original: são números que o
+// motor não calcula e que eu não tenho como validar como fato da empresa.
 
 import { Document, Page, Text, View, Image } from "@react-pdf/renderer";
 import { formatarData, formatarMoeda, formatarNumero } from "@/lib/format";
-import { estilos } from "./estilos";
+import { descricaoMaterialCompleta, itensContemplados, itensNaoContemplados } from "@/lib/usecases/orcamento";
+import { CORES, estilos } from "./estilos";
+import CapaProposta from "./CapaProposta";
 import type { ConfigEmpresa, Orcamento } from "@/lib/types";
 
 interface ImagemProposta {
@@ -53,7 +68,7 @@ function Cabecalho({ orcamento }: { orcamento: Orcamento }) {
   );
 }
 
-function Rodape({ configEmpresa }: { configEmpresa?: ConfigEmpresa | null }) {
+function Rodape({ configEmpresa, validadeDias }: { configEmpresa?: ConfigEmpresa | null; validadeDias: number }) {
   const contato = [configEmpresa?.telefone_empresa, configEmpresa?.email_empresa].filter(Boolean).join("  ·  ");
   return (
     <View style={estilos.rodape} fixed>
@@ -62,7 +77,7 @@ function Rodape({ configEmpresa }: { configEmpresa?: ConfigEmpresa | null }) {
       {contato && <Text style={estilos.rodapeContato}>{contato}</Text>}
       <Text style={estilos.rodapeObs}>
         Proposta técnica sem valores comerciais — consulte a Proposta Comercial para o investimento. Orçamento válido
-        por 30 dias. Cálculos conforme normas ASTM C680, ISO 12241 e ABNT NBR 16281.
+        por {validadeDias} dias. Cálculos conforme normas ASTM C680, ISO 12241 e ABNT NBR 16281.
       </Text>
     </View>
   );
@@ -75,6 +90,7 @@ export default function PropostaTecnicaDocument({ orcamento, imagens = [], confi
   const temQuente = itensQuentes.length > 0;
   const temFrio = itensFrios.length > 0;
   const trechosAltura = itens.filter((i) => i.trabalho_altura).length;
+  const validadeDias = configEmpresa?.validade_proposta_dias ?? 30;
 
   // Faixa de redução de perda térmica (só itens com perda_sem_isolante > 0,
   // ou seja, que efetivamente rodaram o cálculo térmico — trechos com
@@ -86,10 +102,15 @@ export default function PropostaTecnicaDocument({ orcamento, imagens = [], confi
   const reducaoMax = reducoes.length > 0 ? Math.max(...reducoes) : null;
   const maiorFaceFria = itensQuentes.reduce((max, i) => (i.temperatura_face_fria != null ? Math.max(max, i.temperatura_face_fria) : max), -Infinity);
 
+  const contempla = itensContemplados(orcamento.tipo_proposta);
+  const naoContempla = itensNaoContemplados(orcamento.tipo_proposta);
+
   let numeroSecao = 2; // 1. já é "Por que isolar termicamente"
 
   return (
     <Document title={`Proposta Técnica ${orcamento.numero}`}>
+      <CapaProposta tipo="tecnica" orcamento={orcamento} />
+
       <Page size="A4" style={estilos.pagina} wrap>
         <Cabecalho orcamento={orcamento} />
 
@@ -106,7 +127,7 @@ export default function PropostaTecnicaDocument({ orcamento, imagens = [], confi
             {LABEL_PROPOSTA[orcamento.tipo_proposta] ?? orcamento.tipo_proposta}
           </Text>
           <Text style={estilos.caixaClienteLinha}>
-            Normas aplicadas: ASTM C680, ISO 12241, ABNT NBR 16281 · Validade da proposta: 30 dias
+            Normas aplicadas: ASTM C680, ISO 12241, ABNT NBR 16281 · Validade da proposta: {validadeDias} dias
           </Text>
         </View>
 
@@ -145,12 +166,12 @@ export default function PropostaTecnicaDocument({ orcamento, imagens = [], confi
             </Text>
             {itensQuentes.map((item) => (
               <View key={item.id} style={estilos.blocoDestaque}>
-                <Text style={estilos.blocoTitulo}>
-                  {item.material}
-                  {item.acabamento ? ` · ${item.acabamento}` : ""}
-                </Text>
+                <Text style={estilos.blocoTitulo}>{descricaoMaterialCompleta(item)}</Text>
                 <Text style={estilos.paragrafo}>Perda de calor sem isolante: {formatarNumero(item.perda_sem_isolante, 3)} kW/m²</Text>
                 <Text style={estilos.paragrafo}>Perda de calor com isolante: {formatarNumero(item.perda_com_isolante, 3)} kW/m²</Text>
+                <Text style={estilos.paragrafo}>
+                  Subtotal do trecho: {formatarNumero(item.perda_com_isolante * item.area_m2, 2)} kW em {formatarNumero(item.area_m2)} m²
+                </Text>
                 {item.economia_anual != null && (
                   <Text style={estilos.paragrafo}>Economia anual estimada: {formatarMoeda(item.economia_anual)}</Text>
                 )}
@@ -174,10 +195,15 @@ export default function PropostaTecnicaDocument({ orcamento, imagens = [], confi
             </Text>
             {itensFrios.map((item) => (
               <View key={item.id} style={estilos.blocoDestaqueFrio}>
-                <Text style={estilos.blocoTitulo}>{item.material}</Text>
+                <Text style={estilos.blocoTitulo}>{descricaoMaterialCompleta(item)}</Text>
                 <Text style={estilos.paragrafo}>Espessura mínima recomendada: {formatarNumero(item.espessura_necessaria_mm, 1)} mm</Text>
               </View>
             ))}
+            <Text style={{ ...estilos.notaRodape, marginTop: 4 }}>
+              ⚠ Variação estimada de ±5%: os cálculos de perda térmica no lado frio dependem de condições
+              operacionais e de propriedades dos materiais isolantes em campo, que podem variar em relação ao
+              projetado — a espessura especificada já incorpora essa margem de segurança.
+            </Text>
           </View>
         )}
 
@@ -200,6 +226,25 @@ export default function PropostaTecnicaDocument({ orcamento, imagens = [], confi
               )}
             </View>
           ))}
+
+          <View style={{ marginTop: 10, flexDirection: "row", gap: 16 }}>
+            <View style={{ flex: 1 }}>
+              <Text style={{ ...estilos.blocoTitulo, fontSize: 9.5 }}>✅ O orçamento contempla</Text>
+              {contempla.map((texto) => (
+                <Text key={texto} style={estilos.listaItem}>
+                  • {texto}
+                </Text>
+              ))}
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={{ ...estilos.blocoTitulo, fontSize: 9.5, color: CORES.erro }}>❌ Não contemplado</Text>
+              {naoContempla.map((texto) => (
+                <Text key={texto} style={estilos.listaItem}>
+                  • {texto}
+                </Text>
+              ))}
+            </View>
+          </View>
         </View>
 
         <View style={estilos.secao} wrap={false}>
@@ -207,20 +252,18 @@ export default function PropostaTecnicaDocument({ orcamento, imagens = [], confi
           <View style={estilos.tabela}>
             <View style={estilos.linhaCabecalho}>
               <Text style={estilos.celulaCabecalho}>Trecho</Text>
-              <Text style={{ ...estilos.celulaCabecalho, flex: 2 }}>Material</Text>
+              <Text style={{ ...estilos.celulaCabecalho, flex: 3 }}>Material</Text>
               <Text style={estilos.celulaCabecalho}>Geometria</Text>
               <Text style={estilos.celulaCabecalho}>Área</Text>
-              <Text style={estilos.celulaCabecalho}>Espessura</Text>
             </View>
             {itens.map((item, index) => (
               <View key={item.id} style={estilos.linha}>
                 <Text style={estilos.celula}>
                   {index + 1} ({LABEL_TIPO[item.tipo_trabalho]})
                 </Text>
-                <Text style={{ ...estilos.celula, flex: 2 }}>{item.material}</Text>
+                <Text style={{ ...estilos.celula, flex: 3 }}>{descricaoMaterialCompleta(item)}</Text>
                 <Text style={estilos.celula}>{item.geometria === "tubulacao" ? "Tubulação" : "Sup. plana"}</Text>
                 <Text style={estilos.celula}>{formatarNumero(item.area_m2)} m²</Text>
-                <Text style={estilos.celula}>{formatarNumero(item.espessura_necessaria_mm, 1)} mm</Text>
               </View>
             ))}
           </View>
@@ -251,6 +294,25 @@ export default function PropostaTecnicaDocument({ orcamento, imagens = [], confi
         </View>
 
         <View style={estilos.secao} wrap={false}>
+          <Text style={estilos.secaoTitulo}>{numeroSecao++}. Metodologia e padrões técnicos</Text>
+          <Text style={{ ...estilos.paragrafo, marginBottom: 4 }}>
+            <Text style={{ fontFamily: "Helvetica-Bold" }}>Normas de referência: </Text>
+            ASTM C680 (cálculo de transferência de calor em superfícies isoladas), ISO 12241 (isolamento térmico de
+            equipamentos e sistemas industriais) e ABNT NBR 16281 (isolamento térmico — terminologia).
+          </Text>
+          <Text style={{ ...estilos.paragrafo, marginBottom: 4 }}>
+            <Text style={{ fontFamily: "Helvetica-Bold" }}>Método de cálculo: </Text>
+            resolução iterativa do equilíbrio entre condução (através do isolante), convecção (natural ou forçada) e
+            radiação na face externa — ver seção 2, "Princípios físicos aplicados".
+          </Text>
+          <Text style={estilos.paragrafo}>
+            <Text style={{ fontFamily: "Helvetica-Bold" }}>Condições consideradas: </Text>
+            temperaturas de processo/ambiente, velocidade do vento e (em sistemas frios) umidade relativa informados
+            para cada trecho — ver tabela de parâmetros de cálculo acima.
+          </Text>
+        </View>
+
+        <View style={estilos.secao} wrap={false}>
           <Text style={estilos.secaoTitulo}>{numeroSecao++}. Conclusões e recomendações</Text>
           {reducaoMin != null && reducaoMax != null && (
             <Text style={estilos.listaItem}>
@@ -261,7 +323,7 @@ export default function PropostaTecnicaDocument({ orcamento, imagens = [], confi
           {Number.isFinite(maiorFaceFria) && (
             <Text style={estilos.listaItem}>
               • Com o isolamento, a temperatura de face fria estimada fica em até {formatarNumero(maiorFaceFria, 1)}°C — dentro da
-              faixa geralmente considerada seguras ao toque para superfícies acessíveis (referência usual: abaixo de 60°C).
+              faixa geralmente considerada segura ao toque para superfícies acessíveis (referência usual: abaixo de 60°C).
             </Text>
           )}
           {temFrio && (
@@ -299,7 +361,7 @@ export default function PropostaTecnicaDocument({ orcamento, imagens = [], confi
           </View>
         )}
 
-        <Rodape configEmpresa={configEmpresa} />
+        <Rodape configEmpresa={configEmpresa} validadeDias={validadeDias} />
         <Text
           style={estilos.paginaNumero}
           render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`}

@@ -6,6 +6,10 @@
 // marca, exigiriam Font.register() com um arquivo .ttf/.woff que não temos
 // aqui; um registro de fonte que falhar silenciosamente quebraria a geração
 // do PDF inteiro, risco maior do que vale a pena só pra bater a fonte exata).
+//
+// Tamanhos de fonte aumentados (pedido "REFATORAÇÃO PROPOSTAS TÉCNICA E
+// COMERCIAL" — legibilidade em impressão) e colunas de tabela centralizadas
+// por padrão nesta rodada.
 
 import { StyleSheet } from "@react-pdf/renderer";
 
@@ -26,7 +30,7 @@ export const CORES = {
 export const estilos = StyleSheet.create({
   pagina: {
     padding: "18mm 15mm",
-    fontSize: 9.5,
+    fontSize: 10.5,
     fontFamily: "Helvetica",
     color: CORES.cinza,
   },
@@ -37,12 +41,12 @@ export const estilos = StyleSheet.create({
     marginBottom: 4,
   },
   marca: {
-    fontSize: 16,
+    fontSize: 17,
     fontFamily: "Helvetica-Bold",
     color: CORES.brand,
   },
   titulo: {
-    fontSize: 13,
+    fontSize: 14,
     fontFamily: "Helvetica-Bold",
     color: CORES.brand,
     marginTop: 4,
@@ -51,11 +55,11 @@ export const estilos = StyleSheet.create({
     alignItems: "flex-end",
   },
   cabecalhoTexto: {
-    fontSize: 9,
+    fontSize: 9.5,
     color: CORES.cinzaClaro,
   },
   cabecalhoNumero: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontFamily: "Helvetica-Bold",
     color: CORES.brand,
   },
@@ -69,14 +73,14 @@ export const estilos = StyleSheet.create({
     marginBottom: 14,
   },
   secaoTitulo: {
-    fontSize: 10,
+    fontSize: 11,
     fontFamily: "Helvetica-Bold",
     color: CORES.brand,
     textTransform: "uppercase",
     marginBottom: 6,
   },
   paragrafo: {
-    fontSize: 9.5,
+    fontSize: 10.5,
     lineHeight: 1.5,
     color: CORES.cinza,
   },
@@ -87,12 +91,12 @@ export const estilos = StyleSheet.create({
     marginBottom: 14,
   },
   caixaClienteNome: {
-    fontSize: 10.5,
+    fontSize: 11.5,
     fontFamily: "Helvetica-Bold",
     color: CORES.cinza,
   },
   caixaClienteLinha: {
-    fontSize: 9,
+    fontSize: 9.5,
     color: CORES.cinzaClaro,
     marginTop: 2,
   },
@@ -113,7 +117,7 @@ export const estilos = StyleSheet.create({
     marginBottom: 8,
   },
   blocoTitulo: {
-    fontSize: 9.5,
+    fontSize: 10.5,
     fontFamily: "Helvetica-Bold",
     color: CORES.brand,
     marginBottom: 2,
@@ -132,25 +136,30 @@ export const estilos = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: CORES.cinzaMuitoClaro,
   },
+  // Colunas centralizadas por padrão (pedido explícito) — a primeira coluna
+  // de texto longo (Material/Item) normalmente recebe `flex: 2` na própria
+  // tabela, então centralizar não prejudica a leitura mesmo em textos maiores.
   celulaCabecalho: {
     flex: 1,
     padding: 5,
-    fontSize: 8.5,
+    fontSize: 9,
     fontFamily: "Helvetica-Bold",
     color: CORES.brand,
     textTransform: "uppercase",
+    textAlign: "center",
   },
   celula: {
     flex: 1,
     padding: 5,
-    fontSize: 8.5,
+    fontSize: 9,
     color: CORES.cinza,
+    textAlign: "center",
   },
-  celulaDireita: {
-    textAlign: "right",
+  celulaEsquerda: {
+    textAlign: "left",
   },
   listaItem: {
-    fontSize: 9,
+    fontSize: 10,
     color: CORES.cinza,
     marginBottom: 2,
     marginLeft: 8,
@@ -163,11 +172,11 @@ export const estilos = StyleSheet.create({
     borderBottomColor: CORES.cinzaMuitoClaro,
   },
   linhaFinanceiraLabel: {
-    fontSize: 9.5,
+    fontSize: 10,
     color: CORES.cinzaClaro,
   },
   linhaFinanceiraValor: {
-    fontSize: 9.5,
+    fontSize: 10,
     fontFamily: "Helvetica-Bold",
     color: CORES.cinza,
   },
@@ -187,13 +196,13 @@ export const estilos = StyleSheet.create({
     paddingTop: 6,
   },
   totalLabel: {
-    fontSize: 10,
+    fontSize: 10.5,
     fontFamily: "Helvetica-Bold",
     color: CORES.brand,
     textTransform: "uppercase",
   },
   totalValor: {
-    fontSize: 16,
+    fontSize: 17,
     fontFamily: "Helvetica-Bold",
     color: CORES.accent,
   },
@@ -210,7 +219,7 @@ export const estilos = StyleSheet.create({
     gap: 8,
   },
   legenda: {
-    fontSize: 7.5,
+    fontSize: 8,
     color: CORES.cinzaClaro,
     marginTop: 2,
   },
@@ -226,18 +235,18 @@ export const estilos = StyleSheet.create({
     marginBottom: 6,
   },
   rodapeMarca: {
-    fontSize: 7.5,
+    fontSize: 8,
     fontFamily: "Helvetica-Bold",
     color: CORES.accent,
     textTransform: "uppercase",
   },
   rodapeContato: {
-    fontSize: 7.5,
+    fontSize: 8,
     color: CORES.cinzaClaro,
     marginTop: 2,
   },
   rodapeObs: {
-    fontSize: 6.5,
+    fontSize: 7,
     color: "#9CA3AF",
     marginTop: 3,
   },
@@ -245,7 +254,7 @@ export const estilos = StyleSheet.create({
     position: "absolute",
     bottom: "12mm",
     right: "15mm",
-    fontSize: 8,
+    fontSize: 8.5,
     color: CORES.cinzaClaro,
   },
   // Caixa de destaque para Análise de Payback/ROI (Proposta Comercial) —
@@ -261,7 +270,7 @@ export const estilos = StyleSheet.create({
     marginBottom: 10,
   },
   roiTitulo: {
-    fontSize: 11,
+    fontSize: 11.5,
     fontFamily: "Helvetica-Bold",
     color: CORES.accent,
     textTransform: "uppercase",
@@ -274,7 +283,7 @@ export const estilos = StyleSheet.create({
     marginTop: 4,
   },
   roiLabelGrande: {
-    fontSize: 10,
+    fontSize: 10.5,
     color: CORES.cinza,
   },
   roiValorGrande: {
@@ -283,9 +292,66 @@ export const estilos = StyleSheet.create({
     color: CORES.accent,
   },
   notaRodape: {
-    fontSize: 7.5,
+    fontSize: 8,
     color: CORES.cinzaClaro,
     marginTop: 4,
     fontStyle: "italic",
+  },
+  // Página de capa (Document com múltiplas <Page>, uma delas full-bleed na
+  // cor da marca) — components/pdf-native/CapaProposta.tsx.
+  paginaCapa: {
+    backgroundColor: CORES.brand,
+    padding: "24mm 20mm",
+    height: "100%",
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  capaLogo: {
+    width: "60mm",
+    height: "60mm",
+    objectFit: "contain",
+    marginBottom: 28,
+  },
+  capaTitulo: {
+    fontSize: 26,
+    fontFamily: "Helvetica-Bold",
+    color: CORES.branco,
+    textAlign: "center",
+    textTransform: "uppercase",
+    marginBottom: 10,
+  },
+  capaSubtitulo: {
+    fontSize: 13,
+    color: CORES.brandLight,
+    textAlign: "center",
+    marginBottom: 40,
+  },
+  capaInfoBloco: {
+    alignItems: "center",
+    marginTop: 20,
+  },
+  capaInfoLinha: {
+    fontSize: 11,
+    color: CORES.brandLight,
+    textAlign: "center",
+    marginTop: 4,
+  },
+  capaInfoDestaque: {
+    fontSize: 15,
+    fontFamily: "Helvetica-Bold",
+    color: CORES.branco,
+    textAlign: "center",
+    marginTop: 4,
+  },
+  capaRodape: {
+    position: "absolute",
+    bottom: "18mm",
+    left: 0,
+    right: 0,
+    textAlign: "center",
+    fontSize: 9,
+    color: CORES.brandLight,
   },
 });

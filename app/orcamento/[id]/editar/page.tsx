@@ -164,6 +164,17 @@ export default function EditarOrcamentoPage() {
         </p>
       </div>
 
+      <div className="card space-y-2">
+        <label className="label-field">Observações adicionais</label>
+        <p className="text-xs text-gray-400">Aparece numa seção própria da Proposta Comercial, quando preenchida.</p>
+        <textarea
+          className="input-field h-24"
+          value={orcamento.observacoes_adicionais ?? ""}
+          onChange={(e) => atualizarCampo("observacoes_adicionais", e.target.value || null)}
+          placeholder="Ex.: Cliente optou por isolante com melhor custo-benefício..."
+        />
+      </div>
+
       {erro && <p className="text-sm text-red-600">{erro}</p>}
 
       <div className="flex justify-end gap-3">

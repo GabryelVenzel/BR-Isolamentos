@@ -52,6 +52,7 @@ const CAMPOS_PROPOSTA: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo:
   { nome: "garantia_mao_obra_meses", label: "Garantia de mão de obra", sufixo: "meses" },
   { nome: "projecao_reajuste_tarifario_percentual", label: "Reajuste tarifário (projeção 10 anos)", sufixo: "% a.a." },
   { nome: "co2_kg_por_arvore_ano", label: "CO₂ absorvido por árvore", sufixo: "kg/ano" },
+  { nome: "validade_proposta_dias", label: "Validade da proposta", sufixo: "dias" },
 ];
 
 export default function FormConfigEmpresa({ config }: Props) {
@@ -238,6 +239,16 @@ export default function FormConfigEmpresa({ config }: Props) {
               {numero(campo.nome)}
             </div>
           ))}
+        </div>
+        <div className="mt-4">
+          <label className="label-field">Forma de pagamento padrão</label>
+          <input
+            type="text"
+            className="input-field"
+            value={valores.forma_pagamento_padrao}
+            onChange={(e) => setValores((prev) => ({ ...prev, forma_pagamento_padrao: e.target.value }))}
+            placeholder="50% de entrada + 50% na conclusão dos trabalhos"
+          />
         </div>
       </div>
 

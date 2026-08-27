@@ -94,3 +94,36 @@ export function prazoExecucaoDiasUteis(itens: ItemOrcamento[], horasUteisDia: nu
 export function temAnaliseFinanceira(orcamento: Pick<Orcamento, "valor_final">, economiaAnualTotal: number): boolean {
   return orcamento.valor_final > 0 && economiaAnualTotal > 0;
 }
+
+/** Descrição completa de um material — nome + especificação (densidade) +
+ * espessura calculada num único texto (ex.: "Fibra Cerâmica 96kg/m³ 51mm"),
+ * usada nas tabelas da Proposta Técnica em vez de colunas separadas. Omite a
+ * espessura quando zero/ausente (trechos sem cálculo térmico, ex.: material
+ * customizado). */
+export function descricaoMaterialCompleta(
+  item: Pick<ItemOrcamento, "material" | "especificacao_isolante" | "espessura_necessaria_mm">
+): string {
+  const partes = [item.material, item.especificacao_isolante].filter(Boolean) as string[];
+  if (item.espessura_necessaria_mm > 0) partes.push(`${item.espessura_necessaria_mm}mm`);
+  return partes.join(" ");
+}
+
+/** O que o orçamento contempla, conforme `tipo_proposta` — usada tanto na
+ * Proposta Técnica (seção "Escopo contemplado") quanto na Comercial
+ * (Condições Comerciais), pra nunca divergir entre as duas. */
+export function itensContemplados(tipoProposta: "material_mo" | "somente_mo"): string[] {
+  const itens = ["Mão de obra especializada", "Equipamentos de proteção individual (EPI) da equipe", "Coordenação técnica da execução"];
+  if (tipoProposta === "material_mo") itens.push("Material isolante completo", "Acabamentos (chaparia)");
+  return itens;
+}
+
+/** O que o orçamento NÃO contempla — ver `itensContemplados`. */
+export function itensNaoContemplados(tipoProposta: "material_mo" | "somente_mo"): string[] {
+  const itens: string[] = [];
+  if (tipoProposta === "somente_mo") itens.push("Material isolante e acabamentos (fornecidos pelo cliente)");
+  itens.push(
+    "Estruturas de acesso para trabalho em altura (andaimes/plataformas), salvo se explicitamente incluídas",
+    "Adequações civis/estruturais e remoção de isolamento antigo, salvo se explicitamente incluídas"
+  );
+  return itens;
+}
