@@ -52,6 +52,7 @@ function ComercialPageConteudo() {
   const [carregandoFrios, setCarregandoFrios] = useState(false);
 
   const [soAtrasados, setSoAtrasados] = useState(false);
+  const [soComissoes, setSoComissoes] = useState(false);
 
   const [leadSelecionadoId, setLeadSelecionadoId] = useState<string | null>(null);
   const [mostrarNovoLead, setMostrarNovoLead] = useState(false);
@@ -188,6 +189,7 @@ function ComercialPageConteudo() {
     .reduce((acc, l) => acc + l.valor_estimado, 0);
 
   const totalLeadsAtrasados = leads.filter((l) => l.etapa_atrasada).length;
+  const totalLeadsComissao = leads.filter((l) => l.eh_comissao).length;
   const buscaNormalizada = filtros.busca.trim().toLowerCase();
   const leadsBuscados = buscaNormalizada
     ? leads.filter(
@@ -205,7 +207,8 @@ function ComercialPageConteudo() {
   // lib/usecases/comercial/mudarTemperatura.ts).
   const leadsSemFriosOcultos =
     filtros.temperatura === "frio" ? leadsBuscados : leadsBuscados.filter((l) => l.temperatura !== "frio");
-  const leadsExibidos = soAtrasados ? leadsSemFriosOcultos.filter((l) => l.etapa_atrasada) : leadsSemFriosOcultos;
+  const leadsAposAtrasados = soAtrasados ? leadsSemFriosOcultos.filter((l) => l.etapa_atrasada) : leadsSemFriosOcultos;
+  const leadsExibidos = soComissoes ? leadsAposAtrasados.filter((l) => l.eh_comissao) : leadsAposAtrasados;
 
   return (
     <div className="space-y-6">
@@ -245,6 +248,9 @@ function ComercialPageConteudo() {
             soAtrasados={soAtrasados}
             onToggleAtrasados={setSoAtrasados}
             totalLeadsAtrasados={totalLeadsAtrasados}
+            soComissoes={soComissoes}
+            onToggleComissoes={setSoComissoes}
+            totalLeadsComissao={totalLeadsComissao}
           />
 
           {mostrarFrios ? (
@@ -279,10 +285,19 @@ function ComercialPageConteudo() {
       {mostrarNovoLead && (
         <NovoLeadModal
           onFechar={() => setMostrarNovoLead(false)}
-          onCriado={() => {
+          onCriado={(leadId) => {
             setMostrarNovoLead(false);
-            toast.sucesso("Lead criado.");
             carregarLeads();
+            // Lead de comissão (migração 026): não dá pra anexar o
+            // comprovante durante a criação (upload exige um lead com id já
+            // existente, ver AnexosLead.tsx) — abre o detalhe direto em
+            // seguida, já que o próximo passo natural é adicionar o anexo.
+            if (leadId) {
+              toast.sucesso("Lead de comissão criado — adicione o comprovante (anexo) a seguir.");
+              setLeadSelecionadoId(leadId);
+            } else {
+              toast.sucesso("Lead criado.");
+            }
           }}
         />
       )}

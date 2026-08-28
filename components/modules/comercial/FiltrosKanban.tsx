@@ -26,6 +26,9 @@ interface Props {
   soAtrasados: boolean;
   onToggleAtrasados: (valor: boolean) => void;
   totalLeadsAtrasados: number;
+  soComissoes: boolean;
+  onToggleComissoes: (valor: boolean) => void;
+  totalLeadsComissao: number;
 }
 
 const TEMPERATURAS: TemperaturaLead[] = ["quente", "morno", "frio"];
@@ -40,6 +43,9 @@ export default function FiltrosKanban({
   soAtrasados,
   onToggleAtrasados,
   totalLeadsAtrasados,
+  soComissoes,
+  onToggleComissoes,
+  totalLeadsComissao,
 }: Props) {
   return (
     <div className="card space-y-3">
@@ -116,6 +122,11 @@ export default function FiltrosKanban({
           <input type="checkbox" checked={soAtrasados} onChange={(e) => onToggleAtrasados(e.target.checked)} />
           Mostrar só leads atrasados
           {totalLeadsAtrasados > 0 && <span className="badge bg-red-100 text-status-error">{totalLeadsAtrasados}</span>}
+        </label>
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" checked={soComissoes} onChange={(e) => onToggleComissoes(e.target.checked)} />
+          🎁 Mostrar só comissões
+          {totalLeadsComissao > 0 && <span className="badge bg-accent-light text-accent-dark">{totalLeadsComissao}</span>}
         </label>
       </div>
     </div>

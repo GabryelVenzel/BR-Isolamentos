@@ -20,6 +20,11 @@ function criarLeadFake(overrides: Partial<Lead> = {}): Lead {
     etapa_anterior: null,
     temperatura_anterior: null,
     data_ultima_interacao: null,
+    eh_comissao: false,
+    parceiro_id: null,
+    valor_indicado: null,
+    percentual_comissao: null,
+    valor_comissao: null,
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
     ...overrides,
@@ -227,5 +232,112 @@ describe("moverLead", () => {
         { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never }
       )
     ).rejects.toBeInstanceOf(NotFoundError);
+  });
+
+  // --- Lead de comissão (migração 026) ---
+
+  function criarAnexoLeadRepoFake(totalAnexos: number) {
+    return { contarPorLead: jest.fn(async () => totalAnexos) };
+  }
+
+  function criarLancamentoRepoFake() {
+    return { create: jest.fn(async (dados: unknown) => ({ id: "lanc-1", ...(dados as object) })) };
+  }
+
+  it("comissão SEM orçamento pode ir pra negociação (não é a mesma exigência de lead normal)", async () => {
+    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "proposta", eh_comissao: true, orcamento_id: null }));
+    const historicoRepo = criarHistoricoRepoFake();
+    const anexoLeadRepo = criarAnexoLeadRepoFake(1);
+
+    const resultado = await moverLead(
+      { leadId: "lead-1", novaEtapa: "negociacao" },
+      { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never, anexoLeadRepo: anexoLeadRepo as never }
+    );
+
+    expect(resultado.etapa).toBe("negociacao");
+  });
+
+  it("bloqueia comissão SEM anexo de ir pra negociação (troca a exigência de orçamento por anexo)", async () => {
+    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "proposta", eh_comissao: true }));
+    const historicoRepo = criarHistoricoRepoFake();
+    const anexoLeadRepo = criarAnexoLeadRepoFake(0);
+
+    await expect(
+      moverLead(
+        { leadId: "lead-1", novaEtapa: "negociacao" },
+        { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never, anexoLeadRepo: anexoLeadRepo as never }
+      )
+    ).rejects.toBeInstanceOf(ConflictError);
+    expect(leadRepo.update).not.toHaveBeenCalled();
+  });
+
+  it("comissão sem anexoLeadRepo passado também bloqueia (trata como 0 anexos, não deixa passar)", async () => {
+    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "proposta", eh_comissao: true }));
+    const historicoRepo = criarHistoricoRepoFake();
+
+    await expect(
+      moverLead(
+        { leadId: "lead-1", novaEtapa: "negociacao" },
+        { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never }
+      )
+    ).rejects.toBeInstanceOf(ConflictError);
+  });
+
+  it("fechar um lead de comissão gera um lançamento de receita com o valor da comissão", async () => {
+    const leadRepo = criarLeadRepoFake(
+      criarLeadFake({
+        etapa: "negociacao",
+        eh_comissao: true,
+        valor_indicado: 10000,
+        percentual_comissao: 15,
+        valor_comissao: 1500,
+        parceiro: { nome: "Parceiro X" } as never,
+        cliente: { nome: "Cliente Y" } as never,
+      })
+    );
+    const historicoRepo = criarHistoricoRepoFake();
+    const lancamentoRepo = criarLancamentoRepoFake();
+
+    await moverLead(
+      { leadId: "lead-1", novaEtapa: "fechado" },
+      { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never, lancamentoRepo: lancamentoRepo as never }
+    );
+
+    expect(lancamentoRepo.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tipo: "receita",
+        categoria: "Comissão Recebida",
+        descricao: "Comissão - Parceiro X para Cliente Y",
+        valor: 1500,
+        pago: false,
+        lead_id: "lead-1",
+      })
+    );
+  });
+
+  it("fechar um lead NORMAL (não comissão) não gera lançamento nenhum", async () => {
+    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "negociacao", eh_comissao: false, orcamento_id: 42 }));
+    const historicoRepo = criarHistoricoRepoFake();
+    const lancamentoRepo = criarLancamentoRepoFake();
+
+    await moverLead(
+      { leadId: "lead-1", novaEtapa: "fechado" },
+      { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never, lancamentoRepo: lancamentoRepo as never }
+    );
+
+    expect(lancamentoRepo.create).not.toHaveBeenCalled();
+  });
+
+  it("falha ao gerar o lançamento de comissão não impede o lead de fechar (best-effort)", async () => {
+    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "negociacao", eh_comissao: true, valor_comissao: 500 }));
+    const historicoRepo = criarHistoricoRepoFake();
+    const lancamentoRepo = { create: jest.fn(async () => { throw new Error("categoria removida"); }) };
+
+    const resultado = await moverLead(
+      { leadId: "lead-1", novaEtapa: "fechado" },
+      { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never, lancamentoRepo: lancamentoRepo as never }
+    );
+
+    expect(resultado.etapa).toBe("fechado");
   });
 });

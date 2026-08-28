@@ -3,16 +3,22 @@ import type { LeadRepository } from "../../repositories";
 import type { Lead } from "../../types/domain";
 import { UpdateLeadSchema, parseOrThrow } from "../../validators";
 
-/** Atualiza campos "de cadastro" do lead (valor, notas, responsável,
- * tags...). Mudança de `etapa` e de `temperatura` sempre passam por use
- * cases dedicados (`moverLead`, `mudarTemperatura`) — ambos gravam entrada no
- * histórico e, no caso de temperatura, podem agendar reativação. `origem` é
- * IMUTÁVEL depois de criado o lead (decisão explícita: uma vez registrado de
- * onde o lead veio, isso não deveria mudar — evita "correção" retroativa que
- * distorceria o relatório "Leads por Origem"). Por isso o schema de update
- * aqui ignora os três campos mesmo que venham no corpo: se `etapa`/
- * `temperatura` passassem direto por aqui, a mudança de estado ficaria
- * invisível na timeline do lead. */
+/** Atualiza campos "de cadastro" do lead (valor, notas, responsável, tags,
+ * dados de comissão...). Mudança de `etapa` e de `temperatura` sempre passam
+ * por use cases dedicados (`moverLead`, `mudarTemperatura`) — ambos gravam
+ * entrada no histórico e, no caso de temperatura, podem agendar reativação.
+ * `origem` é IMUTÁVEL depois de criado o lead (decisão explícita: uma vez
+ * registrado de onde o lead veio, isso não deveria mudar — evita "correção"
+ * retroativa que distorceria o relatório "Leads por Origem"). `eh_comissao`
+ * (migração 026) segue a mesma lógica: fixado na criação, não dá pra
+ * alternar depois — desligar deixaria anexos/comprovante e um eventual
+ * lançamento já gerado "órfãos" de um contexto que não existe mais; se o
+ * lead foi cadastrado errado, a orientação é excluir e recriar. Os DEMAIS
+ * campos de comissão (parceiro/valor indicado/%) continuam editáveis num
+ * lead que já É comissão. Por isso o schema de update aqui ignora os
+ * quatro campos mesmo que venham no corpo: se `etapa`/`temperatura`
+ * passassem direto por aqui, a mudança de estado ficaria invisível na
+ * timeline do lead. */
 export async function atualizarLead(
   id: string,
   dados: unknown,
@@ -22,7 +28,7 @@ export async function atualizarLead(
   if (!existente) throw new NotFoundError(`Lead ${id} não encontrado.`);
 
   const validados = parseOrThrow(UpdateLeadSchema, dados);
-  const { etapa: _etapa, temperatura: _temperatura, origem: _origem, ...camposPermitidos } = validados;
+  const { etapa: _etapa, temperatura: _temperatura, origem: _origem, eh_comissao: _ehComissao, ...camposPermitidos } = validados;
 
   return repos.leadRepo.update(id, camposPermitidos as Partial<Lead>);
 }

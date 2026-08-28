@@ -130,6 +130,17 @@ export class LancamentoFinanceiroRepository extends BaseRepository<LancamentoFin
     if (error) throw error;
     return (data ?? []) as unknown as LancamentoFinanceiro[];
   }
+
+  /** Lançamentos vinculados a um lead (`lead_id`) — usado pelo relatório de
+   * comissões (migração 026) pra saber se a comissão de um lead "fechado" já
+   * foi de fato recebida (`pago`), sem inflar `select` padrão de todo lugar
+   * que lista lançamentos. */
+  async listarPorLeadIds(leadIds: string[]): Promise<LancamentoFinanceiro[]> {
+    if (leadIds.length === 0) return [];
+    const { data, error } = await this.queryBuilder().select("id, lead_id, pago").in("lead_id", leadIds);
+    if (error) throw error;
+    return (data ?? []) as unknown as LancamentoFinanceiro[];
+  }
 }
 
 interface FiltroCruzado {

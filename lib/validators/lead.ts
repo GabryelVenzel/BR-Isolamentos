@@ -14,7 +14,12 @@ const EtapaFunilSchema = z.enum(["prospeccao", "contato", "proposta", "negociaca
 // escolher uma origem no momento da criação.
 const OrigemSchema = z.enum(ORIGENS_LEAD);
 
-export const CreateLeadSchema = z.object({
+// Migração 026 — sistema de comissão/indicação: `eh_comissao` liga os campos
+// de comissão (parceiro/valor indicado/% comissão) — `valor_comissao` NÃO
+// entra aqui, é coluna GERADA pelo banco (ver Lead.valor_comissao), nunca
+// aceita do cliente. O `.superRefine` abaixo exige os 3 campos só quando
+// `eh_comissao` é true — em lead normal eles continuam opcionais/ausentes.
+const CamposBaseLeadSchema = z.object({
   cliente_id: z.number().int().positive(),
   etapa: EtapaFunilSchema,
   temperatura: z.enum(["frio", "morno", "quente"]),
@@ -25,14 +30,48 @@ export const CreateLeadSchema = z.object({
   notas: z.string().trim().nullable().optional(),
   atribuido_a: z.string().trim().email().nullable().optional(),
   tags: z.array(z.string().trim().min(1)).optional(),
+  eh_comissao: z.boolean().optional(),
+  parceiro_id: z.string().trim().nullable().optional(),
+  valor_indicado: z.number().nonnegative().nullable().optional(),
+  percentual_comissao: z.number().min(0).max(100).nullable().optional(),
 });
 
-// `origem` fica no shape (herdado de CreateLeadSchema) mas é ignorada no uso
-// — origem é IMUTÁVEL depois de criado o lead (ver atualizarLead.ts, que
-// remove `etapa`, `temperatura` E `origem` antes de gravar). Mantida aqui
-// só porque `.partial()` deriva o resto do schema automaticamente; não é um
-// campo realmente editável via PATCH.
-export const UpdateLeadSchema = CreateLeadSchema.partial();
+// Tipo estrutural mínimo (não `z.infer<typeof CamposBaseLeadSchema>`) pra
+// esta função servir tanto o schema cheio (Create) quanto o `.partial()`
+// (Update), que tem todo campo opcional — os dois formatos são compatíveis
+// com este subconjunto de campos.
+interface CamposComissao {
+  eh_comissao?: boolean;
+  parceiro_id?: string | null;
+  valor_indicado?: number | null;
+  percentual_comissao?: number | null;
+}
+
+function exigirCamposDeComissao(dados: CamposComissao, ctx: z.RefinementCtx) {
+  if (!dados.eh_comissao) return;
+  if (!dados.parceiro_id) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["parceiro_id"], message: "Selecione o parceiro da indicação." });
+  }
+  if (!dados.valor_indicado || dados.valor_indicado <= 0) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["valor_indicado"], message: "Informe o valor indicado (maior que zero)." });
+  }
+  if (dados.percentual_comissao == null || dados.percentual_comissao <= 0) {
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["percentual_comissao"], message: "Informe o % de comissão (entre 0 e 100)." });
+  }
+}
+
+export const CreateLeadSchema = CamposBaseLeadSchema.superRefine(exigirCamposDeComissao);
+
+// `origem` fica no shape (herdado de CamposBaseLeadSchema) mas é ignorada no
+// uso — origem é IMUTÁVEL depois de criado o lead (ver atualizarLead.ts, que
+// remove `etapa`, `temperatura` E `origem` antes de gravar). Mantida aqui só
+// porque `.partial()` deriva o resto do schema automaticamente; não é um
+// campo realmente editável via PATCH. `eh_comissao` também não é mais
+// editável depois de criado (ver atualizarLead.ts) — os campos de comissão
+// em si (parceiro/valor/%) continuam editáveis via PATCH, por isso o
+// `.superRefine` aqui também vale pro update (não dá pra ficar com
+// `eh_comissao = true` e um campo obrigatório vazio depois de um PATCH).
+export const UpdateLeadSchema = CamposBaseLeadSchema.partial().superRefine(exigirCamposDeComissao);
 
 export const MoverLeadSchema = z.object({
   leadId: z.string().min(1),

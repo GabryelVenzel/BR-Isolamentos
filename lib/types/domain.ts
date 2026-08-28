@@ -87,17 +87,42 @@ export interface Lead {
    * por `lib/usecases/comercial/registrarInteracao.ts`. Base do relatório
    * "leads dormindo" (sem interação há 7+ dias). */
   data_ultima_interacao: string | null;
+  /** Migração 026 — sistema de comissão/indicação: um lead marcado como
+   * comissão é um lead normal (mesmo funil, mesma timeline, mesmos anexos)
+   * que representa uma indicação a um parceiro, não uma venda direta da BR
+   * Isolamentos — por isso não precisa de orçamento vinculado (ver
+   * `moverLead.ts`: comissão troca a exigência de orçamento por exigência
+   * de anexo/comprovante) e, ao fechar, gera um lançamento financeiro de
+   * receita automaticamente. */
+  eh_comissao: boolean;
+  parceiro_id: string | null;
+  /** Valor do negócio indicado ao parceiro (base do cálculo da comissão) —
+   * `null` em lead normal. */
+  valor_indicado: number | null;
+  /** 0-100 — `null` em lead normal. */
+  percentual_comissao: number | null;
+  /** Coluna GERADA pelo banco (`valor_indicado * percentual_comissao / 100`,
+   * ver migração 026) — nunca enviar no PATCH/POST, o Postgres calcula
+   * sozinho. `null` em lead normal (nunca marcado como comissão). */
+  valor_comissao: number | null;
   created_at: string;
   updated_at: string;
   // Preenchido via join, opcional (ver LeadRepository.select).
   cliente?: Cliente;
   orcamento?: Orcamento;
+  /** Parceiro pra quem a indicação foi feita — só em lead de comissão. */
+  parceiro?: Parceiro;
   // Campos CALCULADOS, não persistidos — anexados por
   // lib/usecases/comercial/prazoEtapa.ts a partir de historico_mudancas_leads
   // + ConfigPrazoEtapas (ver createComercialContext#listarLeads). Ausentes
   // em qualquer outro caminho que não passe por lá (ex.: buscarLead).
   dias_na_etapa_atual?: number;
   etapa_atrasada?: boolean;
+  /** Migração 026 — total de anexos do lead, anexado só a leads de comissão
+   * (ver createComercialContext#listarLeads) pra alimentar o indicador
+   * visual do card do Kanban (✅/⚠️ tem comprovante) sem precisar de outro
+   * fetch por lead. `undefined` em qualquer caminho que não passe por lá. */
+  total_anexos?: number;
 }
 
 export type TipoInteracaoLead = "nota" | "email" | "chamada" | "reuniao" | "proposta_enviada";

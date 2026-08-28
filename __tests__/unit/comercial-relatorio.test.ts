@@ -1,4 +1,5 @@
 import {
+  calcularComissoes,
   calcularFunil,
   calcularKpis,
   calcularLeadsDormindo,
@@ -27,6 +28,11 @@ function lead(overrides: Partial<Lead> = {}): Lead {
     etapa_anterior: null,
     temperatura_anterior: null,
     data_ultima_interacao: null,
+    eh_comissao: false,
+    parceiro_id: null,
+    valor_indicado: null,
+    percentual_comissao: null,
+    valor_comissao: null,
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
     ...overrides,
@@ -248,5 +254,68 @@ describe("calcularLeadsFriosResumo", () => {
     expect(resumo.reativandoHoje).toBe(1);
     expect(resumo.proximos7Dias).toBe(1);
     expect(resumo.proximos30Dias).toBe(1);
+  });
+});
+
+describe("calcularComissoes", () => {
+  it("ignora leads normais (eh_comissao = false)", () => {
+    const resultado = calcularComissoes([lead({ eh_comissao: false, etapa: "fechado", valor_comissao: 999 })]);
+    expect(resultado.totalQuantidade).toBe(0);
+    expect(resultado.totalValorComissao).toBe(0);
+  });
+
+  it("agrupa por status: ativos viram 'em_andamento', perdido fica separado", () => {
+    const leads = [
+      lead({ id: "a", eh_comissao: true, etapa: "prospeccao", valor_comissao: 100 }),
+      lead({ id: "b", eh_comissao: true, etapa: "negociacao", valor_comissao: 200 }),
+      lead({ id: "c", eh_comissao: true, etapa: "perdido", valor_comissao: 300 }),
+    ];
+    const resultado = calcularComissoes(leads);
+
+    const emAndamento = resultado.porStatus.find((s) => s.status === "em_andamento")!;
+    expect(emAndamento.quantidade).toBe(2);
+    expect(emAndamento.valorComissao).toBe(300);
+
+    const perdido = resultado.porStatus.find((s) => s.status === "perdido")!;
+    expect(perdido.quantidade).toBe(1);
+    expect(perdido.valorComissao).toBe(300);
+  });
+
+  it("'fechado' sem lançamento pago vira 'fechado_pendente'; com pago=true vira 'recebido'", () => {
+    const leads = [
+      lead({ id: "a", eh_comissao: true, etapa: "fechado", valor_comissao: 100 }),
+      lead({ id: "b", eh_comissao: true, etapa: "fechado", valor_comissao: 200 }),
+    ];
+    const resultado = calcularComissoes(leads, { b: true });
+
+    expect(resultado.porStatus.find((s) => s.status === "fechado_pendente")!.quantidade).toBe(1);
+    expect(resultado.porStatus.find((s) => s.status === "recebido")!.quantidade).toBe(1);
+  });
+
+  it("agrupa por parceiro, ordenado do maior pro menor valor de comissão", () => {
+    const leads = [
+      lead({ id: "a", eh_comissao: true, parceiro_id: "p1", parceiro: { nome: "Parceiro A" } as never, valor_comissao: 100 }),
+      lead({ id: "b", eh_comissao: true, parceiro_id: "p2", parceiro: { nome: "Parceiro B" } as never, valor_comissao: 500 }),
+      lead({ id: "c", eh_comissao: true, parceiro_id: "p1", parceiro: { nome: "Parceiro A" } as never, valor_comissao: 150 }),
+    ];
+    const resultado = calcularComissoes(leads);
+
+    expect(resultado.porParceiro).toEqual([
+      { parceiroId: "p2", parceiroNome: "Parceiro B", quantidade: 1, valorComissao: 500 },
+      { parceiroId: "p1", parceiroNome: "Parceiro A", quantidade: 2, valorComissao: 250 },
+    ]);
+  });
+
+  it("totais somam valor indicado e valor de comissão de todos os leads de comissão", () => {
+    const leads = [
+      lead({ id: "a", eh_comissao: true, valor_indicado: 10000, valor_comissao: 1000 }),
+      lead({ id: "b", eh_comissao: true, valor_indicado: 5000, valor_comissao: 750 }),
+      lead({ id: "c", eh_comissao: false, valor_indicado: 99999, valor_comissao: 99999 }),
+    ];
+    const resultado = calcularComissoes(leads);
+
+    expect(resultado.totalQuantidade).toBe(2);
+    expect(resultado.totalValorIndicado).toBe(15000);
+    expect(resultado.totalValorComissao).toBe(1750);
   });
 });

@@ -16,7 +16,10 @@ export class LeadRepository extends BaseRepository<Lead> {
   // Cliente + orçamento vinculado resolvidos via join — o card do Kanban e o
   // LeadDetailModal sempre precisam do nome do cliente, e o modal também do
   // número/valor do orçamento vinculado (integração Lead→Orçamento→Serviço).
-  protected select = "*, cliente:clientes(*), orcamento:orcamentos(*)";
+  // `parceiro` (migração 026) — nome do parceiro pra quem a indicação foi
+  // feita, exibido no card/modal de um lead de comissão sem precisar de
+  // outro fetch.
+  protected select = "*, cliente:clientes(*), orcamento:orcamentos(*), parceiro:parceiros(*)";
 
   constructor(supabase: SupabaseClient) {
     super(supabase, "leads");

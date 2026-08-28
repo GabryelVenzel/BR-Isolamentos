@@ -16,6 +16,7 @@ import type {
   HistoricoMudancaLead,
   InteracaoLead,
   Lead,
+  Parceiro,
   TemperaturaLead,
   TipoInteracaoLead,
 } from "@/lib/types/domain";
@@ -102,6 +103,17 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
   const [vinculando, setVinculando] = useState(false);
   const [mostrarNovoServico, setMostrarNovoServico] = useState(false);
 
+  // Dados da Comissão (migração 026) — mesma mecânica de "editado localmente,
+  // só envia no Salvar" das outras seções desta tela. `parceiroId`/
+  // `valorIndicado`/`percentualComissao` só existem/importam quando
+  // `lead.eh_comissao` é true (ver JSX abaixo).
+  const [parceiros, setParceiros] = useState<Parceiro[]>([]);
+  const [parceiroId, setParceiroId] = useState("");
+  const [valorIndicado, setValorIndicado] = useState("");
+  const [percentualComissao, setPercentualComissao] = useState("");
+  const [salvandoComissao, setSalvandoComissao] = useState(false);
+  const [totalAnexos, setTotalAnexos] = useState(0);
+
   const carregar = useCallback(async () => {
     setCarregando(true);
     try {
@@ -125,11 +137,22 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
         setEtapaSelecionada(l.etapa);
         setTemperaturaSelecionada(l.temperatura);
 
-        // Orçamentos do cliente deste lead — popula o seletor "Vincular
-        // Orçamento" (integração Lead→Orçamento→Serviço).
-        fetch(`/api/orcamentos?cliente_id=${l.cliente_id}`)
-          .then((r) => r.json())
-          .then((orcamentos) => Array.isArray(orcamentos) && setOrcamentosDoCliente(orcamentos));
+        if (l.eh_comissao) {
+          setParceiroId(l.parceiro_id ?? "");
+          setValorIndicado(l.valor_indicado != null ? String(l.valor_indicado) : "");
+          setPercentualComissao(l.percentual_comissao != null ? String(l.percentual_comissao) : "");
+          fetch("/api/operacional/parceiros?ativo=true")
+            .then((r) => r.json())
+            .then((payload) => payload.success && setParceiros(payload.data))
+            .catch(() => setParceiros([]));
+        } else {
+          // Orçamentos do cliente deste lead — popula o seletor "Vincular
+          // Orçamento" (integração Lead→Orçamento→Serviço). Lead de
+          // comissão não usa orçamento (ver migração 026), não busca à toa.
+          fetch(`/api/orcamentos?cliente_id=${l.cliente_id}`)
+            .then((r) => r.json())
+            .then((orcamentos) => Array.isArray(orcamentos) && setOrcamentosDoCliente(orcamentos));
+        }
       }
       if (payloadHistorico.success) setHistorico(payloadHistorico.data);
       if (payloadInteracoes.success) setInteracoes(payloadInteracoes.data);
@@ -191,6 +214,36 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
       onLeadMudou();
     } finally {
       setSalvandoDados(false);
+    }
+  }
+
+  async function salvarComissao() {
+    if (!parceiroId || !valorIndicado || Number(valorIndicado) <= 0 || !percentualComissao) {
+      toast.erro("Preencha parceiro, valor indicado e % de comissão.");
+      return;
+    }
+    setSalvandoComissao(true);
+    try {
+      const response = await fetch(`/api/comercial/leads/${leadId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eh_comissao: true,
+          parceiro_id: parceiroId,
+          valor_indicado: Number(valorIndicado),
+          percentual_comissao: Number(percentualComissao),
+        }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) {
+        toast.erro(payload.error ?? "Não foi possível salvar os dados da comissão.");
+        return;
+      }
+      toast.sucesso("Dados da comissão atualizados.");
+      setLead(payload.data);
+      onLeadMudou();
+    } finally {
+      setSalvandoComissao(false);
     }
   }
 
@@ -294,6 +347,7 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
                 <div className="mt-1 flex items-center gap-2">
                   <span className="badge bg-brand-light text-brand">{formatarEtapa(lead.etapa)}</span>
                   <span className={`badge ${classesTemperatura(lead.temperatura)}`}>{formatarTemperatura(lead.temperatura)}</span>
+                  {lead.eh_comissao && <span className="badge bg-accent-light text-accent-dark">🎁 Comissão</span>}
                 </div>
               </div>
               <button type="button" className="btn-danger shrink-0 text-xs" onClick={excluir}>
@@ -375,56 +429,118 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
                     </button>
                   </div>
 
-                  <div className="space-y-3 border-t border-gray-100 pt-4">
-                    <h3 className="font-montserrat text-xs font-bold uppercase text-brand">Orçamento vinculado</h3>
-                    {lead.orcamento_id ? (
-                      <p className="rounded-input bg-brand-light px-3 py-2 text-sm text-brand">
-                        {lead.orcamento?.numero_orcamento ?? lead.orcamento?.numero ?? `#${lead.orcamento_id}`}
-                        {lead.orcamento && ` — ${formatarMoeda(lead.orcamento.valor_final)}`}
-                      </p>
-                    ) : (
-                      <p className="text-xs text-gray-500">
-                        Nenhum orçamento vinculado ainda — obrigatório para mover o lead pra &quot;Negociação&quot;.
-                      </p>
-                    )}
-                    <div className="flex items-center gap-2">
-                      <select
-                        className="input-field"
-                        value={orcamentoParaVincular}
-                        onChange={(e) => setOrcamentoParaVincular(e.target.value)}
-                      >
-                        <option value="">Selecione um orçamento...</option>
-                        {orcamentosDoCliente.map((o) => (
-                          <option key={o.id} value={o.id}>
-                            {o.numero_orcamento ?? o.numero} — {formatarMoeda(o.valor_final)}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        className="btn-accent shrink-0"
-                        onClick={vincularOrcamento}
-                        disabled={!orcamentoParaVincular || vinculando}
-                      >
-                        {vinculando ? "Vinculando..." : "Vincular"}
+                  {lead.eh_comissao ? (
+                    <div className="space-y-3 border-t border-gray-100 pt-4">
+                      <h3 className="font-montserrat text-xs font-bold uppercase text-brand">🎁 Dados da Comissão</h3>
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div className="sm:col-span-2">
+                          <label className="label-field">Parceiro</label>
+                          <select className="input-field" value={parceiroId} onChange={(e) => setParceiroId(e.target.value)}>
+                            <option value="">Selecione o parceiro...</option>
+                            {parceiros.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.nome}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                        <div>
+                          <label className="label-field">Valor indicado (R$)</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            className="input-field"
+                            value={valorIndicado}
+                            onChange={(e) => setValorIndicado(e.target.value)}
+                          />
+                        </div>
+                        <div>
+                          <label className="label-field">% Comissão</label>
+                          <input
+                            type="number"
+                            step="0.01"
+                            min={0}
+                            max={100}
+                            className="input-field"
+                            value={percentualComissao}
+                            onChange={(e) => setPercentualComissao(e.target.value)}
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="label-field">Valor da comissão (calculado)</label>
+                          <p className="input-field cursor-default bg-gray-50 font-semibold text-brand">
+                            {formatarMoeda(lead.valor_comissao ?? 0)}
+                          </p>
+                        </div>
+                      </div>
+                      <button type="button" className="btn-accent" onClick={salvarComissao} disabled={salvandoComissao}>
+                        {salvandoComissao ? "Salvando..." : "Salvar comissão"}
                       </button>
-                    </div>
 
-                    {lead.etapa === "fechado" && (
-                      <div className="border-t border-gray-100 pt-3">
-                        <button type="button" className="btn-primary" onClick={() => setMostrarNovoServico(true)}>
-                          + Criar Serviço
+                      {lead.etapa === "fechado" && (
+                        <p className="rounded-input bg-brand-light px-3 py-2 text-xs text-brand">
+                          Ao fechar, um lançamento de receita ("Comissão Recebida") foi gerado automaticamente no
+                          Financeiro.
+                        </p>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-3 border-t border-gray-100 pt-4">
+                      <h3 className="font-montserrat text-xs font-bold uppercase text-brand">Orçamento vinculado</h3>
+                      {lead.orcamento_id ? (
+                        <p className="rounded-input bg-brand-light px-3 py-2 text-sm text-brand">
+                          {lead.orcamento?.numero_orcamento ?? lead.orcamento?.numero ?? `#${lead.orcamento_id}`}
+                          {lead.orcamento && ` — ${formatarMoeda(lead.orcamento.valor_final)}`}
+                        </p>
+                      ) : (
+                        <p className="text-xs text-gray-500">
+                          Nenhum orçamento vinculado ainda — obrigatório para mover o lead pra &quot;Negociação&quot;.
+                        </p>
+                      )}
+                      <div className="flex items-center gap-2">
+                        <select
+                          className="input-field"
+                          value={orcamentoParaVincular}
+                          onChange={(e) => setOrcamentoParaVincular(e.target.value)}
+                        >
+                          <option value="">Selecione um orçamento...</option>
+                          {orcamentosDoCliente.map((o) => (
+                            <option key={o.id} value={o.id}>
+                              {o.numero_orcamento ?? o.numero} — {formatarMoeda(o.valor_final)}
+                            </option>
+                          ))}
+                        </select>
+                        <button
+                          type="button"
+                          className="btn-accent shrink-0"
+                          onClick={vincularOrcamento}
+                          disabled={!orcamentoParaVincular || vinculando}
+                        >
+                          {vinculando ? "Vinculando..." : "Vincular"}
                         </button>
                       </div>
-                    )}
-                  </div>
+
+                      {lead.etapa === "fechado" && (
+                        <div className="border-t border-gray-100 pt-3">
+                          <button type="button" className="btn-primary" onClick={() => setMostrarNovoServico(true)}>
+                            + Criar Serviço
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   <div className="border-t border-gray-100 pt-4">
-                    <AnexosLead leadId={leadId} />
+                    <AnexosLead leadId={leadId} onMudou={setTotalAnexos} />
                   </div>
 
                   <div className="space-y-3 border-t border-gray-100 pt-4">
                     <h3 className="font-montserrat text-xs font-bold uppercase text-brand">Mudar status/etapa</h3>
+                    {lead.eh_comissao && totalAnexos === 0 && (
+                      <p className="rounded-input bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                        ⚠️ Comissão sem anexo — adicione um comprovante antes de mover pra &quot;Negociação&quot;.
+                      </p>
+                    )}
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div>
                         <label className="label-field">Temperatura</label>

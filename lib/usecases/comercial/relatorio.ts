@@ -282,6 +282,102 @@ export function calcularLeadsFriosResumo(agendamentos: AgendamentoLeadFrio[], ag
   return { total: agendados.length, reativandoHoje, proximos7Dias, proximos30Dias };
 }
 
+/** Um "balde" de status do widget/relatório de comissões — agrupa os 4
+ * status pedidos (Prospecção/Negociação juntam as etapas ativas anteriores a
+ * "Fechado" num só balde "Em andamento", já que o funil de comissão não tem
+ * uma etapa própria diferente do funil normal de lead — ver decisão em
+ * `calcularComissoes`). */
+export type StatusComissao = "em_andamento" | "fechado_pendente" | "recebido" | "perdido";
+
+export interface ResumoComissaoPorStatus {
+  status: StatusComissao;
+  label: string;
+  quantidade: number;
+  valorIndicado: number;
+  valorComissao: number;
+}
+
+export interface ResumoComissaoPorParceiro {
+  parceiroId: string;
+  parceiroNome: string;
+  quantidade: number;
+  valorComissao: number;
+}
+
+export interface RelatorioComissoes {
+  porStatus: ResumoComissaoPorStatus[];
+  porParceiro: ResumoComissaoPorParceiro[];
+  totalQuantidade: number;
+  totalValorIndicado: number;
+  totalValorComissao: number;
+}
+
+const LABEL_STATUS_COMISSAO: Record<StatusComissao, string> = {
+  em_andamento: "Em andamento",
+  fechado_pendente: "Fechado (pendente)",
+  recebido: "Recebido",
+  perdido: "Perdido",
+};
+
+/** Etapa do lead → status do widget de comissões. O pedido original descrevia
+ * 4 status (Prospecção/Negociação/Fechado Pendente/Recebido) como se fossem
+ * um funil PRÓPRIO de comissão — não existe: comissão usa o MESMO
+ * `EtapaFunil` de qualquer lead (decisão de arquitetura: "um lead de
+ * comissão é um Lead normal", ver migração 026). Por isso as etapas ativas
+ * (prospecção/contato/proposta/negociação) são agrupadas num único balde
+ * "Em andamento" — dividi-las em 4 baldes exigiria inventar um funil
+ * paralelo que o resto do sistema (Kanban, timeline, relatório de funil) não
+ * teria como refletir. "Recebido" não é uma etapa do lead — é o lançamento
+ * gerado ao fechar já ter sido marcado como pago (ver `statusRecebimento`
+ * abaixo, que cruza com o lançamento em vez de inferir só da etapa). */
+function statusComissaoDoLead(lead: Lead, lancamentoPago: boolean | undefined): StatusComissao {
+  if (lead.etapa === "perdido") return "perdido";
+  if (lead.etapa !== "fechado") return "em_andamento";
+  return lancamentoPago ? "recebido" : "fechado_pendente";
+}
+
+/** Resumo de comissões (widget do dashboard + relatório, ver pedido) — só
+ * considera leads com `eh_comissao`. `lancamentosPagoPorLeadId` é opcional
+ * (mapa `lead_id → pago`, vindo do lançamento gerado ao fechar, ver
+ * `moverLead.ts#gerarLancamentoComissao`) — sem ele, todo lead "fechado" cai
+ * em "fechado_pendente" (degrada sem quebrar, mesmo espírito de
+ * `configPrazoEtapasRepo.obter().catch(() => null)` em
+ * lib/contexts/comercial.ts). */
+export function calcularComissoes(leads: Lead[], lancamentosPagoPorLeadId: Record<string, boolean> = {}): RelatorioComissoes {
+  const leadsComissao = leads.filter((l) => l.eh_comissao);
+
+  const porStatusMap = new Map<StatusComissao, ResumoComissaoPorStatus>();
+  for (const status of ["em_andamento", "fechado_pendente", "recebido", "perdido"] as StatusComissao[]) {
+    porStatusMap.set(status, { status, label: LABEL_STATUS_COMISSAO[status], quantidade: 0, valorIndicado: 0, valorComissao: 0 });
+  }
+
+  const porParceiroMap = new Map<string, ResumoComissaoPorParceiro>();
+
+  for (const lead of leadsComissao) {
+    const status = statusComissaoDoLead(lead, lancamentosPagoPorLeadId[lead.id]);
+    const balde = porStatusMap.get(status)!;
+    balde.quantidade++;
+    balde.valorIndicado += lead.valor_indicado ?? 0;
+    balde.valorComissao += lead.valor_comissao ?? 0;
+
+    if (lead.parceiro_id) {
+      const nome = lead.parceiro?.nome ?? "Parceiro";
+      const atual = porParceiroMap.get(lead.parceiro_id) ?? { parceiroId: lead.parceiro_id, parceiroNome: nome, quantidade: 0, valorComissao: 0 };
+      atual.quantidade++;
+      atual.valorComissao += lead.valor_comissao ?? 0;
+      porParceiroMap.set(lead.parceiro_id, atual);
+    }
+  }
+
+  return {
+    porStatus: Array.from(porStatusMap.values()),
+    porParceiro: Array.from(porParceiroMap.values()).sort((a, b) => b.valorComissao - a.valorComissao),
+    totalQuantidade: leadsComissao.length,
+    totalValorIndicado: leadsComissao.reduce((acc, l) => acc + (l.valor_indicado ?? 0), 0),
+    totalValorComissao: leadsComissao.reduce((acc, l) => acc + (l.valor_comissao ?? 0), 0),
+  };
+}
+
 export interface RelatorioComercial {
   kpis: KpisComercial;
   funil: FunilComercial;
@@ -290,17 +386,20 @@ export interface RelatorioComercial {
   performancePorResponsavel: PerformanceResponsavel[];
   leadsDormindo: Lead[];
   leadsFriosResumo: LeadsFriosResumo;
+  comissoes: RelatorioComissoes;
 }
 
 /** Monta o relatório completo — `leads` e `historico` já devem vir
  * filtrados (período/responsável/temperatura) pelo chamador; `agendamentos`
  * não é afetado pelos mesmos filtros (é sempre a pipeline de reativação
- * inteira, ver LeadsFriosPanel.tsx). */
+ * inteira, ver LeadsFriosPanel.tsx). `lancamentosPagoPorLeadId` ver
+ * `calcularComissoes`. */
 export function gerarRelatorioComercial(
   leads: Lead[],
   historico: HistoricoMudancaLead[],
   agendamentosFrios: AgendamentoLeadFrio[],
-  agora: Date = new Date()
+  agora: Date = new Date(),
+  lancamentosPagoPorLeadId: Record<string, boolean> = {}
 ): RelatorioComercial {
   return {
     kpis: calcularKpis(leads),
@@ -310,5 +409,6 @@ export function gerarRelatorioComercial(
     performancePorResponsavel: calcularPerformancePorResponsavel(leads),
     leadsDormindo: calcularLeadsDormindo(leads, agora),
     leadsFriosResumo: calcularLeadsFriosResumo(agendamentosFrios, agora),
+    comissoes: calcularComissoes(leads, lancamentosPagoPorLeadId),
   };
 }

@@ -54,10 +54,28 @@ export default function LeadCardKanban({ lead, onAbrir, onIniciarArraste, onTerm
         </span>
       )}
 
+      {lead.eh_comissao && (
+        <span
+          className="badge mb-1 inline-flex items-center gap-1 bg-accent-light text-accent-dark"
+          title={lead.total_anexos && lead.total_anexos > 0 ? "Tem comprovante anexado." : "Sem comprovante anexado ainda."}
+        >
+          🎁 Comissão {lead.total_anexos && lead.total_anexos > 0 ? "✅" : "⚠️"}
+        </span>
+      )}
+
       <p className="mb-1 font-montserrat text-sm font-semibold leading-tight text-brand">{lead.cliente?.nome ?? "—"}</p>
 
-      {lead.valor_estimado > 0 && (
-        <p className="mb-1.5 font-montserrat text-base font-bold text-accent">{formatarMoeda(lead.valor_estimado)}</p>
+      {lead.eh_comissao ? (
+        <>
+          {lead.parceiro?.nome && <p className="truncate text-xs text-gray-500">🤝 {lead.parceiro.nome}</p>}
+          {(lead.valor_comissao ?? 0) > 0 && (
+            <p className="mb-1.5 font-montserrat text-base font-bold text-accent">{formatarMoeda(lead.valor_comissao ?? 0)}</p>
+          )}
+        </>
+      ) : (
+        lead.valor_estimado > 0 && (
+          <p className="mb-1.5 font-montserrat text-base font-bold text-accent">{formatarMoeda(lead.valor_estimado)}</p>
+        )
       )}
 
       <div className="space-y-0.5 border-t border-gray-100 pt-1.5">

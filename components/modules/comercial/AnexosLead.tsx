@@ -32,6 +32,11 @@ function formatarTamanho(bytes: number): string {
 
 interface Props {
   leadId: string;
+  /** Chamado sempre que a contagem de anexos muda (carregar/adicionar/
+   * remover) — usado pelo LeadDetailModal (migração 026) pra avisar quando
+   * um lead de comissão ainda não tem o comprovante obrigatório, sem
+   * duplicar o fetch de anexos só pra saber a contagem. */
+  onMudou?: (total: number) => void;
 }
 
 /** Anexos do lead (RG/CPF do cliente, contratos, fotos, documentação
@@ -40,7 +45,7 @@ interface Props {
  * tabela"). Mesmo mecanismo de upload direto pro Storage já usado em
  * GaleriaImagensProposta.tsx/ServicoDetailModal.tsx, só que aceitando
  * qualquer tipo de arquivo (PDF/Word/Excel/imagem), não só imagens/PDF. */
-export default function AnexosLead({ leadId }: Props) {
+export default function AnexosLead({ leadId, onMudou }: Props) {
   const [anexos, setAnexos] = useState<AnexoLead[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [enviando, setEnviando] = useState(false);
@@ -59,6 +64,11 @@ export default function AnexosLead({ leadId }: Props) {
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  useEffect(() => {
+    onMudou?.(anexos.length);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [anexos.length]);
 
   async function enviarArquivo(event: ChangeEvent<HTMLInputElement>) {
     const arquivo = event.target.files?.[0];

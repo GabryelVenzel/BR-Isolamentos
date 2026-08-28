@@ -9,8 +9,9 @@ export { verificarReativacoesPendentes } from "./verificarReativacoesPendentes";
 export { registrarInteracao } from "./registrarInteracao";
 export { anexarArquivoLead } from "./anexarArquivoLead";
 export { vincularOrcamento } from "./vincularOrcamento";
-export { anexarPrazoEtapa, calcularDiasNaEtapaAtual } from "./prazoEtapa";
+export { anexarPrazoEtapa, anexarTotalAnexos, calcularDiasNaEtapaAtual } from "./prazoEtapa";
 export {
+  calcularComissoes,
   calcularFunil,
   calcularKpis,
   calcularLeadsDormindo,
@@ -28,5 +29,9 @@ export type {
   LeadsPorOrigem,
   PerformanceResponsavel,
   RelatorioComercial,
+  RelatorioComissoes,
+  ResumoComissaoPorParceiro,
+  ResumoComissaoPorStatus,
+  StatusComissao,
   TempoMedioEtapa,
 } from "./relatorio";

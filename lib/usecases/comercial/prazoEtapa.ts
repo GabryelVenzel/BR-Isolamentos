@@ -66,3 +66,12 @@ export function anexarPrazoEtapa(
     };
   });
 }
+
+/** Anexa `total_anexos` (migração 026) só nos leads de comissão — alimenta o
+ * indicador visual do card do Kanban (✅ tem comprovante / ⚠️ não tem) sem
+ * fazer 1 query por lead (`contagemPorLead` já vem em lote, ver
+ * AnexoLeadRepository.contarPorLeads). Leads normais ficam com `total_anexos`
+ * `undefined` — o indicador só faz sentido pra comissão. */
+export function anexarTotalAnexos(leads: Lead[], contagemPorLead: Record<string, number>): Lead[] {
+  return leads.map((lead) => (lead.eh_comissao ? { ...lead, total_anexos: contagemPorLead[lead.id] ?? 0 } : lead));
+}

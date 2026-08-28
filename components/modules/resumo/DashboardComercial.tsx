@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import ComissoesPorParceiroChart from "./graficos/ComissoesPorParceiroChart";
 import FunilChart from "./graficos/FunilChart";
 import OrigemChart from "./graficos/OrigemChart";
 import ResponsavelChart from "./graficos/ResponsavelChart";
@@ -134,6 +135,30 @@ export default function DashboardComercial() {
             <OrigemChart dados={relatorio.leadsPorOrigem} />
             <ResponsavelChart dados={relatorio.performancePorResponsavel} />
           </div>
+
+          {/* Comissões (migração 026) — só aparece se houver algum lead de
+              comissão no filtro atual, pra não poluir o dashboard de quem
+              não usa a funcionalidade. */}
+          {relatorio.comissoes.totalQuantidade > 0 && (
+            <div className="space-y-4">
+              <h2 className="font-montserrat text-sm font-bold uppercase text-brand">🎁 Comissões (Indicações)</h2>
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
+                {relatorio.comissoes.porStatus.map((s) => (
+                  <div key={s.status} className="card text-center">
+                    <p className="text-xs uppercase text-gray-500">{s.label}</p>
+                    <p className="font-montserrat text-xl font-bold text-brand">{s.quantidade}</p>
+                    <p className="text-xs text-gray-500">{formatarMoeda(s.valorComissao)}</p>
+                  </div>
+                ))}
+                <div className="card border-t-4 border-t-accent text-center">
+                  <p className="text-xs uppercase text-gray-500">Total</p>
+                  <p className="font-montserrat text-xl font-bold text-accent">{relatorio.comissoes.totalQuantidade}</p>
+                  <p className="text-xs font-semibold text-gray-700">{formatarMoeda(relatorio.comissoes.totalValorComissao)}</p>
+                </div>
+              </div>
+              <ComissoesPorParceiroChart dados={relatorio.comissoes.porParceiro} />
+            </div>
+          )}
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div className="card">

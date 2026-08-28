@@ -15,6 +15,7 @@ import {
   ConfigReativacaoLeadsFriosRepository,
   HistoricoMudancaLeadRepository,
   InteracaoLeadRepository,
+  LancamentoFinanceiroRepository,
   LeadRepository,
   OrcamentoRepository,
   type FiltrosLead,
@@ -34,6 +35,7 @@ import type {
 import {
   anexarArquivoLead,
   anexarPrazoEtapa,
+  anexarTotalAnexos,
   atualizarLead,
   cancelarAgendamentoFrio,
   criarLead,
@@ -57,9 +59,13 @@ export function createComercialContext(supabase: SupabaseClient) {
   const configPrazoEtapasRepo = new ConfigPrazoEtapasRepository(supabase);
   const clienteRepo = new ClienteRepository(supabase);
   const orcamentoRepo = new OrcamentoRepository(supabase);
+  const lancamentoRepo = new LancamentoFinanceiroRepository(supabase);
 
   const reposMudancaEtapa = { leadRepo, historicoRepo };
-  const reposMoverLead = { leadRepo, historicoRepo, orcamentoRepo };
+  // anexoLeadRepo/lancamentoRepo (migração 026) — comissão troca a exigência
+  // de orçamento por anexo em "negociação", e gera um lançamento automático
+  // ao fechar (ver moverLead.ts).
+  const reposMoverLead = { leadRepo, historicoRepo, orcamentoRepo, anexoLeadRepo, lancamentoRepo };
   const reposVincularOrcamento = { leadRepo, orcamentoRepo, historicoRepo };
   const reposTemperatura = { leadRepo, historicoRepo, agendamentoFrioRepo, configReativacaoRepo };
   const reposReativacao = { leadRepo, historicoRepo, agendamentoFrioRepo };
@@ -85,12 +91,17 @@ export function createComercialContext(supabase: SupabaseClient) {
       const leads = await leadRepo.listar(filtros);
       if (leads.length === 0) return leads;
 
-      const [historico, config] = await Promise.all([
+      const leadsComissao = leads.filter((l) => l.eh_comissao);
+      const [historico, config, contagemAnexos] = await Promise.all([
         historicoRepo.listarPorLeads(leads.map((l) => l.id)),
         configPrazoEtapasRepo.obter().catch(() => null),
+        // Só busca contagem de anexos pros leads de comissão (a maioria dos
+        // Kanbans não tem nenhum) — evita uma query em branco na maioria dos
+        // casos.
+        leadsComissao.length > 0 ? anexoLeadRepo.contarPorLeads(leadsComissao.map((l) => l.id)) : Promise.resolve({}),
       ]);
 
-      return anexarPrazoEtapa(leads, historico, config);
+      return anexarTotalAnexos(anexarPrazoEtapa(leads, historico, config), contagemAnexos);
     },
 
     buscarLead(id: string): Promise<Lead> {
@@ -218,7 +229,19 @@ export function createComercialContext(supabase: SupabaseClient) {
       const leads = await leadRepo.listar(filtros);
       const historico = leads.length > 0 ? await historicoRepo.listarPorLeads(leads.map((l) => l.id)) : [];
       const agendamentosFrios = await agendamentoFrioRepo.listarAgendados();
-      return gerarRelatorioComercial(leads, historico, agendamentosFrios);
+
+      // Status "Recebido" do relatório de comissões precisa saber se o
+      // lançamento gerado ao fechar já foi marcado como pago (ver
+      // calcularComissoes) — só busca pros leads "fechado" de comissão.
+      const leadsFechadosComissao = leads.filter((l) => l.eh_comissao && l.etapa === "fechado");
+      const lancamentos =
+        leadsFechadosComissao.length > 0 ? await lancamentoRepo.listarPorLeadIds(leadsFechadosComissao.map((l) => l.id)) : [];
+      const lancamentosPagoPorLeadId: Record<string, boolean> = {};
+      for (const lancamento of lancamentos) {
+        if (lancamento.lead_id) lancamentosPagoPorLeadId[lancamento.lead_id] = lancamento.pago;
+      }
+
+      return gerarRelatorioComercial(leads, historico, agendamentosFrios, new Date(), lancamentosPagoPorLeadId);
     },
   };
 }
