@@ -45,9 +45,11 @@ export async function PATCH(request: Request, { params }: Params) {
   }
 }
 
-/** DELETE: bloqueia a exclusão se o cliente tiver algum lead associado
- * (regra do pedido: "não deleta se houver leads") — o usuário precisa
- * excluir/realocar os leads primeiro. */
+/** DELETE: bloqueia a exclusão se o cliente tiver algum lead OU orçamento
+ * associado (regra do pedido: "não deleta se houver leads"; estendida aqui
+ * pra orçamento — um cliente pode ter orçamento sem nunca ter passado por
+ * um Lead, criado direto pelo wizard) — o usuário precisa excluir/realocar
+ * esses registros primeiro. */
 export async function DELETE(_request: Request, { params }: Params) {
   const supabase = createSupabaseServerClient();
   const clienteRepo = new ClienteRepository(supabase);
@@ -61,7 +63,27 @@ export async function DELETE(_request: Request, { params }: Params) {
       );
     }
 
-    await clienteRepo.delete(clienteId);
+    const totalOrcamentos = await clienteRepo.contarOrcamentos(clienteId);
+    if (totalOrcamentos > 0) {
+      throw new ConflictError(
+        `Este cliente tem ${totalOrcamentos} orçamento${totalOrcamentos === 1 ? "" : "s"} associado${totalOrcamentos === 1 ? "" : "s"} — não é possível excluir um cliente com histórico de orçamento.`
+      );
+    }
+
+    try {
+      await clienteRepo.delete(clienteId);
+    } catch (erroDelete) {
+      // Rede de segurança: qualquer OUTRA referência de chave estrangeira a
+      // este cliente que não seja lead/orçamento (ex.: uma tabela futura)
+      // vira uma mensagem amigável em vez do "Erro interno do servidor"
+      // genérico que o bug original reportava — 23503 é o código Postgres
+      // de violação de chave estrangeira.
+      if ((erroDelete as { code?: string })?.code === "23503") {
+        throw new ConflictError("Não é possível excluir este cliente: ainda existem registros vinculados a ele.");
+      }
+      throw erroDelete;
+    }
+
     logger.info("Cliente excluído", { id: params.id });
     return NextResponse.json({ ok: true });
   } catch (error) {

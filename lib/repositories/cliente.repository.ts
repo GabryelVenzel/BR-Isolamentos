@@ -43,4 +43,21 @@ export class ClienteRepository extends BaseRepository<Cliente> {
     if (error) throw error;
     return count ?? 0;
   }
+
+  /** Quantos orçamentos existem para este cliente — mesma regra do
+   * `contarLeads`, mas pra orçamentos: um cliente pode ter orçamento sem
+   * nunca ter passado por um Lead (criado direto pelo wizard), e
+   * `orcamentos.cliente_id` não tem `on delete cascade`/`set null` (bug
+   * relatado: excluir um cliente com orçamento vinculado dava "Erro
+   * interno do servidor" — era a constraint de chave estrangeira do banco
+   * recusando a exclusão, sem nenhuma mensagem amigável). */
+  async contarOrcamentos(clienteId: number): Promise<number> {
+    const { count, error } = await this.supabase
+      .from("orcamentos")
+      .select("id", { count: "exact", head: true })
+      .eq("cliente_id", clienteId);
+
+    if (error) throw error;
+    return count ?? 0;
+  }
 }
