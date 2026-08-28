@@ -294,7 +294,11 @@ export default function Step5RevisaoPage() {
         <div className="card space-y-2 text-sm">
           <h2 className="mb-2 text-lg font-semibold">Resumo financeiro do orçamento {recalculando && "(recalculando...)"}</h2>
           <Linha label="Valor materiais" valor={resultadoOrcamento.valor_materiais} />
-          <Linha label="Mão de obra" valor={resultadoOrcamento.valor_mao_obra} />
+          {/* "Execução" (não "Mão de obra") — pedido explícito: esse valor
+              agora pode incluir itens adicionais de execução (ex.: andaime),
+              não só horas trabalhadas, então o nome precisa refletir isso.
+              O campo interno continua `valor_mao_obra` (só o rótulo mudou). */}
+          <Linha label="Execução" valor={resultadoOrcamento.valor_mao_obra} />
           <Linha label="Deslocamento" valor={resultadoOrcamento.valor_deslocamento} />
           <Linha label="Hospedagem" valor={resultadoOrcamento.valor_hospedagem} />
           <Linha label="Frete" valor={resultadoOrcamento.valor_frete} />

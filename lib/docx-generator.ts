@@ -292,7 +292,9 @@ export async function gerarPropostaComercialDocx(orcamento: Orcamento, configEmp
   children.push(new Paragraph({ text: `${n++}. Resumo Financeiro`, heading: HeadingLevel.HEADING_2, spacing: { before: 300 } }));
   const linhasFinanceiro: TableRow[] = [];
   if (!somenteMaoObra) linhasFinanceiro.push(new TableRow({ children: [celula("Material"), celula(formatarMoeda(resumoSimplificado.material))] }));
-  linhasFinanceiro.push(new TableRow({ children: [celula("Mão de Obra"), celula(formatarMoeda(resumoSimplificado.maoDeObra))] }));
+  // "Execução" (não "Mão de Obra") — pode incluir itens adicionais de
+  // execução (ex.: andaime), não só horas trabalhadas.
+  linhasFinanceiro.push(new TableRow({ children: [celula("Execução"), celula(formatarMoeda(resumoSimplificado.maoDeObra))] }));
   linhasFinanceiro.push(
     new TableRow({
       children: [celula("VALOR TOTAL", { negrito: true }), celula(formatarMoeda(orcamento.valor_final), { negrito: true, cor: COR_ACCENT })],

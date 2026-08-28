@@ -172,6 +172,13 @@ export function linhasEspecificacoesTecnicas(itens: ItemOrcamento[]): LinhaEspec
 
 export interface ResumoFinanceiroSimplificado {
   material: number;
+  /** Rótulo exibido nas Propostas/telas é "Execução", não "Mão de Obra"
+   * (pedido explícito, migração 026) — esse valor pode incluir itens
+   * adicionais de execução (ex.: andaime, linha de vida) além das horas de
+   * mão de obra automáticas, então "Mão de Obra" sozinho deixou de
+   * descrever tudo que está aqui dentro. O nome do campo continua
+   * `maoDeObra` (é `orcamento.valor_mao_obra` por baixo, que também não foi
+   * renomeado no banco) — só o texto mostrado ao usuário muda. */
   maoDeObra: number;
 }
 

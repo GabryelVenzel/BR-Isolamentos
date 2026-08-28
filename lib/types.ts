@@ -144,11 +144,14 @@ export interface ItemOrcamento {
  * em lib/usecases/orcamento/precificarTrecho.ts) — mesmas linhas mostradas
  * (com botão de editar) na Tela 4 do wizard, agora persistidas por trecho. */
 export interface LinhaDetalhamentoMaterial {
-  /** "item_adicional" (migração 025) — linha livre digitada pelo usuário na
-   * Tela 4 (ex.: "Andaime", "Linha de vida"), preço direto por unidade,
-   * fora do catálogo/quantificação automática. Pode haver várias linhas com
-   * essa mesma chave num trecho (uma por item adicionado). */
-  chave: "isolante" | "acabamento" | "rebite" | "parafuso" | "arame" | "silicone" | "item_adicional";
+  /** "item_adicional_material"/"item_adicional_execucao" (migração 025/026)
+   * — linha livre digitada pelo usuário na Tela 4 (ex.: "Andaime", "Linha de
+   * vida"), preço direto por unidade, fora do catálogo/quantificação
+   * automática. A chave já carrega a categoria escolhida (Material soma no
+   * subtotal de materiais; Execução soma junto com a mão de obra — ex.:
+   * andaime não é material, é custo de execução do serviço). Pode haver
+   * várias linhas com a mesma chave num trecho (uma por item adicionado). */
+  chave: "isolante" | "acabamento" | "rebite" | "parafuso" | "arame" | "silicone" | "item_adicional_material" | "item_adicional_execucao";
   titulo: string;
   quantidade: number;
   unidade: string;

@@ -69,9 +69,10 @@ export const ItemOrcamentoSchema = z.object({
   detalhamento_materiais: z
     .array(
       z.object({
-        // "item_adicional" (migração 025) — linha livre da caixa "Itens
-        // Adicionais" da Tela 4 (ex.: andaime, linha de vida).
-        chave: z.enum(["isolante", "acabamento", "rebite", "parafuso", "arame", "silicone", "item_adicional"]),
+        // "item_adicional_material"/"item_adicional_execucao" (migração
+        // 025/026) — linha livre da caixa "Itens Adicionais" da Tela 4 (ex.:
+        // andaime, linha de vida), já com a categoria escolhida.
+        chave: z.enum(["isolante", "acabamento", "rebite", "parafuso", "arame", "silicone", "item_adicional_material", "item_adicional_execucao"]),
         titulo: z.string(),
         quantidade: z.number(),
         unidade: z.string(),

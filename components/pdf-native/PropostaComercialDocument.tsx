@@ -354,7 +354,11 @@ export default function PropostaComercialDocument({ orcamento, configEmpresa }: 
         <View style={estilos.totalCaixa} wrap={false}>
           <Text style={estilos.secaoTitulo}>{n++}. Resumo Financeiro</Text>
           {!somenteMaoObra && <Linha label="Material" valor={formatarMoeda(resumoSimplificado.material)} />}
-          <Linha label="Mão de Obra" valor={formatarMoeda(resumoSimplificado.maoDeObra)} />
+          {/* "Execução" (não "Mão de Obra") — pedido explícito: esse valor
+              pode incluir itens adicionais de execução (ex.: andaime), não
+              só horas trabalhadas (o campo `maoDeObra` continua com esse
+              nome internamente, só o rótulo exibido mudou). */}
+          <Linha label="Execução" valor={formatarMoeda(resumoSimplificado.maoDeObra)} />
           <View style={estilos.totalLinha}>
             <Text style={estilos.totalLabel}>Valor Total</Text>
             <Text style={estilos.totalValor}>{formatarMoeda(orcamento.valor_final)}</Text>

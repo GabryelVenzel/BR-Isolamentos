@@ -29,18 +29,23 @@ interface LinhaEdicao {
   precoBase: number;
 }
 
-/** Item livre da caixa "Itens Adicionais" (migração 025) — pra casos fora do
- * catálogo/quantificação automática (andaime, linha de vida, etc.): nome,
- * quantidade e preço unitário digitados direto, sem passar pelo motor de
- * quantificação. Entra no subtotal de materiais do trecho pra imposto/margem
- * incidirem em cima também, e vira mais uma linha em `detalhamento_materiais`
- * pra aparecer no quadro de materiais e mão de obra da Proposta. */
+/** Item livre da caixa "Itens Adicionais" (migração 025/026) — pra casos
+ * fora do catálogo/quantificação automática (andaime, linha de vida, etc.):
+ * nome, quantidade e preço unitário digitados direto, sem passar pelo motor
+ * de quantificação. `categoria` decide em qual subtotal do trecho o item
+ * entra — "material" soma no Subtotal de Materiais, "execucao" soma junto
+ * com a mão de obra (pedido explícito: andaime não é material, é custo de
+ * execução do serviço) — os dois já entram no valor do trecho pra
+ * imposto/margem incidirem em cima, e viram mais uma linha em
+ * `detalhamento_materiais` pra aparecer no quadro de materiais e mão de obra
+ * da Proposta. */
 interface ItemAdicional {
   id: number;
   nome: string;
   quantidade: number;
   precoUnitario: number;
   unidade: string;
+  categoria: "material" | "execucao";
 }
 
 /** Tela 4 (refinada, ajuste final) — Resumo técnico virou só a análise
@@ -72,7 +77,13 @@ export default function Step4PrecosPage() {
   const [salvando, setSalvando] = useState<"revisao" | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [itensAdicionais, setItensAdicionais] = useState<ItemAdicional[]>([]);
-  const [novoItemAdicional, setNovoItemAdicional] = useState({ nome: "", quantidade: "1", precoUnitario: "", unidade: "un." });
+  const [novoItemAdicional, setNovoItemAdicional] = useState<{
+    nome: string;
+    quantidade: string;
+    precoUnitario: string;
+    unidade: string;
+    categoria: "material" | "execucao";
+  }>({ nome: "", quantidade: "1", precoUnitario: "", unidade: "un.", categoria: "material" });
 
   useEffect(() => {
     Promise.all([
@@ -213,12 +224,25 @@ export default function Step4PrecosPage() {
       ]
     : [];
 
-  // Itens adicionais entram no subtotal de material independente do tipo de
+  // Itens adicionais entram no subtotal do trecho independente do tipo de
   // proposta — andaime/linha de vida são custos reais mesmo numa proposta
-  // "Somente Mão de Obra" (o cliente não fornece esse tipo de item).
-  const subtotalItensAdicionais = Number(
-    itensAdicionais.reduce((acc, it) => acc + it.quantidade * it.precoUnitario, 0).toFixed(2)
+  // "Somente Mão de Obra" (o cliente não fornece esse tipo de item). Cada
+  // item soma no bucket da sua `categoria`: "material" some com o catálogo
+  // (Subtotal de Materiais); "execucao" some com a mão de obra (pedido
+  // explícito — andaime não é material, é custo de execução do serviço).
+  const subtotalItensAdicionaisMaterial = Number(
+    itensAdicionais
+      .filter((it) => it.categoria === "material")
+      .reduce((acc, it) => acc + it.quantidade * it.precoUnitario, 0)
+      .toFixed(2)
   );
+  const subtotalItensAdicionaisExecucao = Number(
+    itensAdicionais
+      .filter((it) => it.categoria === "execucao")
+      .reduce((acc, it) => acc + it.quantidade * it.precoUnitario, 0)
+      .toFixed(2)
+  );
+  const subtotalItensAdicionais = Number((subtotalItensAdicionaisMaterial + subtotalItensAdicionaisExecucao).toFixed(2));
 
   const subtotalMaterialCatalogo =
     !base || tipoProposta === "somente_mo"
@@ -231,8 +255,8 @@ export default function Step4PrecosPage() {
         );
 
   // Subtotal de material "oficial" do trecho (persistido/usado no cálculo de
-  // imposto e margem) = catálogo + itens adicionais.
-  const subtotalMaterial = !base ? 0 : Number((subtotalMaterialCatalogo + subtotalItensAdicionais).toFixed(2));
+  // imposto e margem) = catálogo + itens adicionais de categoria "material".
+  const subtotalMaterial = !base ? 0 : Number((subtotalMaterialCatalogo + subtotalItensAdicionaisMaterial).toFixed(2));
 
   function adicionarItemAdicional() {
     const nome = novoItemAdicional.nome.trim();
@@ -242,9 +266,9 @@ export default function Step4PrecosPage() {
 
     setItensAdicionais((prev) => [
       ...prev,
-      { id: Date.now(), nome, quantidade, precoUnitario, unidade: novoItemAdicional.unidade.trim() || "un." },
+      { id: Date.now(), nome, quantidade, precoUnitario, unidade: novoItemAdicional.unidade.trim() || "un.", categoria: novoItemAdicional.categoria },
     ]);
-    setNovoItemAdicional({ nome: "", quantidade: "1", precoUnitario: "", unidade: "un." });
+    setNovoItemAdicional({ nome: "", quantidade: "1", precoUnitario: "", unidade: "un.", categoria: "material" });
   }
 
   function removerItemAdicional(id: number) {
@@ -253,7 +277,13 @@ export default function Step4PrecosPage() {
 
   const horasMaoObraEfetiva = base ? valor("maoObra", "quantidade", base.horas_mao_obra) : 0;
   const valorHoraEfetivo = base ? valor("maoObra", "precoUnitario", base.valor_hora_mao_obra) : 0;
-  const subtotalMaoObra = Number((horasMaoObraEfetiva * valorHoraEfetivo).toFixed(2));
+  // Subtotal "oficial" de execução do trecho (persistido em subtotal_mao_obra)
+  // = mão de obra automática (horas × valor/hora) + itens adicionais de
+  // categoria "execucao" (ex.: andaime, linha de vida). O card "Mão de obra"
+  // abaixo mostra só a parte de horas — os itens de execução aparecem no
+  // próprio card "Itens Adicionais".
+  const subtotalMaoObraHoras = Number((horasMaoObraEfetiva * valorHoraEfetivo).toFixed(2));
+  const subtotalMaoObra = Number((subtotalMaoObraHoras + subtotalItensAdicionaisExecucao).toFixed(2));
   const subtotalTrecho = Number((subtotalMaterial + subtotalMaoObra).toFixed(2));
 
   // Título real de cada linha (material/acabamento escolhido) — precificarTrecho()
@@ -290,7 +320,7 @@ export default function Step4PrecosPage() {
     // Camadas de isolante compostas (migração 025) — mesma chave "isolante"
     // das linhas padrão (o `chave` é só um marcador de categoria, não uma
     // chave única — várias linhas podem compartilhá-la, igual já acontece
-    // com "item_adicional").
+    // com "item_adicional_material"/"item_adicional_execucao").
     const detalhamentoIsolanteComposto =
       tipoProposta === "somente_mo"
         ? []
@@ -307,10 +337,13 @@ export default function Step4PrecosPage() {
 
     const detalhamentoCatalogo = [...detalhamentoLinhasPadrao, ...detalhamentoIsolanteComposto];
 
-    // Itens adicionais (migração 025) — sempre entram, mesmo em "somente_mo"
-    // (ver comentário em subtotalItensAdicionais acima).
+    // Itens adicionais (migração 025/026) — sempre entram, mesmo em
+    // "somente_mo" (ver comentário em subtotalItensAdicionais acima). A
+    // chave já carrega a categoria (material/execução) escolhida pelo
+    // usuário, pra manter rastreável no histórico persistido qual subtotal
+    // cada item alimentou.
     const detalhamentoAdicionais = itensAdicionais.map((it) => ({
-      chave: "item_adicional" as const,
+      chave: it.categoria === "material" ? ("item_adicional_material" as const) : ("item_adicional_execucao" as const),
       titulo: it.nome,
       quantidade: it.quantidade,
       unidade: it.unidade,
@@ -541,22 +574,24 @@ export default function Step4PrecosPage() {
                 </tbody>
               </table>
               <div className="border-t border-gray-100 pt-2 text-sm font-semibold">
-                <Linha label="Subtotal Mão de Obra" valor={subtotalMaoObra} />
+                <Linha label="Subtotal Mão de Obra" valor={subtotalMaoObraHoras} />
               </div>
             </div>
           )}
 
-          {/* Itens Adicionais (migração 025): pra casos fora do catálogo/
+          {/* Itens Adicionais (migração 025/026): pra casos fora do catálogo/
               quantificação automática — andaime, linha de vida, etc. Nome,
-              quantidade e preço unitário digitados direto; entra no
-              subtotal de material (imposto/margem incidem em cima também) e
-              aparece no quadro de materiais e mão de obra da Proposta. */}
+              quantidade, preço unitário e categoria (Material ou Execução)
+              digitados direto; entra no subtotal correspondente do trecho
+              (imposto/margem incidem em cima também) e aparece no quadro de
+              materiais e mão de obra da Proposta. */}
           <div className="card space-y-3">
             <div>
               <h2 className="text-lg font-semibold">Itens Adicionais</h2>
               <p className="text-xs text-gray-400">
                 Pra itens fora da lista padrão (andaime, linha de vida, etc.) — quantidade e preço direto, sem
-                passar pelo catálogo. Entra no total do trecho e aparece na proposta.
+                passar pelo catálogo. Marque se é Material ou Execução (ex.: andaime é execução, não material) —
+                decide em qual subtotal do trecho o item entra. Entra no total do trecho e aparece na proposta.
               </p>
             </div>
 
@@ -566,6 +601,7 @@ export default function Step4PrecosPage() {
                   <thead className="table-header">
                     <tr>
                       <th className="py-2 pr-4 text-left">Item</th>
+                      <th className="py-2 pr-4 text-left">Tipo</th>
                       <th className="py-2 pr-4 text-right">Qtd.</th>
                       <th className="py-2 pr-4 text-right">Preço unit.</th>
                       <th className="py-2 pr-4 text-right">Subtotal</th>
@@ -576,6 +612,15 @@ export default function Step4PrecosPage() {
                     {itensAdicionais.map((it) => (
                       <tr key={it.id}>
                         <td className="py-1.5 pr-4">{it.nome}</td>
+                        <td className="py-1.5 pr-4">
+                          <span
+                            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                              it.categoria === "material" ? "bg-accent-light text-accent-dark" : "bg-brand-light text-brand"
+                            }`}
+                          >
+                            {it.categoria === "material" ? "Material" : "Execução"}
+                          </span>
+                        </td>
                         <td className="py-1.5 pr-4 text-right text-gray-500">
                           {formatarNumero(it.quantidade, 2)} {it.unidade}
                         </td>
@@ -593,7 +638,7 @@ export default function Step4PrecosPage() {
               </div>
             )}
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-5 sm:items-end">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-6 sm:items-end">
               <div className="sm:col-span-2">
                 <label className="label-field">Descrição</label>
                 <input
@@ -602,6 +647,17 @@ export default function Step4PrecosPage() {
                   value={novoItemAdicional.nome}
                   onChange={(e) => setNovoItemAdicional((prev) => ({ ...prev, nome: e.target.value }))}
                 />
+              </div>
+              <div>
+                <label className="label-field">Tipo</label>
+                <select
+                  className="input-field"
+                  value={novoItemAdicional.categoria}
+                  onChange={(e) => setNovoItemAdicional((prev) => ({ ...prev, categoria: e.target.value as "material" | "execucao" }))}
+                >
+                  <option value="material">Material</option>
+                  <option value="execucao">Execução</option>
+                </select>
               </div>
               <div>
                 <label className="label-field">Qtd.</label>
@@ -638,8 +694,10 @@ export default function Step4PrecosPage() {
             </button>
 
             {itensAdicionais.length > 0 && (
-              <div className="border-t border-gray-100 pt-2 text-sm font-semibold">
-                <Linha label="Subtotal Itens Adicionais" valor={subtotalItensAdicionais} />
+              <div className="border-t border-gray-100 pt-2 text-sm">
+                <Linha label="Subtotal Material (adicionais)" valor={subtotalItensAdicionaisMaterial} />
+                <Linha label="Subtotal Execução (adicionais)" valor={subtotalItensAdicionaisExecucao} />
+                <Linha label="Subtotal Itens Adicionais" valor={subtotalItensAdicionais} destaque />
               </div>
             )}
           </div>

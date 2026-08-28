@@ -105,7 +105,7 @@ export default async function OrcamentoDetalhePage({ params }: { params: { id: s
       <div className="card space-y-1 text-sm">
         <h2 className="mb-2 text-lg font-semibold">Financeiro</h2>
         <p>Materiais: {formatarMoeda(orcamento.valor_materiais)}</p>
-        <p>Mão de obra: {formatarMoeda(orcamento.valor_mao_obra)}</p>
+        <p>Execução: {formatarMoeda(orcamento.valor_mao_obra)}</p>
         <p>Deslocamento: {formatarMoeda(orcamento.valor_deslocamento)}</p>
         <p>Hospedagem: {formatarMoeda(orcamento.valor_hospedagem)}</p>
         <p>Frete: {formatarMoeda(orcamento.valor_frete)}</p>
