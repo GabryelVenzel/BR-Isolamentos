@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { horasMaoObraTotal, useWizardStore } from "@/lib/store";
-import { precificarTrecho, somarMetragemEscopo } from "@/lib/usecases/orcamento";
+import { comporCamadasIsolante, precificarTrecho, somarMetragemEscopo } from "@/lib/usecases/orcamento";
 import { formatarMoeda, formatarNumero } from "@/lib/format";
 import type { CalcularOrcamentoInput, ConfigEmpresa, ImpostoConfig, PrecoConfig } from "@/lib/types";
 
@@ -27,6 +27,20 @@ interface LinhaEdicao {
   unidadePreco: string;
   quantidadeBase: number;
   precoBase: number;
+}
+
+/** Item livre da caixa "Itens Adicionais" (migração 025) — pra casos fora do
+ * catálogo/quantificação automática (andaime, linha de vida, etc.): nome,
+ * quantidade e preço unitário digitados direto, sem passar pelo motor de
+ * quantificação. Entra no subtotal de materiais do trecho pra imposto/margem
+ * incidirem em cima também, e vira mais uma linha em `detalhamento_materiais`
+ * pra aparecer no quadro de materiais e mão de obra da Proposta. */
+interface ItemAdicional {
+  id: number;
+  nome: string;
+  quantidade: number;
+  precoUnitario: number;
+  unidade: string;
 }
 
 /** Tela 4 (refinada, ajuste final) — Resumo técnico virou só a análise
@@ -57,6 +71,8 @@ export default function Step4PrecosPage() {
   const [editando, setEditando] = useState<LinhaEdicao | null>(null);
   const [salvando, setSalvando] = useState<"revisao" | null>(null);
   const [erro, setErro] = useState<string | null>(null);
+  const [itensAdicionais, setItensAdicionais] = useState<ItemAdicional[]>([]);
+  const [novoItemAdicional, setNovoItemAdicional] = useState({ nome: "", quantidade: "1", precoUnitario: "", unidade: "un." });
 
   useEffect(() => {
     Promise.all([
@@ -76,7 +92,14 @@ export default function Step4PrecosPage() {
   const precoIsolanteCatalogo = precos.find((p) => p.id === especificacoes.preco_isolante_id);
   const precoAcabamentoCatalogo = precos.find((p) => p.id === especificacoes.preco_acabamento_id);
 
-  const nomeIsolante = isolanteCustomizado ? especificacoes.isolante_customizado_nome! : precoIsolanteCatalogo?.descricao ?? "Isolante";
+  // Nome exibido em "Especificações Técnicas"/resumo — nome da FAMÍLIA (sem
+  // espessura, ex. "Feltro de Lã de Rocha 64kg/m³"), não da linha específica
+  // selecionada no catálogo (migração 025): a espessura real do trecho pode
+  // ser composta de várias linhas/camadas da família (ver camadasIsolante
+  // abaixo), então mostrar a espessura de só uma delas seria enganoso.
+  const nomeIsolante = isolanteCustomizado
+    ? especificacoes.isolante_customizado_nome!
+    : precoIsolanteCatalogo?.familia ?? precoIsolanteCatalogo?.descricao ?? "Isolante";
   const nomeAcabamento = acabamentoCustomizado ? especificacoes.acabamento_customizado_nome! : precoAcabamentoCatalogo?.descricao ?? "Acabamento";
 
   // Só bloqueia avançar por falta de resultado térmico quando NÃO é material
@@ -128,9 +151,60 @@ export default function Step4PrecosPage() {
     return overrides[chave]?.[campo] ?? base;
   }
 
+  // Composição em camadas do isolante (migração 025) — o catálogo agora só
+  // tem espessuras PADRÃO por família (ex.: Feltro de Lã de Rocha só em 25mm
+  // e 51mm); quando a espessura exigida do trecho não é uma delas, decompõe
+  // em 2+ camadas (ex.: 75mm = 50mm + 25mm), cada uma com preço da sua
+  // própria linha do catálogo. Só roda com material de catálogo (não
+  // customizado) e quando a família tem espessuras cadastradas — caso
+  // contrário cai no comportamento antigo (1 linha só, editável no lápis).
+  const familiaIsolanteRows =
+    !isolanteCustomizado && precoIsolanteCatalogo?.familia
+      ? precos.filter((p) => p.familia === precoIsolanteCatalogo.familia && p.ativo)
+      : [];
+  const camadasIsolante =
+    familiaIsolanteRows.length > 0
+      ? comporCamadasIsolante(
+          espessuraMm,
+          familiaIsolanteRows.map((p) => p.espessura_mm ?? 0)
+        )
+      : [];
+  const usaComposicaoIsolante = camadasIsolante.length > 0;
+
+  // Linhas de isolante já compostas — não passam pelo sistema de lápis
+  // (decisão de escopo: são um resultado determinístico do catálogo × área,
+  // diferente das quantidades estimadas pelo motor automático; pra um ajuste
+  // pontual, use a caixa "Itens Adicionais" ou corrija o preço da linha
+  // específica em Configurar Preços). Cada camada cobre a metragem TOTAL do
+  // trecho (pedido explícito do usuário), multiplicada por quantas camadas
+  // dessa espessura entram na composição.
+  const linhasIsolanteComposto = usaComposicaoIsolante
+    ? camadasIsolante.map((camada) => {
+        const row = familiaIsolanteRows.find((p) => p.espessura_mm === camada.espessuraMm);
+        const quantidade = (base?.quantidades.isolanteM2 ?? 0) * camada.quantidadeCamadas;
+        const precoUnitario = row?.preco_unitario ?? 0;
+        return {
+          titulo:
+            camada.quantidadeCamadas > 1
+              ? `${row?.descricao ?? "Isolante"} (${camada.quantidadeCamadas} camadas)`
+              : row?.descricao ?? "Isolante",
+          quantidade,
+          precoUnitario,
+          subtotal: Number((quantidade * precoUnitario).toFixed(2)),
+        };
+      })
+    : [];
+  const subtotalIsolanteComposto = Number(linhasIsolanteComposto.reduce((acc, l) => acc + l.subtotal, 0).toFixed(2));
+
   const linhas: LinhaEdicao[] = base
     ? [
-        { chave: "isolante", titulo: nomeIsolante, unidadeQuantidade: "m²", unidadePreco: "m²", quantidadeBase: base.quantidades.isolanteM2, precoBase: precoIsolanteBase },
+        // Isolante entra aqui (editável no lápis, 1 linha só) SÓ quando a
+        // composição em camadas não roda (customizado ou família sem
+        // espessuras cadastradas) — o caso composto renderiza separado
+        // (`linhasIsolanteComposto`), sem lápis.
+        ...(usaComposicaoIsolante
+          ? []
+          : [{ chave: "isolante" as const, titulo: nomeIsolante, unidadeQuantidade: "m²", unidadePreco: "m²", quantidadeBase: base.quantidades.isolanteM2, precoBase: precoIsolanteBase }]),
         { chave: "acabamento", titulo: nomeAcabamento, unidadeQuantidade: "m²", unidadePreco: "m²", quantidadeBase: base.quantidades.acabamentoM2, precoBase: precoAcabamentoBase },
         { chave: "rebite", titulo: "Rebite", unidadeQuantidade: "un.", unidadePreco: "un.", quantidadeBase: base.quantidades.rebiteUn, precoBase: precosAcessorios.rebiteUn },
         { chave: "parafuso", titulo: "Parafuso", unidadeQuantidade: "un.", unidadePreco: "un.", quantidadeBase: base.quantidades.parafusoUn, precoBase: precosAcessorios.parafusoUn },
@@ -139,10 +213,43 @@ export default function Step4PrecosPage() {
       ]
     : [];
 
-  const subtotalMaterial =
+  // Itens adicionais entram no subtotal de material independente do tipo de
+  // proposta — andaime/linha de vida são custos reais mesmo numa proposta
+  // "Somente Mão de Obra" (o cliente não fornece esse tipo de item).
+  const subtotalItensAdicionais = Number(
+    itensAdicionais.reduce((acc, it) => acc + it.quantidade * it.precoUnitario, 0).toFixed(2)
+  );
+
+  const subtotalMaterialCatalogo =
     !base || tipoProposta === "somente_mo"
       ? 0
-      : Number(linhas.reduce((acc, l) => acc + valor(l.chave, "quantidade", l.quantidadeBase) * valor(l.chave, "precoUnitario", l.precoBase), 0).toFixed(2));
+      : Number(
+          (
+            linhas.reduce((acc, l) => acc + valor(l.chave, "quantidade", l.quantidadeBase) * valor(l.chave, "precoUnitario", l.precoBase), 0) +
+            subtotalIsolanteComposto
+          ).toFixed(2)
+        );
+
+  // Subtotal de material "oficial" do trecho (persistido/usado no cálculo de
+  // imposto e margem) = catálogo + itens adicionais.
+  const subtotalMaterial = !base ? 0 : Number((subtotalMaterialCatalogo + subtotalItensAdicionais).toFixed(2));
+
+  function adicionarItemAdicional() {
+    const nome = novoItemAdicional.nome.trim();
+    const quantidade = Number(novoItemAdicional.quantidade);
+    const precoUnitario = Number(novoItemAdicional.precoUnitario);
+    if (!nome || !(quantidade > 0) || !(precoUnitario >= 0)) return;
+
+    setItensAdicionais((prev) => [
+      ...prev,
+      { id: Date.now(), nome, quantidade, precoUnitario, unidade: novoItemAdicional.unidade.trim() || "un." },
+    ]);
+    setNovoItemAdicional({ nome: "", quantidade: "1", precoUnitario: "", unidade: "un." });
+  }
+
+  function removerItemAdicional(id: number) {
+    setItensAdicionais((prev) => prev.filter((it) => it.id !== id));
+  }
 
   const horasMaoObraEfetiva = base ? valor("maoObra", "quantidade", base.horas_mao_obra) : 0;
   const valorHoraEfetivo = base ? valor("maoObra", "precoUnitario", base.valor_hora_mao_obra) : 0;
@@ -162,7 +269,7 @@ export default function Step4PrecosPage() {
     // overrides aplicados (mesmas linhas exibidas na tabela acima) — é isso
     // que fica persistido em `itens_orcamento.detalhamento_materiais` para a
     // Proposta Comercial poder reconstruir a tabela depois de salvo.
-    const detalhamentoFinal =
+    const detalhamentoLinhasPadrao =
       tipoProposta === "somente_mo"
         ? []
         : linhas
@@ -180,6 +287,47 @@ export default function Step4PrecosPage() {
             })
             .filter((l) => l.quantidade > 0);
 
+    // Camadas de isolante compostas (migração 025) — mesma chave "isolante"
+    // das linhas padrão (o `chave` é só um marcador de categoria, não uma
+    // chave única — várias linhas podem compartilhá-la, igual já acontece
+    // com "item_adicional").
+    const detalhamentoIsolanteComposto =
+      tipoProposta === "somente_mo"
+        ? []
+        : linhasIsolanteComposto
+            .filter((l) => l.quantidade > 0)
+            .map((l) => ({
+              chave: "isolante" as const,
+              titulo: l.titulo,
+              quantidade: l.quantidade,
+              unidade: "m²",
+              preco_unitario: l.precoUnitario,
+              subtotal: l.subtotal,
+            }));
+
+    const detalhamentoCatalogo = [...detalhamentoLinhasPadrao, ...detalhamentoIsolanteComposto];
+
+    // Itens adicionais (migração 025) — sempre entram, mesmo em "somente_mo"
+    // (ver comentário em subtotalItensAdicionais acima).
+    const detalhamentoAdicionais = itensAdicionais.map((it) => ({
+      chave: "item_adicional" as const,
+      titulo: it.nome,
+      quantidade: it.quantidade,
+      unidade: it.unidade,
+      preco_unitario: it.precoUnitario,
+      subtotal: Number((it.quantidade * it.precoUnitario).toFixed(2)),
+    }));
+
+    const detalhamentoFinal = [...detalhamentoCatalogo, ...detalhamentoAdicionais];
+
+    // `preco_isolante_m2` (campo legado, exibido só na página interna de
+    // detalhe do orçamento — não na Proposta) vira o preço EFETIVO por m²
+    // somando o preço de todas as camadas compostas, já que o custo real do
+    // isolante deste trecho não é mais "1 preço só" quando há composição.
+    const precoIsolanteEfetivo = usaComposicaoIsolante
+      ? Number((subtotalIsolanteComposto / (base.quantidades.isolanteM2 || 1)).toFixed(4))
+      : valor("isolante", "precoUnitario", precoIsolanteBase);
+
     return {
       materialNome: nomeIsolante,
       acabamentoNome: nomeAcabamento,
@@ -187,7 +335,7 @@ export default function Step4PrecosPage() {
       especificacaoAcabamento: acabamentoCustomizado ? null : precoAcabamentoCatalogo?.especificacao ?? null,
       precificacao: {
         ...base,
-        preco_isolante_m2: valor("isolante", "precoUnitario", precoIsolanteBase),
+        preco_isolante_m2: precoIsolanteEfetivo,
         preco_acabamento_m2: valor("acabamento", "precoUnitario", precoAcabamentoBase),
         horas_mao_obra: horasMaoObraEfetiva,
         valor_hora_mao_obra: valorHoraEfetivo,
@@ -333,6 +481,17 @@ export default function Step4PrecosPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
+                    {/* Camadas de isolante compostas (migração 025) — sem lápis, ver
+                        comentário em `linhasIsolanteComposto`. */}
+                    {linhasIsolanteComposto.map((l, index) => (
+                      <tr key={`isolante-composto-${index}`}>
+                        <td className="py-1.5 pr-4">{l.titulo}</td>
+                        <td className="py-1.5 pr-4 text-right text-gray-500">{formatarNumero(l.quantidade, 2)} m²</td>
+                        <td className="py-1.5 pr-4 text-right text-gray-500">{formatarMoeda(l.precoUnitario)}</td>
+                        <td className="py-1.5 pr-4 text-right font-medium">{formatarMoeda(l.subtotal)}</td>
+                        <td className="py-1.5 pl-4 text-right" />
+                      </tr>
+                    ))}
                     {linhas.map((l) => (
                       <LinhaTabela
                         key={l.chave}
@@ -345,12 +504,18 @@ export default function Step4PrecosPage() {
                   </tbody>
                 </table>
               </div>
+              {usaComposicaoIsolante && (
+                <p className="text-xs text-gray-400">
+                  Espessura exigida ({formatarNumero(espessuraMm, 1)}mm) composta com as espessuras padrão da família — sem lápis
+                  aqui; ajuste o preço de cada espessura em Configurar Preços ou use "Itens Adicionais" pra uma correção pontual.
+                </p>
+              )}
               <p className="text-xs text-gray-400">
                 Preços de Rebite/Parafuso/Arame/Silicone vêm do catálogo ("Materiais Adicionais" em Configurar
                 Preços) — o lápis ajusta só este orçamento.
               </p>
               <div className="border-t border-gray-100 pt-2 text-sm font-semibold">
-                <Linha label="Subtotal Materiais" valor={subtotalMaterial} />
+                <Linha label="Subtotal Materiais" valor={subtotalMaterialCatalogo} />
               </div>
             </div>
           )}
@@ -380,6 +545,104 @@ export default function Step4PrecosPage() {
               </div>
             </div>
           )}
+
+          {/* Itens Adicionais (migração 025): pra casos fora do catálogo/
+              quantificação automática — andaime, linha de vida, etc. Nome,
+              quantidade e preço unitário digitados direto; entra no
+              subtotal de material (imposto/margem incidem em cima também) e
+              aparece no quadro de materiais e mão de obra da Proposta. */}
+          <div className="card space-y-3">
+            <div>
+              <h2 className="text-lg font-semibold">Itens Adicionais</h2>
+              <p className="text-xs text-gray-400">
+                Pra itens fora da lista padrão (andaime, linha de vida, etc.) — quantidade e preço direto, sem
+                passar pelo catálogo. Entra no total do trecho e aparece na proposta.
+              </p>
+            </div>
+
+            {itensAdicionais.length > 0 && (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="table-header">
+                    <tr>
+                      <th className="py-2 pr-4 text-left">Item</th>
+                      <th className="py-2 pr-4 text-right">Qtd.</th>
+                      <th className="py-2 pr-4 text-right">Preço unit.</th>
+                      <th className="py-2 pr-4 text-right">Subtotal</th>
+                      <th className="py-2 pl-4 text-right">Ações</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {itensAdicionais.map((it) => (
+                      <tr key={it.id}>
+                        <td className="py-1.5 pr-4">{it.nome}</td>
+                        <td className="py-1.5 pr-4 text-right text-gray-500">
+                          {formatarNumero(it.quantidade, 2)} {it.unidade}
+                        </td>
+                        <td className="py-1.5 pr-4 text-right text-gray-500">{formatarMoeda(it.precoUnitario)}</td>
+                        <td className="py-1.5 pr-4 text-right font-medium">{formatarMoeda(it.quantidade * it.precoUnitario)}</td>
+                        <td className="py-1.5 pl-4 text-right">
+                          <button type="button" title="Remover" className="hover:opacity-70" onClick={() => removerItemAdicional(it.id)}>
+                            🗑️
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-5 sm:items-end">
+              <div className="sm:col-span-2">
+                <label className="label-field">Descrição</label>
+                <input
+                  className="input-field"
+                  placeholder="Ex: Andaime, Linha de vida..."
+                  value={novoItemAdicional.nome}
+                  onChange={(e) => setNovoItemAdicional((prev) => ({ ...prev, nome: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="label-field">Qtd.</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="input-field"
+                  value={novoItemAdicional.quantidade}
+                  onChange={(e) => setNovoItemAdicional((prev) => ({ ...prev, quantidade: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="label-field">Unidade</label>
+                <input
+                  className="input-field"
+                  placeholder="un."
+                  value={novoItemAdicional.unidade}
+                  onChange={(e) => setNovoItemAdicional((prev) => ({ ...prev, unidade: e.target.value }))}
+                />
+              </div>
+              <div>
+                <label className="label-field">Preço unit. (R$)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="input-field"
+                  value={novoItemAdicional.precoUnitario}
+                  onChange={(e) => setNovoItemAdicional((prev) => ({ ...prev, precoUnitario: e.target.value }))}
+                />
+              </div>
+            </div>
+            <button type="button" className="btn-secondary" onClick={adicionarItemAdicional}>
+              + Adicionar item
+            </button>
+
+            {itensAdicionais.length > 0 && (
+              <div className="border-t border-gray-100 pt-2 text-sm font-semibold">
+                <Linha label="Subtotal Itens Adicionais" valor={subtotalItensAdicionais} />
+              </div>
+            )}
+          </div>
 
           {/* Custos operacionais: movidos da Revisão pra cá (pedido
               explícito) — valem pro orçamento inteiro, não só este trecho;

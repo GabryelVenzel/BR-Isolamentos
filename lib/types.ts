@@ -144,7 +144,11 @@ export interface ItemOrcamento {
  * em lib/usecases/orcamento/precificarTrecho.ts) — mesmas linhas mostradas
  * (com botão de editar) na Tela 4 do wizard, agora persistidas por trecho. */
 export interface LinhaDetalhamentoMaterial {
-  chave: "isolante" | "acabamento" | "rebite" | "parafuso" | "arame" | "silicone";
+  /** "item_adicional" (migração 025) — linha livre digitada pelo usuário na
+   * Tela 4 (ex.: "Andaime", "Linha de vida"), preço direto por unidade,
+   * fora do catálogo/quantificação automática. Pode haver várias linhas com
+   * essa mesma chave num trecho (uma por item adicionado). */
+  chave: "isolante" | "acabamento" | "rebite" | "parafuso" | "arame" | "silicone" | "item_adicional";
   titulo: string;
   quantidade: number;
   unidade: string;
@@ -260,6 +264,17 @@ export interface PrecoConfig {
    * preços, só controla a ordem de exibição. */
   ordem: number;
   ultima_atualizacao: string;
+  /** Migração 025 — só em linhas de isolante: nome comercial da família do
+   * produto SEM a espessura (ex.: "Feltro de Lã de Rocha 64kg/m³"), igual
+   * pra todas as linhas de espessura diferente da mesma família. Agrupa as
+   * linhas que `comporCamadasIsolante` pode combinar entre si — ex.: as 2
+   * linhas de "Feltro de Lã de Rocha 64kg/m³" (25mm e 51mm) compartilham a
+   * mesma família, então uma espessura de 75mm pode compor as duas juntas.
+   * `null` em chaparia/acessório (não fazem composição em camadas). */
+  familia: string | null;
+  /** Migração 025 — espessura padrão (mm) desta linha específica do
+   * catálogo, só em isolante (ex.: 25, 51). `null` em chaparia/acessório. */
+  espessura_mm: number | null;
 }
 
 export type RegimeTributario = "simples_nacional" | "lucro_presumido" | "personalizado";

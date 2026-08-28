@@ -17,6 +17,8 @@ export {
   temTubulacaoPequena,
 } from "./escopo";
 export { acabamentoFisicoMaisProximo, materialFisicoMaisProximo } from "./materialFisico";
+export { comporCamadasIsolante, espessuraTotalComposicao } from "./composicaoIsolante";
+export type { CamadaIsolante } from "./composicaoIsolante";
 export { alocarValorFinalPorTrecho, precificarTrecho } from "./precificarTrecho";
 export type { PrecificacaoTrecho, PrecosAcessorios, TrechoParaAlocacao } from "./precificarTrecho";
 export { quantificarMateriais } from "./quantificarMateriais";

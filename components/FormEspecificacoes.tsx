@@ -58,8 +58,26 @@ export default function FormEspecificacoes() {
   }
 
   const isQuente = especificacoes.tipo_trabalho === "quente";
-  const isolantes = precos.filter((p) => p.tipo_material.startsWith("isolante_"));
   const acabamentos = precos.filter((p) => p.tipo_material.startsWith("chaparia_"));
+
+  // Migração 025: o catálogo de isolante agora tem uma LINHA por espessura
+  // padrão da família (ex.: "Feltro de Lã de Rocha 64kg/m³" em 25mm e
+  // 51mm) — mas aqui o usuário escolhe só a FAMÍLIA (a espessura real do
+  // trecho vem do campo de espessura/cálculo térmico de sempre e é composta
+  // em camadas na Tela 4, ver lib/usecases/orcamento/composicaoIsolante.ts).
+  // Deduplica por `familia`, mostrando 1 opção por família em vez de 1 por
+  // linha/espessura; guarda o id da linha de MENOR espessura como
+  // representante (usada só pra achar densidade/preço de referência — a
+  // Tela 4 busca as demais linhas da mesma família quando precisar compor).
+  const isolantesPorFamilia = new Map<string, PrecoConfig>();
+  for (const p of precos.filter((item) => item.tipo_material.startsWith("isolante_"))) {
+    const chave = p.familia ?? p.descricao;
+    const atual = isolantesPorFamilia.get(chave);
+    if (!atual || (p.espessura_mm ?? 0) < (atual.espessura_mm ?? 0)) {
+      isolantesPorFamilia.set(chave, p);
+    }
+  }
+  const isolantes = [...isolantesPorFamilia.values()].sort((a, b) => a.ordem - b.ordem);
 
   const metragemEscopo = somarMetragemEscopo(escopoAtual);
   const metragemFinal = especificacoes.metragem_editada ? (especificacoes.metragem_manual_m2 ?? 0) : metragemEscopo;
@@ -100,7 +118,7 @@ export default function FormEspecificacoes() {
               </option>
               {isolantes.map((p) => (
                 <option key={p.id} value={p.id}>
-                  {p.descricao}
+                  {p.familia ?? p.descricao}
                 </option>
               ))}
               <option value="outro">➕ Outro material</option>
