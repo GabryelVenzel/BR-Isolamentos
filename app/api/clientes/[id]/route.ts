@@ -70,19 +70,11 @@ export async function DELETE(_request: Request, { params }: Params) {
       );
     }
 
-    try {
-      await clienteRepo.delete(clienteId);
-    } catch (erroDelete) {
-      // Rede de segurança: qualquer OUTRA referência de chave estrangeira a
-      // este cliente que não seja lead/orçamento (ex.: uma tabela futura)
-      // vira uma mensagem amigável em vez do "Erro interno do servidor"
-      // genérico que o bug original reportava — 23503 é o código Postgres
-      // de violação de chave estrangeira.
-      if ((erroDelete as { code?: string })?.code === "23503") {
-        throw new ConflictError("Não é possível excluir este cliente: ainda existem registros vinculados a ele.");
-      }
-      throw erroDelete;
-    }
+    // Qualquer OUTRA referência de chave estrangeira a este cliente que não
+    // seja lead/orçamento (ex.: uma tabela futura) já vira uma mensagem
+    // amigável genérica — `toHttpError` reconhece o código 23503 (violação
+    // de chave estrangeira) pra qualquer rota, não só esta (ver lib/errors.ts).
+    await clienteRepo.delete(clienteId);
 
     logger.info("Cliente excluído", { id: params.id });
     return NextResponse.json({ ok: true });

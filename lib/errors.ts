@@ -82,13 +82,37 @@ export class NotImplementedError extends AppError {
   }
 }
 
+/** Códigos de erro do Postgres (via PostgREST/Supabase-js, que devolve
+ * `{ message, details, hint, code }` — `code` é o SQLSTATE de 5 dígitos)
+ * que valem a pena virar uma mensagem legível em vez do 500 genérico. Bug
+ * relatado (2x, em módulos diferentes: exclusão de cliente com orçamento
+ * vinculado, criação de categoria com nome duplicado): qualquer violação de
+ * constraint do banco — chave estrangeira, valor único, campo obrigatório —
+ * é um erro totalmente PREVISÍVEL de entrada do usuário, não um bug, mas
+ * `toHttpError` tratava tudo que não fosse `AppError` como "Erro interno do
+ * servidor.", sem diferenciar. Mapeado aqui uma vez, pra toda rota de API se
+ * beneficiar — não só o caso específico que foi corrigido individualmente
+ * primeiro (ver app/api/clientes/[id]/route.ts). */
+const CODIGOS_POSTGRES: Record<string, { message: string; statusCode: number; code: string }> = {
+  "23505": { message: "Já existe um registro com esse mesmo valor (ex.: nome duplicado).", statusCode: 409, code: "CONFLICT" },
+  "23503": { message: "Não é possível concluir: existem outros registros vinculados a este.", statusCode: 409, code: "CONFLICT" },
+  "23502": { message: "Um campo obrigatório não foi informado.", statusCode: 400, code: "VALIDATION_ERROR" },
+  "23514": { message: "Um dos valores informados não é permitido.", statusCode: 400, code: "VALIDATION_ERROR" },
+};
+
 /** Converte qualquer erro capturado em `{ message, statusCode }` pronto para uma
- * resposta HTTP. Erros desconhecidos (não-`AppError`) viram 500 genérico — a
- * mensagem original é preservada só em desenvolvimento para não vazar detalhes
+ * resposta HTTP. Erros desconhecidos (não-`AppError`, não um erro de
+ * constraint do Postgres reconhecido) viram 500 genérico — a mensagem
+ * original é preservada só em desenvolvimento para não vazar detalhes
  * internos em produção. */
 export function toHttpError(error: unknown): { message: string; statusCode: number; code: string } {
   if (error instanceof AppError) {
     return { message: error.message, statusCode: error.statusCode, code: error.code };
+  }
+
+  const codigoPostgres = (error as { code?: string } | null)?.code;
+  if (codigoPostgres && codigoPostgres in CODIGOS_POSTGRES) {
+    return CODIGOS_POSTGRES[codigoPostgres];
   }
 
   const message =

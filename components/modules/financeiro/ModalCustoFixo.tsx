@@ -10,9 +10,18 @@ interface Props {
   onSalvo: () => void;
 }
 
+// Categoria única e travada pra todo Custo Fixo — é a mesma categoria
+// padrão já cadastrada em "Categorias" (protegida, não pode ser excluída,
+// só desativada), diferente do Lançamento avulso, que continua com a lista
+// de categorias livre (o usuário cria quantas quiser). Pedido explícito:
+// "essa é uma categoria já existente e padrão" — não faz sentido deixar o
+// usuário escolher/digitar outra aqui, já que TODO custo fixo é, por
+// definição, dessa categoria.
+const CATEGORIA_CUSTO_FIXO = "Custo fixo";
+
 export default function ModalCustoFixo({ custoFixo, onFechar, onSalvo }: Props) {
   const [descricao, setDescricao] = useState(custoFixo?.descricao ?? "");
-  const [categoria, setCategoria] = useState(custoFixo?.categoria ?? "Custo fixo");
+  const categoria = CATEGORIA_CUSTO_FIXO;
   const [valorMensal, setValorMensal] = useState(custoFixo?.valor_mensal != null ? String(custoFixo.valor_mensal) : "");
   const [diaMes, setDiaMes] = useState(custoFixo?.dia_mes != null ? String(custoFixo.dia_mes) : "");
   const [notas, setNotas] = useState(custoFixo?.notas ?? "");
@@ -92,7 +101,10 @@ export default function ModalCustoFixo({ custoFixo, onFechar, onSalvo }: Props) 
           </div>
           <div>
             <label className="label-field">Categoria</label>
-            <input className="input-field" value={categoria} onChange={(e) => setCategoria(e.target.value)} />
+            <input className="input-field disabled:cursor-not-allowed disabled:bg-gray-50" value={categoria} disabled />
+            <p className="mt-1 text-xs text-gray-400">
+              Categoria fixa para custos recorrentes — as demais categorias (Lançamentos) continuam livres.
+            </p>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
