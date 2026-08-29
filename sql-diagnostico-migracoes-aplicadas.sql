@@ -1,5 +1,5 @@
 -- ============================================================================
--- BR Isolamentos — diagnóstico: quais migrações (002 a 027) já foram
+-- BR Isolamentos — diagnóstico: quais migrações (002 a 029) já foram
 -- aplicadas no seu banco Supabase.
 --
 -- Não é uma migração — não cria/altera nada, só CONSULTA o schema atual e
@@ -51,7 +51,9 @@ select
   ) as m024_leads_created_at_com_fuso,
   exists(select 1 from information_schema.columns where table_name = 'precos_config' and column_name = 'familia') as m025_precos_config_familia,
   exists(select 1 from information_schema.columns where table_name = 'leads' and column_name = 'eh_comissao') as m026_leads_comissao,
-  exists(select 1 from information_schema.columns where table_name = 'parceiros' and column_name = 'categoria_parceiro') as m027_categoria_parceiro;
+  exists(select 1 from information_schema.columns where table_name = 'parceiros' and column_name = 'categoria_parceiro') as m027_categoria_parceiro,
+  exists(select 1 from precos_config where tipo_material = 'acessorio_rebite' and descricao = 'Rebite de Alumínio') as m028_renomeia_itens_catalogo,
+  exists(select 1 from information_schema.columns where table_name = 'config_empresa' and column_name = 'arame_metros_por_m2') as m029_arame_por_metro;
 
 -- ============================================================================
 -- Leia o resultado da esquerda pra direita: qualquer coluna "false" indica

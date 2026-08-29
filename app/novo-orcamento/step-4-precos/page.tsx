@@ -126,7 +126,7 @@ export default function Step4PrecosPage() {
   const precosAcessorios = {
     rebiteUn: precoAcessorio(precos, "acessorio_rebite"),
     parafusoUn: precoAcessorio(precos, "acessorio_parafuso"),
-    arameKg: precoAcessorio(precos, "acessorio_arame"),
+    arameMetro: precoAcessorio(precos, "acessorio_arame"),
     siliconeFrasco: precoAcessorio(precos, "acessorio_silicone"),
   };
 
@@ -219,7 +219,7 @@ export default function Step4PrecosPage() {
         { chave: "acabamento", titulo: nomeAcabamento, unidadeQuantidade: "m²", unidadePreco: "m²", quantidadeBase: base.quantidades.acabamentoM2, precoBase: precoAcabamentoBase },
         { chave: "rebite", titulo: "Rebite", unidadeQuantidade: "un.", unidadePreco: "un.", quantidadeBase: base.quantidades.rebiteUn, precoBase: precosAcessorios.rebiteUn },
         { chave: "parafuso", titulo: "Parafuso", unidadeQuantidade: "un.", unidadePreco: "un.", quantidadeBase: base.quantidades.parafusoUn, precoBase: precosAcessorios.parafusoUn },
-        { chave: "arame", titulo: "Arame", unidadeQuantidade: "g", unidadePreco: "g", quantidadeBase: base.quantidades.arameGramas, precoBase: precosAcessorios.arameKg / 1000 },
+        { chave: "arame", titulo: "Arame", unidadeQuantidade: "m", unidadePreco: "m", quantidadeBase: base.quantidades.arameMetros, precoBase: precosAcessorios.arameMetro },
         { chave: "silicone", titulo: "Silicone", unidadeQuantidade: "frasco(s)", unidadePreco: "frasco", quantidadeBase: base.quantidades.siliconeFrascos, precoBase: precosAcessorios.siliconeFrasco },
       ]
     : [];

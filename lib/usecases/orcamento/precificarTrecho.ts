@@ -31,9 +31,9 @@ export interface PrecosAcessorios {
   rebiteUn: number;
   /** R$ por unidade. */
   parafusoUn: number;
-  /** R$ por KG (o catálogo comercial precifica arame por kg — a
-   * quantificação calcula em gramas, ver quantificarMateriais.ts). */
-  arameKg: number;
+  /** R$ por metro (migração 029 — catálogo comercial passou a vender arame
+   * por metro, não mais por peso; ver quantificarMateriais.ts). */
+  arameMetro: number;
   /** R$ por frasco. */
   siliconeFrasco: number;
 }
@@ -101,7 +101,7 @@ export function precificarTrecho(input: {
             quantidades.acabamentoM2 * input.precoAcabamentoM2 +
             quantidades.rebiteUn * input.precosAcessorios.rebiteUn +
             quantidades.parafusoUn * input.precosAcessorios.parafusoUn +
-            (quantidades.arameGramas / 1000) * input.precosAcessorios.arameKg +
+            quantidades.arameMetros * input.precosAcessorios.arameMetro +
             quantidades.siliconeFrascos * input.precosAcessorios.siliconeFrasco
         );
 
@@ -116,7 +116,7 @@ export function precificarTrecho(input: {
             { chave: "acabamento", titulo: "Acabamento", quantidade: quantidades.acabamentoM2, unidade: "m²", preco_unitario: input.precoAcabamentoM2 },
             { chave: "rebite", titulo: "Rebite", quantidade: quantidades.rebiteUn, unidade: "un.", preco_unitario: input.precosAcessorios.rebiteUn },
             { chave: "parafuso", titulo: "Parafuso", quantidade: quantidades.parafusoUn, unidade: "un.", preco_unitario: input.precosAcessorios.parafusoUn },
-            { chave: "arame", titulo: "Arame", quantidade: quantidades.arameGramas, unidade: "g", preco_unitario: input.precosAcessorios.arameKg / 1000 },
+            { chave: "arame", titulo: "Arame", quantidade: quantidades.arameMetros, unidade: "m", preco_unitario: input.precosAcessorios.arameMetro },
             { chave: "silicone", titulo: "Silicone", quantidade: quantidades.siliconeFrascos, unidade: "frasco(s)", preco_unitario: input.precosAcessorios.siliconeFrasco },
           ] as const
         )

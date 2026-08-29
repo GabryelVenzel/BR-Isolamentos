@@ -31,7 +31,7 @@ const CAMPOS_QUANTIFICACAO: Array<{ nome: keyof ConfigEmpresa; label: string; su
   { nome: "acabamento_acrescimo_percentual", label: "Chaparia (acréscimo sobre a área já isolada)", sufixo: "%" },
   { nome: "rebite_por_m2", label: "Rebites por m²", sufixo: "un." },
   { nome: "parafusos_por_m2", label: "Parafusos por m²", sufixo: "un." },
-  { nome: "arame_gramas_por_m2", label: "Arame por m²", sufixo: "g" },
+  { nome: "arame_metros_por_m2", label: "Arame por m²", sufixo: "m" },
   { nome: "silicone_intervalo_m2", label: "1 frasco de silicone a cada", sufixo: "m²" },
 ];
 

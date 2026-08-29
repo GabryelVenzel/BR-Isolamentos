@@ -29,7 +29,9 @@ export interface QuantificacaoMateriais {
   /** Unidades — arredondado pra cima (não dá pra comprar "meio rebite"). */
   rebiteUn: number;
   parafusoUn: number;
-  arameGramas: number;
+  /** Metros de arame (migração 029 — catálogo vende por metro, não mais por
+   * peso). */
+  arameMetros: number;
   /** Frascos — arredondado pra cima. */
   siliconeFrascos: number;
 }
@@ -44,7 +46,7 @@ export type ParametrosQuantificacao = Pick<
   | "acabamento_acrescimo_percentual"
   | "rebite_por_m2"
   | "parafusos_por_m2"
-  | "arame_gramas_por_m2"
+  | "arame_metros_por_m2"
   | "silicone_intervalo_m2"
 >;
 
@@ -65,7 +67,7 @@ export function quantificarMateriais(escopoItens: ItemEscopo[], espessuraMm: num
     acabamentoM2: round2(areaIsolamento * (1 + parametros.acabamento_acrescimo_percentual / 100)),
     rebiteUn: Math.round(metragemProjeto * parametros.rebite_por_m2),
     parafusoUn: Math.round(metragemProjeto * parametros.parafusos_por_m2),
-    arameGramas: round2(metragemProjeto * parametros.arame_gramas_por_m2),
+    arameMetros: round2(metragemProjeto * parametros.arame_metros_por_m2),
     // ROUND, não CEIL — segue a fórmula exata do pedido ("Security States
     // Grave"), mesmo que arredondar pra baixo signifique comprar frascos a
     // menos numa metragem ímpar (ex.: 3m² ÷ 2 = 1,5 → 2, mas 2,9m² ÷ 2 =

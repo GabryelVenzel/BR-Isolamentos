@@ -24,7 +24,7 @@ const quantificacaoNeutra: ParametrosQuantificacao = {
   acabamento_acrescimo_percentual: 0,
   rebite_por_m2: 0,
   parafusos_por_m2: 0,
-  arame_gramas_por_m2: 0,
+  arame_metros_por_m2: 0,
   silicone_intervalo_m2: 0,
 };
 
@@ -37,7 +37,7 @@ const maoObraNeutra: ParametrosMaoObra = {
   horas_uteis_dia: 9,
 };
 
-const precosAcessoriosZerados = { rebiteUn: 0, parafusoUn: 0, arameKg: 0, siliconeFrasco: 0 };
+const precosAcessoriosZerados = { rebiteUn: 0, parafusoUn: 0, arameMetro: 0, siliconeFrasco: 0 };
 
 describe("precificarTrecho", () => {
   it("subtotal material = (isolante m² × preço) + (acabamento m² × preço), sem acréscimo nem acessórios", () => {

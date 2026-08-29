@@ -8,7 +8,7 @@ const parametros: ParametrosQuantificacao = {
   acabamento_acrescimo_percentual: 20,
   rebite_por_m2: 20,
   parafusos_por_m2: 20,
-  arame_gramas_por_m2: 500,
+  arame_metros_por_m2: 5,
   silicone_intervalo_m2: 2,
 };
 
@@ -53,7 +53,7 @@ describe("quantificarMateriais — plano (sem geometria de diâmetro)", () => {
     const resultado = quantificarMateriais([plano(10)], 50, parametros);
     expect(resultado.rebiteUn).toBe(200); // 10 × 20
     expect(resultado.parafusoUn).toBe(200);
-    expect(resultado.arameGramas).toBe(5000); // 10 × 500
+    expect(resultado.arameMetros).toBe(50); // 10 × 5
     expect(resultado.siliconeFrascos).toBe(5); // 10 ÷ 2
   });
 
@@ -69,7 +69,7 @@ describe("quantificarMateriais — plano (sem geometria de diâmetro)", () => {
     expect(resultado.acabamentoM2).toBe(0);
     expect(resultado.rebiteUn).toBe(0);
     expect(resultado.parafusoUn).toBe(0);
-    expect(resultado.arameGramas).toBe(0);
+    expect(resultado.arameMetros).toBe(0);
     expect(resultado.siliconeFrascos).toBe(0);
   });
 

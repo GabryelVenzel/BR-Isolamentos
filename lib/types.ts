@@ -329,7 +329,14 @@ export interface ConfigEmpresa {
   acabamento_acrescimo_percentual: number;
   rebite_por_m2: number;
   parafusos_por_m2: number;
+  /** @deprecated Substituído por `arame_metros_por_m2` (migração 029) — o
+   * catálogo comercial de arame passou a vender por METRO (Arame Aço Inox
+   * 304 0,9mm), não mais por peso. Mantido no schema só por compatibilidade
+   * com o valor já cadastrado; a UI não lê/escreve mais aqui. */
   arame_gramas_por_m2: number;
+  /** Metros de arame por m² de trecho (migração 029) — substitui
+   * `arame_gramas_por_m2`. */
+  arame_metros_por_m2: number;
   /** "1 frasco de silicone a cada X m²" — o tamanho do frasco (300g) é só
    * informativo na tela, não entra em nenhuma fórmula. */
   silicone_intervalo_m2: number;
