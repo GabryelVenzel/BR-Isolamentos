@@ -254,18 +254,21 @@ export interface ClienteResumo {
  * `TipoTrabalho` (lib/types.ts: "quente"|"frio"|"misto", classificação
  * térmica do orçamento). Este é o tipo de SERVIÇO/mão de obra executado.
  *
- * Lista revisada (migração 027) — trocou de 4 pra 6 categorias. `bancada` e
- * `caldeiraria` são as mesmas chaves de sempre (só o RÓTULO de `caldeiraria`
- * mudou pra "Caldeiraria (Fabricação)"), pra preservar a classificação de
- * parceiros já cadastrados sem precisar migrar dado nenhum. As 2 chaves
- * antigas removidas (`isolamentos_removiveis`/`isolamentos_fixos`) não têm
- * substituto 1:1 nas novas — parceiros que só tinham essas marcadas
- * precisam ser reclassificados manualmente (ver sql-migration-027). */
+ * Lista revisada (migração 027, corrigida logo em seguida pra incluir
+ * `caldeiraria_montagem` — faltava na primeira rodada) — trocou de 4 pra 7
+ * categorias. `bancada` e `caldeiraria` são as mesmas chaves de sempre (só o
+ * RÓTULO de `caldeiraria` mudou pra "Caldeiraria (Fabricação)"), pra
+ * preservar a classificação de parceiros já cadastrados sem precisar migrar
+ * dado nenhum. As 2 chaves antigas removidas (`isolamentos_removiveis`/
+ * `isolamentos_fixos`) não têm substituto 1:1 nas novas — parceiros que só
+ * tinham essas marcadas precisam ser reclassificados manualmente (ver
+ * sql-migration-027). */
 export type TipoTrabalhoOperacional =
   | "bancada"
   | "isolador"
   | "funileiro_tracador"
   | "caldeiraria"
+  | "caldeiraria_montagem"
   | "removivel_montagem"
   | "removivel_fabricacao";
 

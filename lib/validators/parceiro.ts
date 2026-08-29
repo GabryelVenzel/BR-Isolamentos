@@ -8,6 +8,7 @@ const TipoTrabalhoOperacionalSchema = z.enum([
   "isolador",
   "funileiro_tracador",
   "caldeiraria",
+  "caldeiraria_montagem",
   "removivel_montagem",
   "removivel_fabricacao",
 ]);

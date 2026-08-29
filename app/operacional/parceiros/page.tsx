@@ -82,17 +82,6 @@ export default function ParceirosPage() {
       .filter((p) => tiposFiltro.length === 0 || tiposFiltro.some((t) => (p.tipos_trabalho ?? []).includes(t)));
   }, [parceiros, busca, categoriaFiltro, tiposFiltro]);
 
-  // Indicadores (migração 027) — contagem por categoria, só entre ativos
-  // (parceiro inativo não conta pra "quantos temos disponíveis").
-  const indicadores = useMemo(() => {
-    const ativos = parceiros.filter((p) => p.ativo);
-    return {
-      prestadores: ativos.filter((p) => p.categoria_parceiro === "prestador").length,
-      parcerias: ativos.filter((p) => p.categoria_parceiro === "parceria").length,
-      ambos: ativos.filter((p) => p.categoria_parceiro === "ambos").length,
-    };
-  }, [parceiros]);
-
   function alternarTipoFiltro(tipo: TipoTrabalhoOperacional) {
     setTiposFiltro((prev) => (prev.includes(tipo) ? prev.filter((t) => t !== tipo) : [...prev, tipo]));
   }
@@ -105,21 +94,6 @@ export default function ParceirosPage() {
         <div>
           <h1 className="text-2xl font-bold">Parceiros</h1>
           <p className="text-sm text-gray-500">Cadastro de mão de obra parceira e parcerias de indicação.</p>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <div className="card text-center">
-          <p className="text-xs uppercase text-gray-500">Prestadores ativos</p>
-          <p className="font-montserrat text-2xl font-bold text-brand">{indicadores.prestadores}</p>
-        </div>
-        <div className="card text-center">
-          <p className="text-xs uppercase text-gray-500">Parcerias ativas</p>
-          <p className="font-montserrat text-2xl font-bold text-accent">{indicadores.parcerias}</p>
-        </div>
-        <div className="card text-center">
-          <p className="text-xs uppercase text-gray-500">Ambos ativos</p>
-          <p className="font-montserrat text-2xl font-bold text-brand">{indicadores.ambos}</p>
         </div>
       </div>
 

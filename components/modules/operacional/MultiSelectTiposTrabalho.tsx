@@ -13,7 +13,7 @@ interface Props {
   options: Opcao[];
 }
 
-// Lista revisada (migração 027) — 6 categorias, no lugar das 4 antigas. `bancada`
+// Lista revisada (migração 027) — 7 categorias, no lugar das 4 antigas. `bancada`
 // e `caldeiraria` preservam a chave antiga (só o rótulo de `caldeiraria`
 // mudou); ver comentário em TipoTrabalhoOperacional (lib/types/domain.ts).
 export const TIPOS_TRABALHO_OPCOES: Opcao[] = [
@@ -21,6 +21,7 @@ export const TIPOS_TRABALHO_OPCOES: Opcao[] = [
   { valor: "isolador", label: "Isolador" },
   { valor: "funileiro_tracador", label: "Funileiro Traçador" },
   { valor: "caldeiraria", label: "Caldeiraria (Fabricação)" },
+  { valor: "caldeiraria_montagem", label: "Caldeiraria (Montagem)" },
   { valor: "removivel_montagem", label: "Removível (Montagem)" },
   { valor: "removivel_fabricacao", label: "Removível (Fabricação)" },
 ];
@@ -28,7 +29,7 @@ export const TIPOS_TRABALHO_OPCOES: Opcao[] = [
 /** Multi-select de tipos de trabalho de um serviço — um serviço pode ter mais
  * de um tipo executado ao mesmo tempo (ex.: Caldeiraria + Isolamentos no
  * mesmo local/dia). Checkboxes simples em vez de um dropdown multi-select de
- * verdade: não precisa de nenhuma dependência nova, e a lista tem só 6
+ * verdade: não precisa de nenhuma dependência nova, e a lista tem só 7
  * opções fixas — um dropdown custom seria complexidade sem ganho aqui. */
 export default function MultiSelectTiposTrabalho({ value, onChange, options }: Props) {
   function alternar(valor: TipoTrabalhoOperacional) {
