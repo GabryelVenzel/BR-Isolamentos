@@ -1,17 +1,33 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import ToastContainer from "@/components/modules/operacional/ToastContainer";
 import { toast } from "@/components/modules/operacional/toast";
 import ModalParceiro from "@/components/modules/operacional/ModalParceiro";
+import { TIPOS_TRABALHO_OPCOES } from "@/components/modules/operacional/MultiSelectTiposTrabalho";
 import { formatarNumero } from "@/lib/format";
-import type { Parceiro } from "@/lib/types/domain";
+import type { CategoriaParceiro, Parceiro, TipoTrabalhoOperacional } from "@/lib/types/domain";
 
+// Lista revisada (migração 027) — 2 chaves antigas (`isolamentos_removiveis`/
+// `isolamentos_fixos`) continuam no mapa só pra parceiros já cadastrados não
+// mostrarem o valor cru do banco na coluna "Trabalhos" enquanto não forem
+// reclassificados manualmente (ver sql-migration-027).
 const LABEL_TIPO: Record<string, string> = {
-  bancada: "Bancada",
-  caldeiraria: "Caldeiraria",
-  isolamentos_removiveis: "Isolamentos Removíveis",
-  isolamentos_fixos: "Isolamentos Fixos",
+  ...Object.fromEntries(TIPOS_TRABALHO_OPCOES.map((o) => [o.valor, o.label])),
+  isolamentos_removiveis: "Isolamentos Removíveis (categoria antiga)",
+  isolamentos_fixos: "Isolamentos Fixos (categoria antiga)",
+};
+
+const LABEL_CATEGORIA: Record<CategoriaParceiro, string> = {
+  prestador: "Prestador",
+  parceria: "Parceria",
+  ambos: "Ambos",
+};
+
+const CLASSES_CATEGORIA: Record<CategoriaParceiro, string> = {
+  prestador: "bg-brand-light text-brand",
+  parceria: "bg-accent-light text-accent-dark",
+  ambos: "bg-secondary-light text-brand",
 };
 
 /** Cadastro de parceiros de instalação — capacidade "mobilizadas/
@@ -23,6 +39,11 @@ export default function ParceirosPage() {
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState("");
   const [editando, setEditando] = useState<Parceiro | "novo" | null>(null);
+  // Filtros novos (migração 027) — categoria (Prestador/Parceria/Ambos) e
+  // tipo de trabalho (múltipla escolha, mostra quem tem PELO MENOS um dos
+  // tipos marcados — mesmo critério de FiltroFornecedores.tsx).
+  const [categoriaFiltro, setCategoriaFiltro] = useState<CategoriaParceiro | "">("");
+  const [tiposFiltro, setTiposFiltro] = useState<TipoTrabalhoOperacional[]>([]);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -54,9 +75,27 @@ export default function ParceirosPage() {
     carregar();
   }
 
-  const parceirosFiltrados = busca
-    ? parceiros.filter((p) => p.nome.toLowerCase().includes(busca.toLowerCase()))
-    : parceiros;
+  const parceirosFiltrados = useMemo(() => {
+    return parceiros
+      .filter((p) => !busca || p.nome.toLowerCase().includes(busca.toLowerCase()))
+      .filter((p) => !categoriaFiltro || p.categoria_parceiro === categoriaFiltro)
+      .filter((p) => tiposFiltro.length === 0 || tiposFiltro.some((t) => (p.tipos_trabalho ?? []).includes(t)));
+  }, [parceiros, busca, categoriaFiltro, tiposFiltro]);
+
+  // Indicadores (migração 027) — contagem por categoria, só entre ativos
+  // (parceiro inativo não conta pra "quantos temos disponíveis").
+  const indicadores = useMemo(() => {
+    const ativos = parceiros.filter((p) => p.ativo);
+    return {
+      prestadores: ativos.filter((p) => p.categoria_parceiro === "prestador").length,
+      parcerias: ativos.filter((p) => p.categoria_parceiro === "parceria").length,
+      ambos: ativos.filter((p) => p.categoria_parceiro === "ambos").length,
+    };
+  }, [parceiros]);
+
+  function alternarTipoFiltro(tipo: TipoTrabalhoOperacional) {
+    setTiposFiltro((prev) => (prev.includes(tipo) ? prev.filter((t) => t !== tipo) : [...prev, tipo]));
+  }
 
   return (
     <div className="space-y-6">
@@ -65,7 +104,22 @@ export default function ParceirosPage() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Parceiros</h1>
-          <p className="text-sm text-gray-500">Cadastro de mão de obra parceira para instalação.</p>
+          <p className="text-sm text-gray-500">Cadastro de mão de obra parceira e parcerias de indicação.</p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="card text-center">
+          <p className="text-xs uppercase text-gray-500">Prestadores ativos</p>
+          <p className="font-montserrat text-2xl font-bold text-brand">{indicadores.prestadores}</p>
+        </div>
+        <div className="card text-center">
+          <p className="text-xs uppercase text-gray-500">Parcerias ativas</p>
+          <p className="font-montserrat text-2xl font-bold text-accent">{indicadores.parcerias}</p>
+        </div>
+        <div className="card text-center">
+          <p className="text-xs uppercase text-gray-500">Ambos ativos</p>
+          <p className="font-montserrat text-2xl font-bold text-brand">{indicadores.ambos}</p>
         </div>
       </div>
 
@@ -74,6 +128,47 @@ export default function ParceirosPage() {
         <button type="button" className="btn-primary" onClick={() => setEditando("novo")}>
           + Novo Parceiro
         </button>
+      </div>
+
+      <div className="card space-y-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
+          <div>
+            <label className="label-field">Categoria</label>
+            <select
+              className="input-field"
+              value={categoriaFiltro}
+              onChange={(e) => setCategoriaFiltro(e.target.value as CategoriaParceiro | "")}
+            >
+              <option value="">Todas</option>
+              <option value="prestador">Prestador</option>
+              <option value="parceria">Parceria</option>
+              <option value="ambos">Ambos</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <p className="label-field mb-2">Tipo de trabalho</p>
+          <div className="flex flex-wrap gap-3">
+            {TIPOS_TRABALHO_OPCOES.map((t) => (
+              <label key={t.valor} className="flex items-center gap-2 text-sm text-gray-700">
+                <input type="checkbox" checked={tiposFiltro.includes(t.valor)} onChange={() => alternarTipoFiltro(t.valor)} />
+                {t.label}
+              </label>
+            ))}
+          </div>
+        </div>
+        {(categoriaFiltro || tiposFiltro.length > 0) && (
+          <button
+            type="button"
+            className="btn-secondary text-xs"
+            onClick={() => {
+              setCategoriaFiltro("");
+              setTiposFiltro([]);
+            }}
+          >
+            Limpar filtros
+          </button>
+        )}
       </div>
 
       {carregando ? (
@@ -85,6 +180,7 @@ export default function ParceirosPage() {
               <tr className="table-header">
                 <th className="px-4 py-2 text-left">Código</th>
                 <th className="px-4 py-2 text-left">Nome</th>
+                <th className="px-4 py-2 text-left">Categoria</th>
                 <th className="px-4 py-2 text-left">Telefone</th>
                 <th className="px-4 py-2 text-left">CNPJ</th>
                 <th className="px-4 py-2 text-left">Estado</th>
@@ -99,6 +195,9 @@ export default function ParceirosPage() {
                 <tr key={p.id}>
                   <td className="px-4 py-2 font-mono text-xs text-gray-500">{p.numero_parceiro ?? "—"}</td>
                   <td className="px-4 py-2 font-medium text-brand">{p.nome}</td>
+                  <td className="px-4 py-2">
+                    <span className={`badge ${CLASSES_CATEGORIA[p.categoria_parceiro]}`}>{LABEL_CATEGORIA[p.categoria_parceiro]}</span>
+                  </td>
                   <td className="px-4 py-2 text-gray-500">{p.telefone ?? "—"}</td>
                   <td className="px-4 py-2 text-gray-500">{p.cnpj ?? "—"}</td>
                   <td className="px-4 py-2 text-gray-500">{p.estado ?? "—"}</td>
@@ -127,8 +226,8 @@ export default function ParceirosPage() {
               ))}
               {parceirosFiltrados.length === 0 && (
                 <tr>
-                  <td colSpan={9} className="px-4 py-6 text-center text-gray-400">
-                    Nenhum parceiro cadastrado.
+                  <td colSpan={10} className="px-4 py-6 text-center text-gray-400">
+                    {parceiros.length === 0 ? "Nenhum parceiro cadastrado." : "Nenhum parceiro corresponde ao filtro."}
                   </td>
                 </tr>
               )}

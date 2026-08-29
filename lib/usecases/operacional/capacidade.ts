@@ -52,7 +52,10 @@ export interface CapacidadeDia {
  * mobiliza ninguém. */
 export function calcularCapacidadeDia(data: string, parceiros: Parceiro[], servicosAtivos: Servico[]): CapacidadeDia {
   const porParceiro: CapacidadeParceiroDia[] = parceiros
-    .filter((p) => p.ativo)
+    // Migração 027 — só parceiros que fornecem mão de obra (prestador/ambos)
+    // entram na Agenda/Capacidade; "parceria" pura é só canal de indicação
+    // de comissão, não tem gente pra mobilizar.
+    .filter((p) => p.ativo && (p.categoria_parceiro === "prestador" || p.categoria_parceiro === "ambos"))
     .map((parceiro) => {
       // Cada serviço pode ter mais de uma linha de execução pro MESMO
       // parceiro (turnos diferentes, por exemplo) — soma todas.

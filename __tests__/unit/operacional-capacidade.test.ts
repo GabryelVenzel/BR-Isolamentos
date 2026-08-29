@@ -31,6 +31,7 @@ function parceiro(overrides: Partial<Parceiro> = {}): Parceiro {
     disponibilidade_dias: [],
     custo_hora: null,
     tipos_trabalho: ["bancada"],
+    categoria_parceiro: "prestador",
     notas_bancada: null,
     notas_caldeiraria: null,
     notas_isolamentos_removiveis: null,
@@ -115,6 +116,18 @@ describe("calcularCapacidadeDia", () => {
   it("ignora parceiros inativos", () => {
     const resultado = calcularCapacidadeDia("2026-08-10", [parceiro({ ativo: false })], []);
     expect(resultado.porParceiro).toHaveLength(0);
+  });
+
+  // Migração 027 — "parceria" pura é só canal de indicação de comissão, não
+  // tem gente pra mobilizar: nunca deve aparecer na Agenda/Capacidade.
+  it("ignora parceiros de categoria 'parceria' (não fornecem mão de obra)", () => {
+    const resultado = calcularCapacidadeDia("2026-08-10", [parceiro({ categoria_parceiro: "parceria" })], []);
+    expect(resultado.porParceiro).toHaveLength(0);
+  });
+
+  it("inclui parceiros 'ambos' (fornecem mão de obra E recebem indicação)", () => {
+    const resultado = calcularCapacidadeDia("2026-08-10", [parceiro({ categoria_parceiro: "ambos" })], []);
+    expect(resultado.porParceiro).toHaveLength(1);
   });
 
   it("serviço sem nenhum parceiro vinculado ainda não mobiliza ninguém", () => {

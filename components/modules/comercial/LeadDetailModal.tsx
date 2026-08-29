@@ -141,7 +141,9 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
           setParceiroId(l.parceiro_id ?? "");
           setValorIndicado(l.valor_indicado != null ? String(l.valor_indicado) : "");
           setPercentualComissao(l.percentual_comissao != null ? String(l.percentual_comissao) : "");
-          fetch("/api/operacional/parceiros?ativo=true")
+          // capacidade=comissao (migração 027) — só parceiros que recebem
+          // indicação (parceria/ambos).
+          fetch("/api/operacional/parceiros?ativo=true&capacidade=comissao")
             .then((r) => r.json())
             .then((payload) => payload.success && setParceiros(payload.data))
             .catch(() => setParceiros([]));

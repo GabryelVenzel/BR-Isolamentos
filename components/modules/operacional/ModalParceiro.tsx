@@ -3,8 +3,9 @@
 import { useState } from "react";
 import { toast } from "./toast";
 import ParceiroAnexos from "./ParceiroAnexos";
+import { TIPOS_TRABALHO_OPCOES } from "./MultiSelectTiposTrabalho";
 import { ESTADOS_BRASIL } from "@/lib/estados-brasil";
-import type { Parceiro, TipoTrabalhoOperacional } from "@/lib/types/domain";
+import type { CategoriaParceiro, Parceiro, TipoTrabalhoOperacional } from "@/lib/types/domain";
 
 interface Props {
   parceiro: Parceiro | null; // null = criar novo
@@ -12,11 +13,15 @@ interface Props {
   onSalvo: () => void;
 }
 
-const TIPOS: Array<{ valor: TipoTrabalhoOperacional; label: string }> = [
-  { valor: "bancada", label: "Bancada" },
-  { valor: "caldeiraria", label: "Caldeiraria" },
-  { valor: "isolamentos_removiveis", label: "Isolamentos Removíveis" },
-  { valor: "isolamentos_fixos", label: "Isolamentos Fixos" },
+// Reaproveita a mesma lista usada no multi-select de tipos de trabalho de um
+// Serviço (migração 027) — uma fonte só, evita as duas telas divergirem de
+// novo (era o caso antes: esta tinha sua própria cópia da lista de 4).
+const TIPOS = TIPOS_TRABALHO_OPCOES;
+
+const CATEGORIAS_PARCEIRO: Array<{ valor: CategoriaParceiro; label: string; descricao: string }> = [
+  { valor: "prestador", label: "Prestador", descricao: "Fornece mão de obra — aparece na Agenda e pode ser vinculado a um Serviço." },
+  { valor: "parceria", label: "Parceria", descricao: "Só indicação/comissão — não mobiliza gente, não aparece na Agenda." },
+  { valor: "ambos", label: "Ambos", descricao: "Fornece mão de obra E recebe indicações de comissão." },
 ];
 
 interface Form {
@@ -27,11 +32,10 @@ interface Form {
   endereco: string;
   cidade: string;
   estado: string;
+  categoriaParceiro: CategoriaParceiro;
   tiposTrabalho: TipoTrabalhoOperacional[];
   notasBancada: string;
   notasCaldeiraria: string;
-  notasIsolamentosRemoviveis: string;
-  notasIsolamentosFixos: string;
   totalPessoas: string;
 }
 
@@ -44,11 +48,10 @@ function paraForm(p: Parceiro | null): Form {
     endereco: p?.endereco ?? "",
     cidade: p?.cidade ?? "",
     estado: p?.estado ?? "",
+    categoriaParceiro: p?.categoria_parceiro ?? "prestador",
     tiposTrabalho: p?.tipos_trabalho ?? [],
     notasBancada: p?.notas_bancada ?? "",
     notasCaldeiraria: p?.notas_caldeiraria ?? "",
-    notasIsolamentosRemoviveis: p?.notas_isolamentos_removiveis ?? "",
-    notasIsolamentosFixos: p?.notas_isolamentos_fixos ?? "",
     totalPessoas: p?.total_pessoas != null ? String(p.total_pessoas) : "",
   };
 }
@@ -87,13 +90,10 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo }: Props) {
       endereco: form.endereco || null,
       cidade: form.cidade || null,
       estado: form.estado || null,
+      categoria_parceiro: form.categoriaParceiro,
       tipos_trabalho: form.tiposTrabalho,
       notas_bancada: form.tiposTrabalho.includes("bancada") ? form.notasBancada || null : null,
       notas_caldeiraria: form.tiposTrabalho.includes("caldeiraria") ? form.notasCaldeiraria || null : null,
-      notas_isolamentos_removiveis: form.tiposTrabalho.includes("isolamentos_removiveis")
-        ? form.notasIsolamentosRemoviveis || null
-        : null,
-      notas_isolamentos_fixos: form.tiposTrabalho.includes("isolamentos_fixos") ? form.notasIsolamentosFixos || null : null,
       total_pessoas: form.totalPessoas ? Number(form.totalPessoas) : null,
     };
 
@@ -180,6 +180,33 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo }: Props) {
 
           <div className="border-t border-gray-100 pt-4">
             <p className="label-field mb-2">
+              Categoria<span className="text-status-error"> *</span>
+            </p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              {CATEGORIAS_PARCEIRO.map((c) => (
+                <label
+                  key={c.valor}
+                  className={`flex cursor-pointer flex-col gap-1 rounded-lg border p-3 text-sm ${
+                    form.categoriaParceiro === c.valor ? "border-brand bg-brand-light/40" : "border-gray-200"
+                  }`}
+                >
+                  <span className="flex items-center gap-2 font-medium text-gray-800">
+                    <input
+                      type="radio"
+                      name="categoria_parceiro"
+                      checked={form.categoriaParceiro === c.valor}
+                      onChange={() => setForm((f) => ({ ...f, categoriaParceiro: c.valor }))}
+                    />
+                    {c.label}
+                  </span>
+                  <span className="text-xs text-gray-500">{c.descricao}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="border-t border-gray-100 pt-4">
+            <p className="label-field mb-2">
               Tipos de trabalho<span className="text-status-error"> *</span>
             </p>
             <div className="grid grid-cols-2 gap-2">
@@ -192,7 +219,7 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo }: Props) {
             </div>
           </div>
 
-          {form.tiposTrabalho.length > 0 && (
+          {(form.tiposTrabalho.includes("bancada") || form.tiposTrabalho.includes("caldeiraria")) && (
             <div className="space-y-3 border-t border-gray-100 pt-4">
               <p className="label-field">Notas por tipo de trabalho</p>
               {form.tiposTrabalho.includes("bancada") && (
@@ -206,25 +233,9 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo }: Props) {
               {form.tiposTrabalho.includes("caldeiraria") && (
                 <input
                   className="input-field"
-                  placeholder="Notas — Caldeiraria"
+                  placeholder="Notas — Caldeiraria (Fabricação)"
                   value={form.notasCaldeiraria}
                   onChange={(e) => setForm((f) => ({ ...f, notasCaldeiraria: e.target.value }))}
-                />
-              )}
-              {form.tiposTrabalho.includes("isolamentos_removiveis") && (
-                <input
-                  className="input-field"
-                  placeholder="Notas — Isolamentos Removíveis"
-                  value={form.notasIsolamentosRemoviveis}
-                  onChange={(e) => setForm((f) => ({ ...f, notasIsolamentosRemoviveis: e.target.value }))}
-                />
-              )}
-              {form.tiposTrabalho.includes("isolamentos_fixos") && (
-                <input
-                  className="input-field"
-                  placeholder="Notas — Isolamentos Fixos"
-                  value={form.notasIsolamentosFixos}
-                  onChange={(e) => setForm((f) => ({ ...f, notasIsolamentosFixos: e.target.value }))}
                 />
               )}
             </div>

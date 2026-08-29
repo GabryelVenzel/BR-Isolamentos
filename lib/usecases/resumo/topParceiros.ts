@@ -24,7 +24,9 @@ export async function topParceiros(
   const fimMes = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).toISOString().slice(0, 10);
 
   const [parceiros, agendamentosAgendado, agendamentosEmProgresso] = await Promise.all([
-    parceiroRepo.listar({ ativo: true }),
+    // capacidade=mao_de_obra (migração 027) — "parceria" pura não mobiliza
+    // gente, não faz sentido aparecer num ranking de horas alocadas.
+    parceiroRepo.listar({ ativo: true, capacidade: "mao_de_obra" }),
     agendamentoRepo.listar({ status: "agendado", dataInicio: inicioMes, dataFim: fimMes }),
     agendamentoRepo.listar({ status: "em_progresso", dataInicio: inicioMes, dataFim: fimMes }),
   ]);

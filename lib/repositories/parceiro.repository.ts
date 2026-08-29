@@ -5,6 +5,13 @@ import { BaseRepository } from "./base";
 export interface FiltrosParceiro {
   ativo?: boolean;
   cidade?: string;
+  /** Migração 027 — filtra pelo que o parceiro FORNECE, não pela categoria
+   * bruta: "mao_de_obra" traz quem pode mobilizar gente (prestador/ambos —
+   * Agenda, seletor de Serviço); "comissao" traz quem pode receber uma
+   * indicação (parceria/ambos — seletor de Lead de comissão). Expressa a
+   * INTENÇÃO de cada tela, em vez de cada chamador reimplementar o "in"
+   * sobre os 3 valores crus de `categoria_parceiro`. */
+  capacidade?: "mao_de_obra" | "comissao";
 }
 
 export class ParceiroRepository extends BaseRepository<Parceiro> {
@@ -17,6 +24,8 @@ export class ParceiroRepository extends BaseRepository<Parceiro> {
 
     if (filtros.ativo !== undefined) query = query.eq("ativo", filtros.ativo);
     if (filtros.cidade) query = query.eq("cidade", filtros.cidade);
+    if (filtros.capacidade === "mao_de_obra") query = query.in("categoria_parceiro", ["prestador", "ambos"]);
+    if (filtros.capacidade === "comissao") query = query.in("categoria_parceiro", ["parceria", "ambos"]);
 
     const { data, error } = await query;
     if (error) throw error;

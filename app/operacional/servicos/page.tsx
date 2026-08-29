@@ -6,14 +6,12 @@ import { toast } from "@/components/modules/operacional/toast";
 import KanbanServicos from "@/components/modules/operacional/KanbanServicos";
 import ServicoDetailModal from "@/components/modules/operacional/ServicoDetailModal";
 import NovoServicoModal from "@/components/modules/operacional/NovoServicoModal";
+import { TIPOS_TRABALHO_OPCOES } from "@/components/modules/operacional/MultiSelectTiposTrabalho";
 import type { EtapaServico, Servico } from "@/lib/types/domain";
 
-const LABEL_TIPO: Record<string, string> = {
-  bancada: "Bancada",
-  caldeiraria: "Caldeiraria",
-  isolamentos_removiveis: "Isolamentos Removíveis",
-  isolamentos_fixos: "Isolamentos Fixos",
-};
+// Lista revisada (migração 027) — reaproveita a mesma fonte de sempre, ver
+// MultiSelectTiposTrabalho.tsx.
+const LABEL_TIPO: Record<string, string> = Object.fromEntries(TIPOS_TRABALHO_OPCOES.map((o) => [o.valor, o.label]));
 
 export default function ServicosPage() {
   const [servicos, setServicos] = useState<Servico[]>([]);

@@ -1,14 +1,12 @@
 "use client";
 
 import { formatarData, formatarMoeda } from "@/lib/format";
+import { TIPOS_TRABALHO_OPCOES } from "./MultiSelectTiposTrabalho";
 import type { Servico } from "@/lib/types/domain";
 
-const LABEL_TIPO: Record<string, string> = {
-  bancada: "Bancada",
-  caldeiraria: "Caldeiraria",
-  isolamentos_removiveis: "Isolamentos Removíveis",
-  isolamentos_fixos: "Isolamentos Fixos",
-};
+// Lista revisada (migração 027) — reaproveita a mesma fonte de sempre, ver
+// MultiSelectTiposTrabalho.tsx.
+const LABEL_TIPO: Record<string, string> = Object.fromEntries(TIPOS_TRABALHO_OPCOES.map((o) => [o.valor, o.label]));
 
 interface Props {
   servico: Servico;

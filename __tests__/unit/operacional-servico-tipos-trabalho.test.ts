@@ -50,11 +50,11 @@ describe("atualizarServico — múltiplos tipos de trabalho", () => {
 
     const resultado = await atualizarServico(
       "s1",
-      { tipos_trabalho: ["caldeiraria", "isolamentos_fixos"] },
+      { tipos_trabalho: ["caldeiraria", "removivel_fabricacao"] },
       { servicoRepo: servicoRepo as never }
     );
 
-    expect(resultado.tipos_trabalho).toEqual(["caldeiraria", "isolamentos_fixos"]);
+    expect(resultado.tipos_trabalho).toEqual(["caldeiraria", "removivel_fabricacao"]);
     expect(resultado.tipo_trabalho).toBe("caldeiraria");
   });
 

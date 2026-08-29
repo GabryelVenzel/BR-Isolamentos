@@ -3,16 +3,14 @@
 import { useCallback, useEffect, useState } from "react";
 import FunilServicosChart from "./graficos/FunilServicosChart";
 import CustoRealOrcadoChart from "./graficos/CustoRealOrcadoChart";
+import { TIPOS_TRABALHO_OPCOES } from "@/components/modules/operacional/MultiSelectTiposTrabalho";
 import { gerarPdfDeElemento, baixarArquivo } from "@/lib/pdf-generator";
 import { formatarMoeda, formatarNumero } from "@/lib/format";
 import type { RelatorioOperacional } from "@/lib/usecases/operacional";
 
-const LABEL_TIPO: Record<string, string> = {
-  bancada: "Bancada",
-  caldeiraria: "Caldeiraria",
-  isolamentos_removiveis: "Isolamentos Removíveis",
-  isolamentos_fixos: "Isolamentos Fixos",
-};
+// Lista revisada (migração 027) — reaproveita a mesma fonte de sempre, ver
+// MultiSelectTiposTrabalho.tsx.
+const LABEL_TIPO: Record<string, string> = Object.fromEntries(TIPOS_TRABALHO_OPCOES.map((o) => [o.valor, o.label]));
 
 /** Aba "Operação" do dashboard centralizado de Resumo — antes vivia como
  * aba "Relatórios" dentro do próprio módulo Operacional; movida pra cá pra

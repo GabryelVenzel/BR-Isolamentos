@@ -1,10 +1,16 @@
 import { z } from "zod";
 
+// Lista revisada (migração 027) — ver comentário em TipoTrabalhoOperacional
+// (lib/types/domain.ts). Mesmo enum de lib/validators/parceiro.ts (duplicado
+// aqui de propósito — os dois arquivos já não compartilhavam este schema
+// antes desta mudança).
 const TipoTrabalhoOperacionalSchema = z.enum([
   "bancada",
+  "isolador",
+  "funileiro_tracador",
   "caldeiraria",
-  "isolamentos_removiveis",
-  "isolamentos_fixos",
+  "removivel_montagem",
+  "removivel_fabricacao",
 ]);
 
 const EtapaServicoSchema = z.enum(["planejamento", "execucao", "finalizado"]);

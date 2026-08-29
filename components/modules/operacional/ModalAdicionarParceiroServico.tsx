@@ -24,7 +24,9 @@ export default function ModalAdicionarParceiroServico({ servicoId, onFechar, onA
   const [erro, setErro] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/operacional/parceiros?ativo=true")
+    // capacidade=mao_de_obra (migração 027) — só parceiros que fornecem mão
+    // de obra (prestador/ambos); parceria pura não mobiliza gente.
+    fetch("/api/operacional/parceiros?ativo=true&capacidade=mao_de_obra")
       .then((r) => r.json())
       .then((p) => p.success && setParceiros(p.data));
   }, []);

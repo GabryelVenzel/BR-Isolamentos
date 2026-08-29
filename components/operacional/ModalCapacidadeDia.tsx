@@ -1,15 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { TIPOS_TRABALHO_OPCOES } from "@/components/modules/operacional/MultiSelectTiposTrabalho";
 import { formatarData } from "@/lib/format";
 import type { CapacidadeDia } from "@/lib/usecases/operacional";
 
-const LABEL_TIPO: Record<string, string> = {
-  bancada: "Bancada",
-  caldeiraria: "Caldeiraria",
-  isolamentos_removiveis: "Isolamentos Removíveis",
-  isolamentos_fixos: "Isolamentos Fixos",
-};
+// Lista revisada (migração 027) — reaproveita a mesma fonte de sempre, ver
+// MultiSelectTiposTrabalho.tsx.
+const LABEL_TIPO: Record<string, string> = Object.fromEntries(TIPOS_TRABALHO_OPCOES.map((o) => [o.valor, o.label]));
 
 interface Props {
   data: string;

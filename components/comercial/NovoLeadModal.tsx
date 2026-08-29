@@ -49,7 +49,9 @@ export default function NovoLeadModal({ onCriado, onFechar }: Props) {
 
   useEffect(() => {
     if (!ehComissao || parceiros.length > 0) return;
-    fetch("/api/operacional/parceiros?ativo=true")
+    // capacidade=comissao (migração 027) — só parceiros que recebem
+    // indicação (parceria/ambos); prestador puro não entra aqui.
+    fetch("/api/operacional/parceiros?ativo=true&capacidade=comissao")
       .then((r) => r.json())
       .then((payload) => payload.success && setParceiros(payload.data))
       .catch(() => setParceiros([]));

@@ -1,11 +1,18 @@
 import { z } from "zod";
 
+// Lista revisada (migração 027) — ver comentário em TipoTrabalhoOperacional
+// (lib/types/domain.ts) sobre por que `bancada`/`caldeiraria` preservam a
+// chave antiga.
 const TipoTrabalhoOperacionalSchema = z.enum([
   "bancada",
+  "isolador",
+  "funileiro_tracador",
   "caldeiraria",
-  "isolamentos_removiveis",
-  "isolamentos_fixos",
+  "removivel_montagem",
+  "removivel_fabricacao",
 ]);
+
+const CategoriaParceiroSchema = z.enum(["prestador", "parceria", "ambos"]);
 
 export const CreateParceiroSchema = z.object({
   nome: z.string().trim().min(1, "Informe o nome do parceiro."),
@@ -30,6 +37,10 @@ export const CreateParceiroSchema = z.object({
   // CRIAÇÃO (UpdateParceiroSchema é .partial(), então uma edição parcial que
   // não mexe nesse campo não é bloqueada).
   tipos_trabalho: z.array(TipoTrabalhoOperacionalSchema).min(1, "Selecione pelo menos um tipo de trabalho."),
+  // Default "prestador" (migração 027) — mesmo raciocínio do default de
+  // banco: todo parceiro sem essa informação explícita é tratado como quem
+  // já era até aqui, fornecedor de mão de obra.
+  categoria_parceiro: CategoriaParceiroSchema.optional().default("prestador"),
   notas_bancada: z.string().trim().nullable().optional(),
   notas_caldeiraria: z.string().trim().nullable().optional(),
   notas_isolamentos_removiveis: z.string().trim().nullable().optional(),

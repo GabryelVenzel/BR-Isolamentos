@@ -252,9 +252,29 @@ export interface ClienteResumo {
 
 /** Tipos de trabalho fixos do módulo Operacional — NÃO confundir com
  * `TipoTrabalho` (lib/types.ts: "quente"|"frio"|"misto", classificação
- * térmica do orçamento). Este é o tipo de SERVIÇO/mão de obra executado
- * (bancada, caldeiraria, isolamentos removíveis/fixos). */
-export type TipoTrabalhoOperacional = "bancada" | "caldeiraria" | "isolamentos_removiveis" | "isolamentos_fixos";
+ * térmica do orçamento). Este é o tipo de SERVIÇO/mão de obra executado.
+ *
+ * Lista revisada (migração 027) — trocou de 4 pra 6 categorias. `bancada` e
+ * `caldeiraria` são as mesmas chaves de sempre (só o RÓTULO de `caldeiraria`
+ * mudou pra "Caldeiraria (Fabricação)"), pra preservar a classificação de
+ * parceiros já cadastrados sem precisar migrar dado nenhum. As 2 chaves
+ * antigas removidas (`isolamentos_removiveis`/`isolamentos_fixos`) não têm
+ * substituto 1:1 nas novas — parceiros que só tinham essas marcadas
+ * precisam ser reclassificados manualmente (ver sql-migration-027). */
+export type TipoTrabalhoOperacional =
+  | "bancada"
+  | "isolador"
+  | "funileiro_tracador"
+  | "caldeiraria"
+  | "removivel_montagem"
+  | "removivel_fabricacao";
+
+/** Migração 027 — o que um parceiro realmente FORNECE: "prestador" mobiliza
+ * gente de verdade (aparece na Agenda/Capacidade, pode ser vinculado a um
+ * Serviço); "parceria" é só um canal de indicação (aparece no seletor de
+ * comissão do Lead, migração 026, mas nunca na Agenda — não tem headcount
+ * pra oferecer); "ambos" entra nos dois fluxos. */
+export type CategoriaParceiro = "prestador" | "parceria" | "ambos";
 
 /** Categorias de fornecimento (material/equipamento/serviço de apoio — ver
  * sql-migration-015). Corrige um equívoco da migração 013, que tinha
@@ -288,9 +308,17 @@ export interface Parceiro {
   // continuam existindo e alimentando o modelo antigo por HORAS, usado pelo
   // dashboard Resumo (v_capacidade_parceiros) — os dois modelos coexistem.
   tipos_trabalho: TipoTrabalhoOperacional[];
+  /** Migração 027 — ver `CategoriaParceiro`. Default `"prestador"` (todo
+   * parceiro cadastrado antes desta migração fornece mão de obra, é
+   * exatamente o que ele já fazia). */
+  categoria_parceiro: CategoriaParceiro;
   notas_bancada: string | null;
   notas_caldeiraria: string | null;
+  /** @deprecated Tipo de trabalho correspondente removido da lista (migração
+   * 027, sem substituto 1:1) — mantido no schema só por compatibilidade com
+   * parceiros já cadastrados; a UI não escreve mais aqui. */
   notas_isolamentos_removiveis: string | null;
+  /** @deprecated Ver `notas_isolamentos_removiveis`. */
   notas_isolamentos_fixos: string | null;
   /** Capacidade total de pessoas do parceiro. "Mobilizadas"/"disponíveis"
    * NÃO são colunas — são calculadas por dia a partir dos serviços ativos

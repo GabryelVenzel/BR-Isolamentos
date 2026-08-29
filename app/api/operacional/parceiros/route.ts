@@ -11,9 +11,11 @@ export async function GET(request: Request) {
 
   try {
     const ativoParam = searchParams.get("ativo");
+    const capacidadeParam = searchParams.get("capacidade");
     const parceiros = await ctx.listarParceiros({
       ativo: ativoParam === null ? undefined : ativoParam === "true",
       cidade: searchParams.get("cidade") ?? undefined,
+      capacidade: capacidadeParam === "mao_de_obra" || capacidadeParam === "comissao" ? capacidadeParam : undefined,
     });
     return NextResponse.json(apiSuccess(parceiros, { total: parceiros.length }));
   } catch (error) {

@@ -8,11 +8,15 @@ interface Props {
   dados: CustoRealVsOrcado;
 }
 
+// Lista revisada (migração 027) — versão abreviada (espaço curto no eixo do
+// gráfico), não a mesma fonte completa de MultiSelectTiposTrabalho.tsx.
 const LABEL_TIPO: Record<string, string> = {
   bancada: "Bancada",
+  isolador: "Isolador",
+  funileiro_tracador: "Funileiro",
   caldeiraria: "Caldeiraria",
-  isolamentos_removiveis: "Isol. Removíveis",
-  isolamentos_fixos: "Isol. Fixos",
+  removivel_montagem: "Remov. Montagem",
+  removivel_fabricacao: "Remov. Fabricação",
   "Não informado": "Não informado",
 };
 

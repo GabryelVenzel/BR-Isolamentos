@@ -1,5 +1,5 @@
 -- ============================================================================
--- BR Isolamentos — diagnóstico: quais migrações (002 a 026) já foram
+-- BR Isolamentos — diagnóstico: quais migrações (002 a 027) já foram
 -- aplicadas no seu banco Supabase.
 --
 -- Não é uma migração — não cria/altera nada, só CONSULTA o schema atual e
@@ -50,7 +50,8 @@ select
     where table_name = 'leads' and column_name = 'created_at'
   ) as m024_leads_created_at_com_fuso,
   exists(select 1 from information_schema.columns where table_name = 'precos_config' and column_name = 'familia') as m025_precos_config_familia,
-  exists(select 1 from information_schema.columns where table_name = 'leads' and column_name = 'eh_comissao') as m026_leads_comissao;
+  exists(select 1 from information_schema.columns where table_name = 'leads' and column_name = 'eh_comissao') as m026_leads_comissao,
+  exists(select 1 from information_schema.columns where table_name = 'parceiros' and column_name = 'categoria_parceiro') as m027_categoria_parceiro;
 
 -- ============================================================================
 -- Leia o resultado da esquerda pra direita: qualquer coluna "false" indica

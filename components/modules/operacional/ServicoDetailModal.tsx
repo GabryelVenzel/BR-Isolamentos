@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type ChangeEvent } from "react";
 import { toast } from "./toast";
 import ModalAdicionarParceiroServico from "./ModalAdicionarParceiroServico";
+import { TIPOS_TRABALHO_OPCOES } from "./MultiSelectTiposTrabalho";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { formatarDataHora, formatarMoeda } from "@/lib/format";
 import type { HistoricoServico, InteracaoServico, Servico, ServicoParceiroExecucao, TipoInteracaoServico } from "@/lib/types/domain";
@@ -10,12 +11,9 @@ import type { HistoricoServico, InteracaoServico, Servico, ServicoParceiroExecuc
 const BUCKET = "servicos-anexos";
 const LIMITE_FOTOS = 20;
 
-const LABEL_TIPO_TRABALHO: Record<string, string> = {
-  bancada: "Bancada",
-  caldeiraria: "Caldeiraria",
-  isolamentos_removiveis: "Isolamentos Removíveis",
-  isolamentos_fixos: "Isolamentos Fixos",
-};
+// Lista revisada (migração 027) — reaproveita a mesma fonte de sempre, ver
+// MultiSelectTiposTrabalho.tsx.
+const LABEL_TIPO_TRABALHO: Record<string, string> = Object.fromEntries(TIPOS_TRABALHO_OPCOES.map((o) => [o.valor, o.label]));
 const LABEL_ETAPA: Record<string, string> = { planejamento: "Planejamento", execucao: "Execução", finalizado: "Finalizado" };
 const TIPOS_INTERACAO: TipoInteracaoServico[] = ["nota", "foto", "chamada", "email", "reuniao"];
 const LABEL_TIPO_INTERACAO: Record<TipoInteracaoServico, string> = {
