@@ -7,7 +7,10 @@ import { z } from "zod";
 const CategoriaFornecimentoSchema = z.enum(["isolantes", "chaparia", "ferramentas", "ferragens", "outros"]);
 
 export const CreateFornecedorSchema = z.object({
+  // Nome fantasia (migração 031, ver comentário em Fornecedor.nome,
+  // lib/types/domain.ts) — continua sendo o campo `nome`.
   nome: z.string().trim().min(1, "Informe o nome do fornecedor."),
+  razao_social: z.string().trim().nullable().optional(),
   email: z.string().trim().email("E-mail inválido.").nullable().optional(),
   telefone: z.string().trim().nullable().optional(),
   cnpj: z.string().trim().nullable().optional(),

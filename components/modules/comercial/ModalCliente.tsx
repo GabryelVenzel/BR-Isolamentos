@@ -12,6 +12,7 @@ interface Props {
 
 interface FormCliente {
   nome: string;
+  razaoSocial: string;
   telefone: string;
   email: string;
   endereco: string;
@@ -23,6 +24,7 @@ interface FormCliente {
 function paraForm(cliente: Cliente | null): FormCliente {
   return {
     nome: cliente?.nome ?? "",
+    razaoSocial: cliente?.razao_social ?? "",
     telefone: cliente?.telefone ?? "",
     email: cliente?.email ?? "",
     endereco: cliente?.endereco ?? "",
@@ -55,6 +57,7 @@ export default function ModalCliente({ cliente, onFechar, onSalvo }: Props) {
 
     const payload = {
       nome: form.nome,
+      razao_social: form.razaoSocial || null,
       telefone: form.telefone || null,
       email: form.email || null,
       endereco: form.endereco || null,
@@ -98,11 +101,17 @@ export default function ModalCliente({ cliente, onFechar, onSalvo }: Props) {
         <h2 className="mb-4 font-montserrat text-lg font-bold text-brand">{cliente ? "Editar Cliente" : "Novo Cliente"}</h2>
 
         <div className="space-y-4">
-          <div>
-            <label className="label-field">
-              Nome do cliente<span className="text-status-error"> *</span>
-            </label>
-            <input className="input-field" value={form.nome} onChange={(e) => set("nome", e.target.value)} />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="label-field">
+                Nome Fantasia<span className="text-status-error"> *</span>
+              </label>
+              <input className="input-field" value={form.nome} onChange={(e) => set("nome", e.target.value)} />
+            </div>
+            <div>
+              <label className="label-field">Razão Social</label>
+              <input className="input-field" value={form.razaoSocial} onChange={(e) => set("razaoSocial", e.target.value)} />
+            </div>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>

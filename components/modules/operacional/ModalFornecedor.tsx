@@ -22,6 +22,7 @@ const CATEGORIAS: Array<{ valor: CategoriaFornecimento; label: string }> = [
 
 interface Form {
   nome: string;
+  razaoSocial: string;
   telefone: string;
   cnpj: string;
   email: string;
@@ -36,6 +37,7 @@ interface Form {
 function paraForm(f: Fornecedor | null): Form {
   return {
     nome: f?.nome ?? "",
+    razaoSocial: f?.razao_social ?? "",
     telefone: f?.telefone ?? "",
     cnpj: f?.cnpj ?? "",
     email: f?.email ?? "",
@@ -76,6 +78,7 @@ export default function ModalFornecedor({ fornecedor, onFechar, onSalvo }: Props
 
     const payload = {
       nome: form.nome,
+      razao_social: form.razaoSocial || null,
       telefone: form.telefone || null,
       cnpj: form.cnpj || null,
       email: form.email || null,
@@ -124,11 +127,21 @@ export default function ModalFornecedor({ fornecedor, onFechar, onSalvo }: Props
         </h2>
 
         <div className="space-y-4">
-          <div>
-            <label className="label-field">
-              Nome<span className="text-status-error"> *</span>
-            </label>
-            <input className="input-field" value={form.nome} onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))} />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="label-field">
+                Nome Fantasia<span className="text-status-error"> *</span>
+              </label>
+              <input className="input-field" value={form.nome} onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))} />
+            </div>
+            <div>
+              <label className="label-field">Razão Social</label>
+              <input
+                className="input-field"
+                value={form.razaoSocial}
+                onChange={(e) => setForm((f) => ({ ...f, razaoSocial: e.target.value }))}
+              />
+            </div>
           </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>

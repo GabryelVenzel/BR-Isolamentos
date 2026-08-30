@@ -15,7 +15,16 @@ export interface Usuario {
 
 export interface Cliente {
   id: number;
+  /** Nome fantasia — o nome pelo qual o cliente é chamado no dia a dia, usado
+   * em toda a UI (cards, dropdowns, cabeçalho das Propostas). Migração 031:
+   * a coluna continua `nome` (não foi renomeada — é lida em dezenas de
+   * lugares), só passou a representar comercialmente o Nome Fantasia depois
+   * que `razao_social` virou um campo separado. */
   nome: string;
+  /** Razão social (migração 031) — nome jurídico registrado, opcional (nem
+   * todo cliente é pessoa jurídica). Exibido nas Propostas junto ao nome
+   * fantasia, quando preenchido. */
+  razao_social: string | null;
   email: string | null;
   telefone: string | null;
   endereco: string | null;

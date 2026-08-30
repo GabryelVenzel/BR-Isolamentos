@@ -292,7 +292,13 @@ export type CategoriaFornecimento = "isolantes" | "chaparia" | "ferramentas" | "
 export interface Parceiro {
   id: string;
   numero_parceiro: string | null;
+  /** Nome fantasia (migração 031, ver mesmo comentário em `Cliente.nome`,
+   * lib/types.ts) — a coluna continua `nome`, só passou a representar
+   * comercialmente o Nome Fantasia depois que `razao_social` virou campo
+   * separado. */
   nome: string;
+  /** Razão social (migração 031) — nome jurídico registrado, opcional. */
+  razao_social: string | null;
   email: string | null;
   telefone: string | null;
   cnpj: string | null;
@@ -378,7 +384,11 @@ export interface ServicoParceiroExecucao {
 export interface Fornecedor {
   id: string;
   numero_fornecedor: string | null;
+  /** Nome fantasia (migração 031, ver mesmo comentário em `Cliente.nome`,
+   * lib/types.ts) — a coluna continua `nome`. */
   nome: string;
+  /** Razão social (migração 031) — nome jurídico registrado, opcional. */
+  razao_social: string | null;
   email: string | null;
   telefone: string | null;
   cnpj: string | null;

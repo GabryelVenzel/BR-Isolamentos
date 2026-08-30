@@ -161,6 +161,7 @@ export default function PropostaComercialDocument({ orcamento, configEmpresa }: 
         <View style={estilos.caixaCliente}>
           <Text style={estilos.secaoTitulo}>Cliente</Text>
           <Text style={estilos.caixaClienteNome}>{orcamento.cliente?.nome}</Text>
+          {orcamento.cliente?.razao_social && <Text style={estilos.caixaClienteLinha}>{orcamento.cliente.razao_social}</Text>}
           {orcamento.cliente?.cnpj_cpf && <Text style={estilos.caixaClienteLinha}>{orcamento.cliente.cnpj_cpf}</Text>}
           {orcamento.cliente?.endereco && <Text style={estilos.caixaClienteLinha}>{orcamento.cliente.endereco}</Text>}
           <Text style={estilos.caixaClienteLinha}>

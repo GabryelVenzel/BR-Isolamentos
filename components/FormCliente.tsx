@@ -12,7 +12,7 @@ export default function FormCliente({ clienteSelecionado, onSelecionar }: Props)
   const [busca, setBusca] = useState("");
   const [resultados, setResultados] = useState<Cliente[]>([]);
   const [mostrarNovo, setMostrarNovo] = useState(false);
-  const [novoCliente, setNovoCliente] = useState({ nome: "", email: "", telefone: "", endereco: "", cnpj_cpf: "" });
+  const [novoCliente, setNovoCliente] = useState({ nome: "", razao_social: "", email: "", telefone: "", endereco: "", cnpj_cpf: "" });
   const [salvando, setSalvando] = useState(false);
 
   useEffect(() => {
@@ -101,11 +101,19 @@ export default function FormCliente({ clienteSelecionado, onSelecionar }: Props)
       {mostrarNovo && (
         <div className="grid grid-cols-1 gap-4 border-t border-gray-100 pt-4 sm:grid-cols-2">
           <div>
-            <label className="label-field">Nome *</label>
+            <label className="label-field">Nome Fantasia *</label>
             <input
               className="input-field"
               value={novoCliente.nome}
               onChange={(e) => setNovoCliente((prev) => ({ ...prev, nome: e.target.value }))}
+            />
+          </div>
+          <div>
+            <label className="label-field">Razão Social</label>
+            <input
+              className="input-field"
+              value={novoCliente.razao_social}
+              onChange={(e) => setNovoCliente((prev) => ({ ...prev, razao_social: e.target.value }))}
             />
           </div>
           <div>

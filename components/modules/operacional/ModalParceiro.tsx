@@ -40,6 +40,7 @@ const CAMPO_NOTAS: Record<TipoTrabalhoOperacional, keyof Parceiro> = {
 
 interface Form {
   nome: string;
+  razaoSocial: string;
   telefone: string;
   cnpj: string;
   email: string;
@@ -55,6 +56,7 @@ interface Form {
 function paraForm(p: Parceiro | null): Form {
   return {
     nome: p?.nome ?? "",
+    razaoSocial: p?.razao_social ?? "",
     telefone: p?.telefone ?? "",
     cnpj: p?.cnpj ?? "",
     email: p?.email ?? "",
@@ -109,6 +111,7 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo }: Props) {
 
     const payload = {
       nome: form.nome,
+      razao_social: form.razaoSocial || null,
       telefone: form.telefone || null,
       cnpj: form.cnpj || null,
       email: form.email || null,
@@ -159,11 +162,19 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo }: Props) {
 
         <div className="space-y-4">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2">
+            <div>
               <label className="label-field">
-                Nome<span className="text-status-error"> *</span>
+                Nome Fantasia<span className="text-status-error"> *</span>
               </label>
               <input className="input-field" value={form.nome} onChange={(e) => setForm((f) => ({ ...f, nome: e.target.value }))} />
+            </div>
+            <div>
+              <label className="label-field">Razão Social</label>
+              <input
+                className="input-field"
+                value={form.razaoSocial}
+                onChange={(e) => setForm((f) => ({ ...f, razaoSocial: e.target.value }))}
+              />
             </div>
             <div>
               <label className="label-field">Telefone</label>

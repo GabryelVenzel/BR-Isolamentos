@@ -18,6 +18,7 @@ function parceiro(overrides: Partial<Parceiro> = {}): Parceiro {
     id: "p1",
     numero_parceiro: "P00001",
     nome: "Suzano",
+    razao_social: null,
     email: null,
     telefone: null,
     cnpj: null,

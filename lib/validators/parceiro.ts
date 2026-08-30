@@ -16,7 +16,10 @@ const TipoTrabalhoOperacionalSchema = z.enum([
 const CategoriaParceiroSchema = z.enum(["prestador", "parceria", "ambos"]);
 
 export const CreateParceiroSchema = z.object({
+  // Nome fantasia (migração 031, ver comentário em Parceiro.nome,
+  // lib/types/domain.ts) — continua sendo o campo `nome`.
   nome: z.string().trim().min(1, "Informe o nome do parceiro."),
+  razao_social: z.string().trim().nullable().optional(),
   email: z.string().trim().email("E-mail inválido.").nullable().optional(),
   telefone: z.string().trim().nullable().optional(),
   cnpj: z.string().trim().nullable().optional(),
