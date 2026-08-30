@@ -24,6 +24,20 @@ const CATEGORIAS_PARCEIRO: Array<{ valor: CategoriaParceiro; label: string; desc
   { valor: "ambos", label: "Ambos", descricao: "Fornece mão de obra E recebe indicações de comissão." },
 ];
 
+// Uma nota por tipo de trabalho (migração 030 — bug relatado: só bancada/
+// caldeiraria tinham campo de nota, faltavam as outras 5 categorias novas
+// da migração 027). Mapa central em vez de 7 campos de formulário/JSX
+// hardcoded separados — extensível se a lista de tipos crescer de novo.
+const CAMPO_NOTAS: Record<TipoTrabalhoOperacional, keyof Parceiro> = {
+  bancada: "notas_bancada",
+  isolador: "notas_isolador",
+  funileiro_tracador: "notas_funileiro_tracador",
+  caldeiraria: "notas_caldeiraria",
+  caldeiraria_montagem: "notas_caldeiraria_montagem",
+  removivel_montagem: "notas_removivel_montagem",
+  removivel_fabricacao: "notas_removivel_fabricacao",
+};
+
 interface Form {
   nome: string;
   telefone: string;
@@ -34,8 +48,7 @@ interface Form {
   estado: string;
   categoriaParceiro: CategoriaParceiro;
   tiposTrabalho: TipoTrabalhoOperacional[];
-  notasBancada: string;
-  notasCaldeiraria: string;
+  notas: Record<TipoTrabalhoOperacional, string>;
   totalPessoas: string;
 }
 
@@ -50,8 +63,9 @@ function paraForm(p: Parceiro | null): Form {
     estado: p?.estado ?? "",
     categoriaParceiro: p?.categoria_parceiro ?? "prestador",
     tiposTrabalho: p?.tipos_trabalho ?? [],
-    notasBancada: p?.notas_bancada ?? "",
-    notasCaldeiraria: p?.notas_caldeiraria ?? "",
+    notas: Object.fromEntries(
+      TIPOS_TRABALHO_OPCOES.map((t) => [t.valor, (p?.[CAMPO_NOTAS[t.valor]] as string | null) ?? ""])
+    ) as Record<TipoTrabalhoOperacional, string>,
     totalPessoas: p?.total_pessoas != null ? String(p.total_pessoas) : "",
   };
 }
@@ -70,6 +84,10 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo }: Props) {
     }));
   }
 
+  function alterarNota(tipo: TipoTrabalhoOperacional, valor: string) {
+    setForm((prev) => ({ ...prev, notas: { ...prev.notas, [tipo]: valor } }));
+  }
+
   async function salvar() {
     if (!form.nome.trim()) {
       setErro("Informe o nome do parceiro.");
@@ -82,6 +100,13 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo }: Props) {
     setErro(null);
     setSalvando(true);
 
+    // Nota só é gravada se o tipo estiver marcado (desmarcar um tipo limpa a
+    // nota correspondente) — mesmo comportamento de sempre, agora pras 7
+    // categorias em vez de só 2.
+    const notasPayload = Object.fromEntries(
+      TIPOS_TRABALHO_OPCOES.map((t) => [CAMPO_NOTAS[t.valor], form.tiposTrabalho.includes(t.valor) ? form.notas[t.valor] || null : null])
+    );
+
     const payload = {
       nome: form.nome,
       telefone: form.telefone || null,
@@ -92,8 +117,7 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo }: Props) {
       estado: form.estado || null,
       categoria_parceiro: form.categoriaParceiro,
       tipos_trabalho: form.tiposTrabalho,
-      notas_bancada: form.tiposTrabalho.includes("bancada") ? form.notasBancada || null : null,
-      notas_caldeiraria: form.tiposTrabalho.includes("caldeiraria") ? form.notasCaldeiraria || null : null,
+      ...notasPayload,
       total_pessoas: form.totalPessoas ? Number(form.totalPessoas) : null,
     };
 
@@ -219,25 +243,18 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo }: Props) {
             </div>
           </div>
 
-          {(form.tiposTrabalho.includes("bancada") || form.tiposTrabalho.includes("caldeiraria")) && (
+          {form.tiposTrabalho.length > 0 && (
             <div className="space-y-3 border-t border-gray-100 pt-4">
               <p className="label-field">Notas por tipo de trabalho</p>
-              {form.tiposTrabalho.includes("bancada") && (
+              {TIPOS.filter((t) => form.tiposTrabalho.includes(t.valor)).map((t) => (
                 <input
+                  key={t.valor}
                   className="input-field"
-                  placeholder="Notas — Bancada"
-                  value={form.notasBancada}
-                  onChange={(e) => setForm((f) => ({ ...f, notasBancada: e.target.value }))}
+                  placeholder={`Notas — ${t.label}`}
+                  value={form.notas[t.valor]}
+                  onChange={(e) => alterarNota(t.valor, e.target.value)}
                 />
-              )}
-              {form.tiposTrabalho.includes("caldeiraria") && (
-                <input
-                  className="input-field"
-                  placeholder="Notas — Caldeiraria (Fabricação)"
-                  value={form.notasCaldeiraria}
-                  onChange={(e) => setForm((f) => ({ ...f, notasCaldeiraria: e.target.value }))}
-                />
-              )}
+              ))}
             </div>
           )}
 

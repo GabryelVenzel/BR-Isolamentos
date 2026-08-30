@@ -49,12 +49,20 @@ describe("quantificarMateriais — plano (sem geometria de diâmetro)", () => {
     expect(resultado.acabamentoM2).toBe(12); // 10 × 1.20
   });
 
-  it("rebite/parafuso/arame/silicone continuam proporcionais à área de projeto total — mesma lógica de sempre", () => {
+  it("rebite/parafuso/silicone continuam proporcionais à área de projeto total — mesma lógica de sempre", () => {
     const resultado = quantificarMateriais([plano(10)], 50, parametros);
     expect(resultado.rebiteUn).toBe(200); // 10 × 20
     expect(resultado.parafusoUn).toBe(200);
-    expect(resultado.arameMetros).toBe(50); // 10 × 5
     expect(resultado.siliconeFrascos).toBe(5); // 10 ÷ 2
+  });
+
+  // Migração 029/030 — arame é proporcional à área de CHAPA (acabamentoM2,
+  // já com o acréscimo embutido), não à área de projeto nua como os outros
+  // acessórios (pedido explícito: "metros de arame por m² de chapa").
+  it("arame é proporcional à área de CHAPA (acabamentoM2), não à área de projeto nua", () => {
+    const resultado = quantificarMateriais([plano(10)], 50, parametros);
+    expect(resultado.acabamentoM2).toBe(12); // 10 × 1.20
+    expect(resultado.arameMetros).toBe(60); // 12 × 5, não 10 × 5
   });
 
   it("arredonda rebite/parafuso pro inteiro mais próximo (não dá pra comprar fração de unidade)", () => {

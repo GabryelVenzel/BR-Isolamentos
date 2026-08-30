@@ -37,7 +37,6 @@ import { formatarData, formatarMoeda, formatarNumero } from "@/lib/format";
 import {
   arvoresEquivalentes,
   calcularBeneficiosConsolidados,
-  calcularPaybackDias,
   calcularPaybackMeses,
   distribuirResumoFinanceiroSimplificado,
   itensContemplados,
@@ -112,8 +111,13 @@ function Linha({ label, valor, destaque }: { label: string; valor: string; desta
   );
 }
 
+// Sem "(proposto)"/"(situação atual)" (pedido explícito) — o sistema do
+// cliente pode já ter isolamento antigo instalado, então rotular um cenário
+// como "situação atual" e o outro como "proposto" pode não corresponder ao
+// que está lá de fato; os dois cenários (com/sem isolamento) já são claros
+// sem essa marcação temporal.
 const NOTA_ESTIMATIVA_COMPARATIVA =
-  "Estimativa comparativa entre o cenário COM isolamento térmico (proposto) e o cenário SEM isolamento (situação atual), com base nos parâmetros informados nesta proposta — não é uma garantia contratual.";
+  "Estimativa comparativa entre o cenário COM isolamento térmico e o cenário SEM isolamento, com base nos parâmetros informados nesta proposta — não é uma garantia contratual.";
 
 export default function PropostaComercialDocument({ orcamento, configEmpresa }: Props) {
   const itens = [...(orcamento.itens ?? [])].sort((a, b) => a.ordem - b.ordem);
@@ -121,8 +125,11 @@ export default function PropostaComercialDocument({ orcamento, configEmpresa }: 
 
   const { economiaAnualTotal, co2ToneladasAno } = calcularBeneficiosConsolidados(itens);
   const temFinanceiro = temAnaliseFinanceira(orcamento, economiaAnualTotal);
+  // Tópico "ROI e Projeção Econômica" (pedido explícito) só existe pra
+  // Material + Mão de Obra — pra "Somente Mão de Obra" não dá pra calcular
+  // ROI de verdade, porque o valor pago em material não é conhecido (o
+  // cliente fornece direto, fora do orçamento) — ver `temTopicoRoi` abaixo.
   const paybackMeses = !somenteMaoObra && temFinanceiro ? calcularPaybackMeses(orcamento.valor_final, economiaAnualTotal) : null;
-  const paybackDias = somenteMaoObra && temFinanceiro ? calcularPaybackDias(orcamento.valor_final, economiaAnualTotal) : null;
   const reajuste = configEmpresa?.projecao_reajuste_tarifario_percentual ?? 3;
   const projecaoDezAnos = !somenteMaoObra && economiaAnualTotal > 0 ? projetarEconomiaAcumulada(economiaAnualTotal, reajuste, 10) : [];
   const arvores = arvoresEquivalentes(co2ToneladasAno, configEmpresa?.co2_kg_por_arvore_ano ?? 22);
@@ -135,7 +142,7 @@ export default function PropostaComercialDocument({ orcamento, configEmpresa }: 
   const naoContempla = itensNaoContemplados(orcamento.tipo_proposta);
   const linhasEspecificacoes = linhasEspecificacoesTecnicas(itens);
   const resumoSimplificado = distribuirResumoFinanceiroSimplificado(orcamento);
-  const temTopicoRoi = economiaAnualTotal > 0;
+  const temTopicoRoi = !somenteMaoObra && economiaAnualTotal > 0;
   // Mão de obra entra na MESMA lista dos materiais, com horas reais (pedido
   // explícito) — ver comentário de linhasMaoDeObra. "Custos Operacionais"
   // (deslocamento/hospedagem/frete/alimentação) continua só "Incluso".
@@ -229,10 +236,12 @@ export default function PropostaComercialDocument({ orcamento, configEmpresa }: 
         </View>
 
         <View style={estilos.secao}>
-          <Text style={estilos.secaoTitulo}>{n++}. Quantificação de Materiais e Mão de Obra</Text>
+          <Text style={estilos.secaoTitulo}>
+            {n++}. Quantificação de {somenteMaoObra ? "Mão de Obra" : "Materiais e Mão de Obra"}
+          </Text>
           {linhasQuadro1.length > 0 && (
             <>
-              <Text style={estilos.blocoTitulo}>Materiais e Mão de Obra</Text>
+              <Text style={estilos.blocoTitulo}>{somenteMaoObra ? "Execução" : "Materiais e Mão de Obra"}</Text>
               <View style={estilos.tabela}>
                 <View style={estilos.linhaCabecalho}>
                   {itens.length > 1 && <Text style={estilos.celulaCabecalho}>Trecho</Text>}
@@ -265,7 +274,7 @@ export default function PropostaComercialDocument({ orcamento, configEmpresa }: 
             <Text style={estilos.secaoTitulo}>{n++}. ROI e Projeção Econômica</Text>
             <Text style={{ ...estilos.paragrafo, fontSize: 9, marginBottom: 6, fontStyle: "italic" }}>{NOTA_ESTIMATIVA_COMPARATIVA}</Text>
 
-            {!somenteMaoObra && paybackMeses != null && (
+            {paybackMeses != null && (
               <View style={estilos.caixaRoi} wrap={false}>
                 <Text style={estilos.roiTitulo}>Retorno do Investimento</Text>
                 <View style={estilos.roiLinhaGrande}>
@@ -280,25 +289,6 @@ export default function PropostaComercialDocument({ orcamento, configEmpresa }: 
                   <Text style={estilos.roiLabelGrande}>Payback estimado</Text>
                   <Text style={estilos.roiValorGrande}>{formatarNumero(paybackMeses, 1)} meses</Text>
                 </View>
-              </View>
-            )}
-
-            {somenteMaoObra && paybackDias != null && (
-              <View style={estilos.caixaRoi} wrap={false}>
-                <Text style={estilos.roiTitulo}>Retorno do Investimento em Mão de Obra</Text>
-                <View style={estilos.roiLinhaGrande}>
-                  <Text style={estilos.roiLabelGrande}>Investimento em mão de obra</Text>
-                  <Text style={estilos.roiValorGrande}>{formatarMoeda(orcamento.valor_final)}</Text>
-                </View>
-                <View style={estilos.roiLinhaGrande}>
-                  <Text style={estilos.roiLabelGrande}>Economia anual estimada</Text>
-                  <Text style={estilos.roiValorGrande}>{formatarMoeda(economiaAnualTotal)}</Text>
-                </View>
-                <View style={estilos.roiLinhaGrande}>
-                  <Text style={estilos.roiLabelGrande}>Payback estimado</Text>
-                  <Text style={estilos.roiValorGrande}>{paybackDias} dias</Text>
-                </View>
-                <Text style={estilos.notaRodape}>Material já fornecido pelo cliente — o investimento aqui é só a mão de obra.</Text>
               </View>
             )}
 
@@ -353,7 +343,10 @@ export default function PropostaComercialDocument({ orcamento, configEmpresa }: 
 
         <View style={estilos.totalCaixa} wrap={false}>
           <Text style={estilos.secaoTitulo}>{n++}. Resumo Financeiro</Text>
-          {!somenteMaoObra && <Linha label="Material" valor={formatarMoeda(resumoSimplificado.material)} />}
+          {/* Somente Mão de Obra: linha "Material" continua aparecendo (pedido
+              explícito), só que com "Fornecimento Cliente" no lugar do valor
+              — o cliente fornece o material direto, fora deste orçamento. */}
+          <Linha label="Material" valor={somenteMaoObra ? "Fornecimento Cliente" : formatarMoeda(resumoSimplificado.material)} />
           {/* "Execução" (não "Mão de Obra") — pedido explícito: esse valor
               pode incluir itens adicionais de execução (ex.: andaime), não
               só horas trabalhadas (o campo `maoDeObra` continua com esse

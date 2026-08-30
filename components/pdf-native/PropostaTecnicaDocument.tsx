@@ -318,10 +318,12 @@ export default function PropostaTecnicaDocument({ orcamento, configEmpresa }: Pr
         </View>
 
         <View style={estilos.secao}>
-          <Text style={estilos.secaoTitulo}>{numeroSecao++}. Quantificação de Materiais e Mão de Obra</Text>
+          <Text style={estilos.secaoTitulo}>
+            {numeroSecao++}. Quantificação de {somenteMaoObra ? "Mão de Obra" : "Materiais e Mão de Obra"}
+          </Text>
           {linhasQuadro1.length > 0 && (
             <>
-              <Text style={estilos.blocoTitulo}>Materiais e Mão de Obra</Text>
+              <Text style={estilos.blocoTitulo}>{somenteMaoObra ? "Execução" : "Materiais e Mão de Obra"}</Text>
               <View style={estilos.tabela}>
                 <View style={estilos.linhaCabecalho}>
                   {itens.length > 1 && <Text style={estilos.celulaCabecalho}>Trecho</Text>}

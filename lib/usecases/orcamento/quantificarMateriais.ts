@@ -13,9 +13,16 @@
 // espessuras de isolante, pra tubulação/curva; a própria área do item, pra
 // plano ou item com metragem editada manualmente) — com um acréscimo
 // percentual menor (novo padrão: 10%/20%, configurável, era 20%/30%) por
-// cima dessa base mais precisa. Rebite/parafuso/arame/silicone continuam
+// cima dessa base mais precisa. Rebite/parafuso/silicone continuam
 // exatamente como antes, proporcionais à área "de projeto" total (pedido
 // explícito: "o restante dos materiais continua com a mesma lógica").
+//
+// Migração 029/030 — arame por METRO em vez de peso: o arame só existe pra
+// prender a CHAPA (acabamento) no isolante, então sua quantidade é
+// proporcional à área de CHAPA (`acabamentoM2`, já com o acréscimo da
+// migração 023 embutido), não à área "de projeto" nua como os outros
+// acessórios — pedido explícito: "X metros de arame por metro quadrado de
+// chapa".
 
 import type { ConfigEmpresa, ItemEscopo } from "../../types";
 import { areaBaseIsolamentoEscopo, somarMetragemEscopo } from "./escopo";
@@ -61,13 +68,16 @@ export function quantificarMateriais(escopoItens: ItemEscopo[], espessuraMm: num
 
   const areaIsolamento = areaBaseIsolamentoEscopo(escopoItens, espessuraMm);
   const metragemProjeto = somarMetragemEscopo(escopoItens);
+  const acabamentoM2 = round2(areaIsolamento * (1 + parametros.acabamento_acrescimo_percentual / 100));
 
   return {
     isolanteM2: round2(areaIsolamento * (1 + parametros.isolante_acrescimo_percentual / 100)),
-    acabamentoM2: round2(areaIsolamento * (1 + parametros.acabamento_acrescimo_percentual / 100)),
+    acabamentoM2,
     rebiteUn: Math.round(metragemProjeto * parametros.rebite_por_m2),
     parafusoUn: Math.round(metragemProjeto * parametros.parafusos_por_m2),
-    arameMetros: round2(metragemProjeto * parametros.arame_metros_por_m2),
+    // Proporcional à área de CHAPA (acabamentoM2), não à área de projeto —
+    // ver comentário de módulo (migração 029/030).
+    arameMetros: round2(acabamentoM2 * parametros.arame_metros_por_m2),
     // ROUND, não CEIL — segue a fórmula exata do pedido ("Security States
     // Grave"), mesmo que arredondar pra baixo signifique comprar frascos a
     // menos numa metragem ímpar (ex.: 3m² ÷ 2 = 1,5 → 2, mas 2,9m² ÷ 2 =

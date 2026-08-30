@@ -16,7 +16,6 @@ import { formatarData, formatarMoeda, formatarNumero } from "./format";
 import {
   arvoresEquivalentes,
   calcularBeneficiosConsolidados,
-  calcularPaybackDias,
   calcularPaybackMeses,
   descricaoMaterialCompleta,
   distribuirResumoFinanceiroSimplificado,
@@ -41,8 +40,10 @@ const LABEL_TIPO_COMPLETO: Record<string, string> = {
 const LABEL_PROPOSTA: Record<string, string> = { material_mo: "Material + Mão de Obra", somente_mo: "Somente Mão de Obra" };
 const COR_MARCA = "060035";
 const COR_ACCENT = "078B41";
+// Sem "(proposto)"/"(situação atual)" (pedido explícito) — ver mesmo
+// comentário em components/pdf-native/PropostaComercialDocument.tsx.
 const NOTA_ESTIMATIVA_COMPARATIVA =
-  "Estimativa comparativa entre o cenário COM isolamento térmico (proposto) e o cenário SEM isolamento (situação atual), com base nos parâmetros informados nesta proposta — não é uma garantia contratual.";
+  "Estimativa comparativa entre o cenário COM isolamento térmico e o cenário SEM isolamento, com base nos parâmetros informados nesta proposta — não é uma garantia contratual.";
 
 function celula(texto: string, opts: { negrito?: boolean; cor?: string } = {}): TableCell {
   return new TableCell({
@@ -166,7 +167,7 @@ function blocoQuantificacao(itens: NonNullable<Orcamento["itens"]>, orcamento: O
   const children: Array<Paragraph | Table> = [];
   if (linhasQuadro1.length > 0) {
     children.push(
-      titulo3("Materiais e Mão de Obra"),
+      titulo3(somenteMaoObra ? "Execução" : "Materiais e Mão de Obra"),
       new Table({
         width: { size: 100, type: WidthType.PERCENTAGE },
         rows: [
@@ -196,8 +197,11 @@ export async function gerarPropostaComercialDocx(orcamento: Orcamento, configEmp
 
   const { economiaAnualTotal, co2ToneladasAno } = calcularBeneficiosConsolidados(itens);
   const temFinanceiro = temAnaliseFinanceira(orcamento, economiaAnualTotal);
+  // Tópico "ROI e Projeção Econômica" (pedido explícito) só existe pra
+  // Material + Mão de Obra — pra "Somente Mão de Obra" não dá pra calcular
+  // ROI de verdade, porque o valor pago em material não é conhecido (o
+  // cliente fornece direto, fora do orçamento) — ver `temTopicoRoi` abaixo.
   const paybackMeses = !somenteMaoObra && temFinanceiro ? calcularPaybackMeses(orcamento.valor_final, economiaAnualTotal) : null;
-  const paybackDias = somenteMaoObra && temFinanceiro ? calcularPaybackDias(orcamento.valor_final, economiaAnualTotal) : null;
   const reajuste = configEmpresa?.projecao_reajuste_tarifario_percentual ?? 3;
   const projecaoDezAnos = !somenteMaoObra && economiaAnualTotal > 0 ? projetarEconomiaAcumulada(economiaAnualTotal, reajuste, 10) : [];
   const arvores = arvoresEquivalentes(co2ToneladasAno, configEmpresa?.co2_kg_por_arvore_ano ?? 22);
@@ -207,7 +211,7 @@ export async function gerarPropostaComercialDocx(orcamento: Orcamento, configEmp
   const validadeDias = configEmpresa?.validade_proposta_dias ?? 30;
   const formaPagamentoPadrao = configEmpresa?.forma_pagamento_padrao || "50% de entrada + 50% na conclusão dos trabalhos";
   const resumoSimplificado = distribuirResumoFinanceiroSimplificado(orcamento);
-  const temTopicoRoi = economiaAnualTotal > 0;
+  const temTopicoRoi = !somenteMaoObra && economiaAnualTotal > 0;
 
   const children: Array<Paragraph | Table> = [];
   let n = 1;
@@ -226,7 +230,13 @@ export async function gerarPropostaComercialDocx(orcamento: Orcamento, configEmp
   children.push(new Paragraph({ text: `${n++}. Especificações Técnicas`, heading: HeadingLevel.HEADING_2, spacing: { before: 300 } }));
   children.push(tabelaEspecificacoesTecnicas(itens));
 
-  children.push(new Paragraph({ text: `${n++}. Quantificação de Materiais e Mão de Obra`, heading: HeadingLevel.HEADING_2, spacing: { before: 300 } }));
+  children.push(
+    new Paragraph({
+      text: `${n++}. Quantificação de ${somenteMaoObra ? "Mão de Obra" : "Materiais e Mão de Obra"}`,
+      heading: HeadingLevel.HEADING_2,
+      spacing: { before: 300 },
+    })
+  );
   children.push(...blocoQuantificacao(itens, orcamento));
 
   if (temTopicoRoi) {
@@ -234,24 +244,13 @@ export async function gerarPropostaComercialDocx(orcamento: Orcamento, configEmp
       new Paragraph({ text: `${n++}. ROI e Projeção Econômica`, heading: HeadingLevel.HEADING_2, spacing: { before: 300 } }),
       new Paragraph({ children: [new TextRun({ text: NOTA_ESTIMATIVA_COMPARATIVA, italics: true, size: 18 })], spacing: { after: 150 } })
     );
-    if (!somenteMaoObra && paybackMeses != null) {
+    if (paybackMeses != null) {
       children.push(
         titulo3("Retorno do Investimento"),
         new Paragraph({ text: `Investimento: ${formatarMoeda(orcamento.valor_final)}` }),
         new Paragraph({ text: `Economia anual estimada: ${formatarMoeda(economiaAnualTotal)}` }),
         new Paragraph({
           children: [new TextRun({ text: `Payback estimado: ${formatarNumero(paybackMeses, 1)} meses`, bold: true, color: COR_ACCENT, size: 26 })],
-          spacing: { after: 100 },
-        })
-      );
-    }
-    if (somenteMaoObra && paybackDias != null) {
-      children.push(
-        titulo3("Retorno do Investimento em Mão de Obra"),
-        new Paragraph({ text: `Investimento em mão de obra: ${formatarMoeda(orcamento.valor_final)}` }),
-        new Paragraph({ text: `Economia anual estimada: ${formatarMoeda(economiaAnualTotal)}` }),
-        new Paragraph({
-          children: [new TextRun({ text: `Payback estimado: ${paybackDias} dias`, bold: true, color: COR_ACCENT, size: 26 })],
           spacing: { after: 100 },
         })
       );
@@ -291,7 +290,13 @@ export async function gerarPropostaComercialDocx(orcamento: Orcamento, configEmp
 
   children.push(new Paragraph({ text: `${n++}. Resumo Financeiro`, heading: HeadingLevel.HEADING_2, spacing: { before: 300 } }));
   const linhasFinanceiro: TableRow[] = [];
-  if (!somenteMaoObra) linhasFinanceiro.push(new TableRow({ children: [celula("Material"), celula(formatarMoeda(resumoSimplificado.material))] }));
+  // Somente Mão de Obra: linha "Material" continua aparecendo (pedido
+  // explícito), só que com "Fornecimento Cliente" no lugar do valor.
+  linhasFinanceiro.push(
+    new TableRow({
+      children: [celula("Material"), celula(somenteMaoObra ? "Fornecimento Cliente" : formatarMoeda(resumoSimplificado.material))],
+    })
+  );
   // "Execução" (não "Mão de Obra") — pode incluir itens adicionais de
   // execução (ex.: andaime), não só horas trabalhadas.
   linhasFinanceiro.push(new TableRow({ children: [celula("Execução"), celula(formatarMoeda(resumoSimplificado.maoDeObra))] }));
@@ -381,6 +386,7 @@ export function nomeArquivoDocxComercial(orcamento: Orcamento): string {
  * referência e sem valores comerciais (isso é papel da Proposta Comercial). */
 export async function gerarPropostaTecnicaDocx(orcamento: Orcamento, configEmpresa?: ConfigEmpresa | null): Promise<Blob> {
   const itens = [...(orcamento.itens ?? [])].sort((a, b) => a.ordem - b.ordem);
+  const somenteMaoObra = orcamento.tipo_proposta === "somente_mo";
   const itensQuentes = itens.filter((i) => i.tipo_trabalho === "quente");
   const itensFrios = itens.filter((i) => i.tipo_trabalho === "frio");
   const trechosAltura = itens.filter((i) => i.trabalho_altura).length;
@@ -490,7 +496,11 @@ export async function gerarPropostaTecnicaDocx(orcamento: Orcamento, configEmpre
   }
 
   children.push(
-    new Paragraph({ text: `${numeroSecao++}. Quantificação de Materiais e Mão de Obra`, heading: HeadingLevel.HEADING_2, spacing: { before: 200 } })
+    new Paragraph({
+      text: `${numeroSecao++}. Quantificação de ${somenteMaoObra ? "Mão de Obra" : "Materiais e Mão de Obra"}`,
+      heading: HeadingLevel.HEADING_2,
+      spacing: { before: 200 },
+    })
   );
   children.push(...blocoQuantificacao(itens, orcamento));
 

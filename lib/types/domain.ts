@@ -317,6 +317,13 @@ export interface Parceiro {
   categoria_parceiro: CategoriaParceiro;
   notas_bancada: string | null;
   notas_caldeiraria: string | null;
+  /** Migração 030 — faltavam notas pras 5 categorias novas da migração 027
+   * (só bancada/caldeiraria tinham ficado). */
+  notas_isolador: string | null;
+  notas_funileiro_tracador: string | null;
+  notas_caldeiraria_montagem: string | null;
+  notas_removivel_montagem: string | null;
+  notas_removivel_fabricacao: string | null;
   /** @deprecated Tipo de trabalho correspondente removido da lista (migração
    * 027, sem substituto 1:1) — mantido no schema só por compatibilidade com
    * parceiros já cadastrados; a UI não escreve mais aqui. */
