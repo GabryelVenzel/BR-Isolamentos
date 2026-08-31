@@ -55,7 +55,13 @@ select
   exists(select 1 from precos_config where tipo_material = 'acessorio_rebite' and descricao = 'Rebite de Alumínio') as m028_renomeia_itens_catalogo,
   exists(select 1 from information_schema.columns where table_name = 'config_empresa' and column_name = 'arame_metros_por_m2') as m029_arame_por_metro,
   exists(select 1 from information_schema.columns where table_name = 'parceiros' and column_name = 'notas_isolador') as m030_notas_tipos_trabalho,
-  exists(select 1 from information_schema.columns where table_name = 'clientes' and column_name = 'razao_social') as m031_razao_social;
+  exists(select 1 from information_schema.columns where table_name = 'clientes' and column_name = 'razao_social') as m031_razao_social,
+  -- Bug relatado: "não consigo anexar arquivo no lead" — m012_anexos_lead (acima)
+  -- só confere a TABELA; o upload em si depende do bucket do Storage e das
+  -- políticas de insert/delete, que são criados na MESMA migração 012 mas em
+  -- comandos separados — confira aqui se algum ficou faltando.
+  exists(select 1 from storage.buckets where id = 'leads-anexos') as m012_bucket_leads_anexos,
+  exists(select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'authenticated_insert_leads_anexos') as m012_policy_insert_leads_anexos;
 
 -- ============================================================================
 -- Leia o resultado da esquerda pra direita: qualquer coluna "false" indica

@@ -52,7 +52,7 @@ export type TemperaturaLead = "frio" | "morno" | "quente";
  * no app (CreateLeadSchema), não uma constraint de banco; leads antigos
  * criados antes desta lista existir podem ter valores fora dela, e não são
  * migrados retroativamente. */
-export const ORIGENS_LEAD = ["Site", "LinkedIn", "Indicação", "Evento", "Cold Call"] as const;
+export const ORIGENS_LEAD = ["Site", "LinkedIn", "Indicação", "Evento", "Cold Call", "Prospecção"] as const;
 export type OrigemLead = (typeof ORIGENS_LEAD)[number];
 
 export interface Lead {
