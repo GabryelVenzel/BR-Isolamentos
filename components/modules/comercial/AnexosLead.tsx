@@ -112,6 +112,13 @@ export default function AnexosLead({ leadId, onMudou }: Props) {
 
       toast.sucesso("Anexo adicionado.");
       setAnexos((prev) => [payload.data, ...prev]);
+    } catch (error) {
+      // Bug relatado: "simplesmente não anexa" — faltava este `catch`. Sem
+      // ele, qualquer exceção (falha de rede, CORS, o próprio SDK do
+      // Supabase lançando em vez de devolver `{ error }`) passava batido:
+      // o `finally` limpava o estado de "Enviando..." e a tela voltava ao
+      // normal SEM nenhum aviso, dando a impressão de que nada aconteceu.
+      toast.erro(error instanceof Error ? `Erro ao enviar arquivo: ${error.message}` : "Erro ao enviar arquivo.");
     } finally {
       setEnviando(false);
       event.target.value = "";

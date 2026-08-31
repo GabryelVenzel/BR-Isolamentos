@@ -109,6 +109,13 @@ export default function ParceiroAnexos({ parceiroId }: Props) {
 
       toast.sucesso("Anexo adicionado.");
       setAnexos((prev) => [payload.data, ...prev]);
+    } catch (error) {
+      // Bug relatado (em AnexosLead.tsx — mesmo padrão aqui): faltava este
+      // `catch`. Sem ele, qualquer exceção (rede, CORS, SDK do Supabase
+      // lançando em vez de devolver `{ error }`) passava batido: o
+      // `finally` limpava "Enviando..." e a tela voltava ao normal SEM
+      // nenhum aviso, dando a impressão de que nada aconteceu.
+      toast.erro(error instanceof Error ? `Erro ao enviar arquivo: ${error.message}` : "Erro ao enviar arquivo.");
     } finally {
       setEnviando(false);
       event.target.value = "";

@@ -216,6 +216,11 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
       toast.sucesso("Arquivo anexado.");
       setServico(payload.data);
       onServicoMudou();
+    } catch (error) {
+      // Bug relatado em AnexosLead.tsx (mesmo padrão aqui): sem este catch,
+      // uma exceção (rede, CORS, SDK do Supabase lançando em vez de devolver
+      // `{ error }`) passava batido, sem nenhum aviso do que deu errado.
+      toast.erro(error instanceof Error ? `Erro ao enviar arquivo: ${error.message}` : "Erro ao enviar arquivo.");
     } finally {
       setEnviandoArquivo(null);
       event.target.value = "";

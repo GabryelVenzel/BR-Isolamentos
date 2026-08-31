@@ -76,6 +76,11 @@ export default function AnexosUpload({ anexos, onChange }: Props) {
       }
 
       if (novosAnexos.length > 0) onChange([...anexos, ...novosAnexos]);
+    } catch (error) {
+      // Bug relatado em AnexosLead.tsx (mesmo padrão aqui): sem este catch,
+      // uma exceção (rede, CORS, SDK do Supabase lançando em vez de devolver
+      // `{ error }`) passava batido, sem nenhum aviso do que deu errado.
+      setErro(error instanceof Error ? `Erro ao enviar arquivo: ${error.message}` : "Erro ao enviar arquivo.");
     } finally {
       setEnviando(false);
     }

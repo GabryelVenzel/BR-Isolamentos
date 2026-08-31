@@ -70,29 +70,38 @@ export default function GaleriaImagensProposta({ onChange }: Props) {
     setErro(null);
     const supabase = createSupabaseBrowserClient();
 
-    for (const arquivo of arquivos) {
-      setEnviando(arquivo.name);
-      const caminho = `${Date.now()}-${arquivo.name}`;
+    // Bug relatado (mesmo padrão em AnexosLead.tsx/ParceiroAnexos.tsx/
+    // FornecedorAnexos.tsx): sem try/catch, uma exceção (rede, CORS, SDK do
+    // Supabase lançando em vez de devolver `{ error }`) interrompia o loop
+    // sem nunca chegar em `setEnviando(null)` — a tela ficava presa em
+    // "Enviando..." pra sempre, sem nenhum aviso do que deu errado.
+    try {
+      for (const arquivo of arquivos) {
+        setEnviando(arquivo.name);
+        const caminho = `${Date.now()}-${arquivo.name}`;
 
-      const { error: erroUpload } = await supabase.storage.from(BUCKET).upload(caminho, arquivo);
-      if (erroUpload) {
-        setErro(`Erro ao enviar "${arquivo.name}": ${erroUpload.message}`);
-        continue;
+        const { error: erroUpload } = await supabase.storage.from(BUCKET).upload(caminho, arquivo);
+        if (erroUpload) {
+          setErro(`Erro ao enviar "${arquivo.name}": ${erroUpload.message}`);
+          continue;
+        }
+
+        const { data: publicUrl } = supabase.storage.from(BUCKET).getPublicUrl(caminho);
+
+        const { error: erroInsert } = await supabase
+          .from("imagens_proposta")
+          .insert({ storage_path: caminho, url: publicUrl.publicUrl, legenda: null, tipo_trabalho: tipoNovoUpload });
+        if (erroInsert) {
+          setErro(`Erro ao salvar "${arquivo.name}": ${erroInsert.message}`);
+        }
       }
-
-      const { data: publicUrl } = supabase.storage.from(BUCKET).getPublicUrl(caminho);
-
-      const { error: erroInsert } = await supabase
-        .from("imagens_proposta")
-        .insert({ storage_path: caminho, url: publicUrl.publicUrl, legenda: null, tipo_trabalho: tipoNovoUpload });
-      if (erroInsert) {
-        setErro(`Erro ao salvar "${arquivo.name}": ${erroInsert.message}`);
-      }
+    } catch (error) {
+      setErro(error instanceof Error ? `Erro ao enviar arquivo: ${error.message}` : "Erro ao enviar arquivo.");
+    } finally {
+      await carregar();
+      setEnviando(null);
+      event.target.value = "";
     }
-
-    await carregar();
-    setEnviando(null);
-    event.target.value = "";
   }
 
   async function remover(imagem: ImagemProposta) {
