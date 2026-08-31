@@ -61,7 +61,10 @@ select
   -- políticas de insert/delete, que são criados na MESMA migração 012 mas em
   -- comandos separados — confira aqui se algum ficou faltando.
   exists(select 1 from storage.buckets where id = 'leads-anexos') as m012_bucket_leads_anexos,
-  exists(select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'authenticated_insert_leads_anexos') as m012_policy_insert_leads_anexos;
+  exists(select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects' and policyname = 'authenticated_insert_leads_anexos') as m012_policy_insert_leads_anexos,
+  exists(select 1 from pg_policies where schemaname = 'public' and tablename = 'anexos_lead' and policyname = 'authenticated_all_anexos_lead') as m012_policy_tabela_anexos_lead,
+  (select public from storage.buckets where id = 'leads-anexos') as m012_bucket_leads_anexos_e_publico,
+  (select file_size_limit from storage.buckets where id = 'leads-anexos') as m012_bucket_leads_anexos_limite_bytes;
 
 -- ============================================================================
 -- Leia o resultado da esquerda pra direita: qualquer coluna "false" indica
