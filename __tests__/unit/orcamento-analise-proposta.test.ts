@@ -9,6 +9,7 @@ import {
   itensContemplados,
   itensNaoContemplados,
   linhasEspecificacoesTecnicas,
+  linhasItensAdicionaisExecucao,
   linhasMaoDeObra,
   linhasOperacionaisIncluso,
   linhasQuantificacaoMateriais,
@@ -316,6 +317,30 @@ describe("linhasQuantificacaoMateriais", () => {
 
   it("trecho sem detalhamento_materiais não gera linha nenhuma", () => {
     expect(linhasQuantificacaoMateriais([item({ detalhamento_materiais: [] })])).toEqual([]);
+  });
+});
+
+describe("linhasItensAdicionaisExecucao", () => {
+  it("só itens de chave 'item_adicional_execucao' — material (catálogo ou adicional) fica de fora", () => {
+    // Bug relatado: um item adicional de execução (ex.: "Remoção de
+    // isolamento") sumia da tabela de "Somente Mão de Obra" porque quem
+    // chamava descartava TODO `detalhamento_materiais` nesse caso, sem
+    // separar execução de material.
+    const linhas = linhasItensAdicionaisExecucao([
+      item({
+        id: 1,
+        detalhamento_materiais: [
+          { chave: "isolante", titulo: "Fibra Cerâmica", quantidade: 4.8, unidade: "m²", preco_unitario: 50, subtotal: 240 },
+          { chave: "item_adicional_material", titulo: "Andaime (compra)", quantidade: 1, unidade: "un.", preco_unitario: 500, subtotal: 500 },
+          { chave: "item_adicional_execucao", titulo: "Remoção de isolamento", quantidade: 1, unidade: "verba", preco_unitario: 300, subtotal: 300 },
+        ],
+      }),
+    ]);
+    expect(linhas).toEqual([{ trechoNumero: 1, titulo: "Remoção de isolamento", quantidade: 1, unidade: "verba" }]);
+  });
+
+  it("sem itens de execução, não gera linha nenhuma", () => {
+    expect(linhasItensAdicionaisExecucao([item({ detalhamento_materiais: [] })])).toEqual([]);
   });
 });
 

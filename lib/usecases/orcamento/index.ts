@@ -39,6 +39,7 @@ export {
   linhasMaoDeObra,
   linhasOperacionaisIncluso,
   linhasQuantificacaoMateriais,
+  linhasItensAdicionaisExecucao,
   prazoExecucaoDiasUteis,
   projetarEconomiaAcumulada,
   temAnaliseFinanceira,

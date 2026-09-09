@@ -56,6 +56,7 @@ import {
   linhasMaoDeObra,
   linhasOperacionaisIncluso,
   linhasQuantificacaoMateriais,
+  linhasItensAdicionaisExecucao,
   prazoExecucaoDiasUteis,
   projetarEconomiaAcumulada,
   temAnaliseFinanceira,
@@ -543,7 +544,12 @@ function tabelaEspecificacoesTecnicas(itens: Orcamento["itens"]): Table {
  * Operacionais" (Incluso, sem quantidade/valor). */
 function blocoQuantificacao(itens: NonNullable<Orcamento["itens"]>, orcamento: Orcamento): Array<Paragraph | Table> {
   const somenteMaoObra = orcamento.tipo_proposta === "somente_mo";
-  const linhasQuadro1 = [...(somenteMaoObra ? [] : linhasQuantificacaoMateriais(itens)), ...linhasMaoDeObra(itens)];
+  // Bug relatado: um Item Adicional de execução (ex.: "Remoção de
+  // isolamento") sumia da tabela em propostas "Somente Mão de Obra" — a
+  // categoria "material" de fato não entra aqui (o cliente fornece por
+  // fora), mas a categoria "execução" precisa continuar aparecendo, já que é
+  // exatamente o que este quadro mostra.
+  const linhasQuadro1 = [...(somenteMaoObra ? linhasItensAdicionaisExecucao(itens) : linhasQuantificacaoMateriais(itens)), ...linhasMaoDeObra(itens)];
 
   const children: Array<Paragraph | Table> = [];
   if (linhasQuadro1.length > 0) {

@@ -35,6 +35,7 @@ import {
   linhasMaoDeObra,
   linhasOperacionaisIncluso,
   linhasQuantificacaoMateriais,
+  linhasItensAdicionaisExecucao,
 } from "@/lib/usecases/orcamento";
 import { CORES, estilos } from "./estilos";
 import CapaProposta from "./CapaProposta";
@@ -116,7 +117,12 @@ export default function PropostaTecnicaDocument({ orcamento, configEmpresa }: Pr
   // Mão de obra entra na MESMA lista dos materiais, com horas reais (pedido
   // explícito) — ver comentário de linhasMaoDeObra. "Custos Operacionais"
   // (deslocamento/hospedagem/frete/alimentação) continua só "Incluso".
-  const linhasQuadro1 = [...(somenteMaoObra ? [] : linhasQuantificacaoMateriais(itens)), ...linhasMaoDeObra(itens)];
+  // Bug relatado: um Item Adicional de execução (ex.: "Remoção de
+  // isolamento") sumia da tabela em propostas "Somente Mão de Obra" — a
+  // categoria "material" de fato não entra aqui (o cliente fornece por
+  // fora), mas a categoria "execução" precisa continuar aparecendo, já que é
+  // exatamente o que este quadro mostra.
+  const linhasQuadro1 = [...(somenteMaoObra ? linhasItensAdicionaisExecucao(itens) : linhasQuantificacaoMateriais(itens)), ...linhasMaoDeObra(itens)];
   const quadroOperacional = linhasOperacionaisIncluso(orcamento);
 
   let numeroSecao = 2; // 1. já é "Por que isolar termicamente"

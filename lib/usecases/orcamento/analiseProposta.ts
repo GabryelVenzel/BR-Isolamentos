@@ -238,6 +238,27 @@ export function linhasQuantificacaoMateriais(itens: ItemOrcamento[]): LinhaQuant
   return linhas;
 }
 
+/** Itens Adicionais de categoria "execução" (ex.: "Remoção de isolamento",
+ * "Andaime") de `detalhamento_materiais` — os únicos que fazem sentido
+ * aparecer na Quantificação de uma proposta "Somente Mão de Obra": os demais
+ * (isolante/acabamento/rebite/parafuso/arame/silicone e itens adicionais de
+ * categoria "material") são material de verdade, que "Somente Mão de Obra"
+ * não expõe (o cliente fornece por fora — ver `itensContemplados`). Bug
+ * relatado: um item adicional de execução entrava certo no valor final
+ * (Resumo Financeiro), mas sumia da tabela porque quem chamava descartava a
+ * lista de `detalhamento_materiais` INTEIRA pra "Somente Mão de Obra", sem
+ * separar o que era material do que era execução. */
+export function linhasItensAdicionaisExecucao(itens: ItemOrcamento[]): LinhaQuantidadeMaterial[] {
+  const linhas: LinhaQuantidadeMaterial[] = [];
+  itens.forEach((item, index) => {
+    for (const linha of item.detalhamento_materiais ?? []) {
+      if (linha.chave !== "item_adicional_execucao") continue;
+      linhas.push({ trechoNumero: index + 1, titulo: linha.titulo, quantidade: linha.quantidade, unidade: linha.unidade });
+    }
+  });
+  return linhas;
+}
+
 /** Quadro "Custos Operacionais" da Quantificação — deslocamento/hospedagem/
  * frete/alimentação, exibidos só como "Incluso" (sem valor, sem
  * quantidade). Deslocamento/hospedagem/frete só quando o orçamento de fato
