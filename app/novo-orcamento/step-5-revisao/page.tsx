@@ -52,8 +52,16 @@ export default function Step5RevisaoPage() {
         const valorMateriaisTotal = Number(
           itensAtuais.reduce((acc, i) => acc + i.precificacao.subtotal_material, 0).toFixed(2)
         );
+        // Mesmo bug/motivo de app/novo-orcamento/step-4-precos/page.tsx —
+        // esta tela recalcula o orçamento de novo sempre que um trecho é
+        // excluído ou os custos operacionais mudam, então precisa do mesmo
+        // `valor_mao_obra_direto`.
+        const valorMaoObraTotal = Number(
+          itensAtuais.reduce((acc, i) => acc + i.precificacao.subtotal_mao_obra, 0).toFixed(2)
+        );
         const calcInput: CalcularOrcamentoInput = {
           valor_materiais_direto: valorMateriaisTotal,
+          valor_mao_obra_direto: valorMaoObraTotal,
           config,
           impostosExtras,
           horas_mao_obra: horasMaoObraTotal(itensAtuais),

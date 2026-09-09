@@ -426,9 +426,18 @@ export default function Step4PrecosPage() {
       const valorMateriaisTotal = Number(
         todosOsItens.reduce((acc, i) => acc + i.precificacao.subtotal_material, 0).toFixed(2)
       );
+      // Bug relatado: um Item Adicional de execução (ex.: "Remoção de
+      // isolamento") somava certo no subtotal do trecho, mas sumia do Resumo
+      // Financeiro final — sem `valor_mao_obra_direto`, calcularOrcamento()
+      // recomputava a mão de obra do zero só como horas × valor/hora,
+      // ignorando qualquer item adicional (que não é cobrado por hora).
+      const valorMaoObraTotal = Number(
+        todosOsItens.reduce((acc, i) => acc + i.precificacao.subtotal_mao_obra, 0).toFixed(2)
+      );
 
       const calcInput: CalcularOrcamentoInput = {
         valor_materiais_direto: valorMateriaisTotal,
+        valor_mao_obra_direto: valorMaoObraTotal,
         config,
         impostosExtras,
         horas_mao_obra: horasMaoObraTotal(todosOsItens),

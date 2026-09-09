@@ -79,7 +79,12 @@ export function calcularOrcamento(input: CalcularOrcamentoInput): CalcularOrcame
     input.valor_materiais_direto !== undefined
       ? { detalhamento: [], total: input.valor_materiais_direto }
       : detalharValorMateriais(quantificacao ?? { manta_kg: 0, chapa_kg: 0, rebites: 0, parafusos: 0, arame_kg: 0, vedacao_pu: 0, vedacit_un: 0 }, precos ?? []);
-  const valorMaoObra = input.horas_mao_obra * config.valor_hora_mao_obra;
+  // Mesmo padrão de `valor_materiais_direto` acima — ver comentário em
+  // `CalcularOrcamentoInput` (lib/types.ts). Sem `valor_mao_obra_direto`, um
+  // Item Adicional de execução (ex.: "Remoção de isolamento") somava certo no
+  // subtotal do trecho (Tela 4) mas nunca chegava até aqui, porque este
+  // cálculo recomputava a mão de obra do zero só como horas × valor/hora.
+  const valorMaoObra = input.valor_mao_obra_direto !== undefined ? input.valor_mao_obra_direto : input.horas_mao_obra * config.valor_hora_mao_obra;
   const valorDeslocamento = input.km_deslocamento * config.valor_km_deslocamento;
   const valorHospedagem = input.noites_hospedagem * config.valor_noite_hospedagem;
   const valorFrete = input.toneladas_frete * config.valor_frete_por_tonelada;

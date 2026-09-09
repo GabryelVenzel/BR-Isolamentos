@@ -506,7 +506,18 @@ export interface CalcularOrcamentoInput {
   valor_materiais_direto?: number;
   config: ConfigEmpresa;
   impostosExtras: ImpostoConfig[];
+  // Custo de mão de obra/execução: OU `horas_mao_obra` (horas × valor/hora da
+  // config — comportamento antigo, não reflete Itens Adicionais de categoria
+  // "execução" como andaime/remoção de isolamento, que têm preço próprio, não
+  // por hora), OU `valor_mao_obra_direto` (soma dos `subtotal_mao_obra` de
+  // cada trecho, que já inclui esses itens adicionais — ver
+  // lib/usecases/orcamento/precificarTrecho.ts). Bug relatado: sem
+  // `valor_mao_obra_direto`, um item adicional de execução aparecia
+  // corretamente no total do TRECHO (Tela 4) mas sumia do Resumo Financeiro
+  // final, porque este cálculo recomputava a mão de obra do zero só a partir
+  // de horas × valor/hora, sem nunca olhar pro subtotal já calculado.
   horas_mao_obra: number;
+  valor_mao_obra_direto?: number;
   km_deslocamento: number;
   noites_hospedagem: number;
   toneladas_frete: number;
