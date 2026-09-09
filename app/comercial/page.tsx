@@ -184,9 +184,12 @@ function ComercialPageConteudo() {
     carregarLeadsFrios();
   }
 
+  // Lead de comissão guarda o valor em `valor_comissao`, não em
+  // `valor_estimado` (mesma distinção de components/modules/comercial/
+  // KanbanBoard.tsx) — sem isso, esses leads ficavam de fora do total.
   const valorTotalAtivo = leads
     .filter((l) => l.etapa !== "fechado" && l.etapa !== "perdido")
-    .reduce((acc, l) => acc + l.valor_estimado, 0);
+    .reduce((acc, l) => acc + (l.eh_comissao ? l.valor_comissao ?? 0 : l.valor_estimado), 0);
 
   const totalLeadsAtrasados = leads.filter((l) => l.etapa_atrasada).length;
   const totalLeadsComissao = leads.filter((l) => l.eh_comissao).length;

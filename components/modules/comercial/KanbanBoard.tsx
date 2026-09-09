@@ -39,7 +39,12 @@ export default function KanbanBoard({ leads, onAbrirLead, onMoverLead }: Props) 
     <div className="grid grid-cols-1 gap-4 overflow-x-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
       {ETAPAS.map((etapa) => {
         const leadsDaEtapa = leads.filter((l) => l.etapa === etapa);
-        const valorEtapa = leadsDaEtapa.reduce((soma, l) => soma + l.valor_estimado, 0);
+        // Lead de comissão guarda o valor em `valor_comissao` (campo próprio,
+        // não é uma venda com orçamento), não em `valor_estimado` — mesma
+        // distinção que LeadCardKanban.tsx já faz pra decidir o que exibir no
+        // card. Sem isso, a soma do topo da coluna ignorava esses leads
+        // mesmo eles mostrando um valor certinho no próprio card.
+        const valorEtapa = leadsDaEtapa.reduce((soma, l) => soma + (l.eh_comissao ? l.valor_comissao ?? 0 : l.valor_estimado), 0);
 
         return (
           <div
