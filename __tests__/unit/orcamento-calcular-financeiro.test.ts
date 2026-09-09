@@ -92,6 +92,72 @@ describe("calcularOrcamento — markup divisor", () => {
   });
 });
 
+describe("calcularOrcamento — desconto (bug relatado: imposto/margem ignoravam o desconto)", () => {
+  it("regressão: caso real relatado (sem desconto) continua batendo exatamente", () => {
+    // Custo total R$872,16 (materiais R$773,16 + execução R$99,00), Simples
+    // Nacional 8,08%, margem 30% — os mesmos números do print do usuário.
+    const cfg = config({ margem_lucro_padrao: 30 });
+    const resultado = calcularOrcamento(
+      input({
+        config: cfg,
+        impostosExtras: [{ id: 1, nome: "Simples Nacional (DAS, Anexo III)", percentual: 8.08, ativo: true, ordem: 1 }],
+        valor_materiais_direto: 773.16,
+        valor_mao_obra_direto: 99,
+        horas_mao_obra: 0,
+      })
+    );
+    expect(resultado.subtotal).toBe(872.16);
+    expect(resultado.total_impostos).toBe(113.81);
+    expect(resultado.margem_lucro).toBe(422.56);
+    expect(resultado.valor_final).toBe(1408.53);
+  });
+
+  it("com desconto, o imposto incide sobre o valor JÁ COM DESCONTO (o que de fato vai na nota), não sobre o preço cheio", () => {
+    const cfg = config({ margem_lucro_padrao: 30 });
+    const semDesconto = calcularOrcamento(
+      input({
+        config: cfg,
+        impostosExtras: [{ id: 1, nome: "Simples Nacional", percentual: 8.08, ativo: true, ordem: 1 }],
+        valor_materiais_direto: 773.16,
+        valor_mao_obra_direto: 99,
+        horas_mao_obra: 0,
+      })
+    );
+    const comDesconto = calcularOrcamento(
+      input({
+        config: cfg,
+        impostosExtras: [{ id: 1, nome: "Simples Nacional", percentual: 8.08, ativo: true, ordem: 1 }],
+        valor_materiais_direto: 773.16,
+        valor_mao_obra_direto: 99,
+        horas_mao_obra: 0,
+        desconto_percentual_extra: 10,
+      })
+    );
+    // preço cheio não muda (desconto é aplicado DEPOIS dele) — R$1.408,53.
+    expect(comDesconto.preco_cheio).toBe(semDesconto.preco_cheio);
+    // valor final = preço cheio - 10% = R$1.267,68 (o que de fato vai na nota).
+    expect(comDesconto.valor_final).toBe(1267.68);
+    // Imposto = 8,08% do valor final COM desconto (R$102,43), não do preço
+    // cheio sem desconto (que daria R$113,81, igual o caso acima).
+    expect(comDesconto.total_impostos).toBe(102.43);
+    expect(comDesconto.total_impostos).toBeLessThan(semDesconto.total_impostos);
+    // Custo (material + mão de obra) não muda com desconto — quem absorve a
+    // diferença inteira é a margem, não o imposto nem o custo.
+    expect(comDesconto.valor_materiais + comDesconto.valor_mao_obra).toBe(872.16);
+    // Margem = valor final - custo - imposto = 1267,68 - 872,16 - 102,43.
+    expect(comDesconto.margem_lucro).toBe(293.09);
+    expect(comDesconto.margem_lucro).toBeLessThan(semDesconto.margem_lucro);
+    // O percentual de margem EXIBIDO reflete o que foi de fato alcançado
+    // (menor que os 30% configurados, porque o desconto saiu do lucro).
+    expect(comDesconto.percentual_margem).toBeLessThan(30);
+  });
+
+  it("sem desconto, o percentual de margem efetivo bate com o configurado (nenhuma mudança de comportamento)", () => {
+    const resultado = calcularOrcamento(input({ valor_materiais_direto: 1000, horas_mao_obra: 0 }));
+    expect(resultado.percentual_margem).toBe(20); // config padrão: margem_lucro_padrao = 20
+  });
+});
+
 describe("calcularOrcamento — valor_mao_obra_direto (bug: item adicional de execução sumia do total)", () => {
   it("sem valor_mao_obra_direto, usa horas × valor/hora (comportamento antigo)", () => {
     const resultado = calcularOrcamento(input({ horas_mao_obra: 5 })); // 5h × R$100

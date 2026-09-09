@@ -137,16 +137,44 @@ export function calcularOrcamento(input: CalcularOrcamentoInput): CalcularOrcame
 
   const round2 = (n: number) => Number(n.toFixed(2));
 
+  // Bug relatado: com desconto, o imposto continuava calculado sobre o preço
+  // CHEIO (antes do desconto) — juridicamente errado, porque o DAS do
+  // Simples Nacional (e qualquer imposto sobre faturamento) incide sobre a
+  // receita REAL recebida, ou seja, sobre o valor que efetivamente vai na
+  // nota (`valorFinal`, já com desconto), não sobre um preço hipotético que
+  // nunca foi cobrado. Calculando primeiro `valorFinal` (desconto aplicado
+  // sobre o preço cheio, como já era) e só DEPOIS o imposto sobre esse valor
+  // final, o desconto passa a reduzir a base de cálculo do imposto também —
+  // e o que sobra pra margem absorve integralmente o desconto (a margem é
+  // uma escolha de gestão, não uma obrigação legal como o imposto; dar
+  // desconto significa abrir mão de lucro, não pagar menos imposto do que
+  // deveria nem gastar menos com material/mão de obra).
+  //
+  // Sem desconto (caso mais comum), `valorFinal` é igual a `precoCheio`, e o
+  // resultado matematicamente NÃO MUDA em relação à fórmula anterior — só
+  // muda quando `desconto_percentual_extra` > 0.
+  const valorDesconto = round2(precoCheio * (descontoPercentual / 100));
+  const valorFinal = round2(precoCheio - valorDesconto);
+
   const detalhamentoImpostos: ItemDetalhamentoImposto[] = detalhamentoImpostosBase.map((i) => ({
     nome: i.nome,
     percentual: i.percentual,
-    valor: round2(precoCheio * (i.percentual / 100)),
+    valor: round2(valorFinal * (i.percentual / 100)),
   }));
 
   const totalImpostos = detalhamentoImpostos.reduce((acc, i) => acc + i.valor, 0);
-  const margemLucro = round2(precoCheio * (percentualMargem / 100));
-  const valorDesconto = round2(precoCheio * (descontoPercentual / 100));
-  const valorFinal = round2(precoCheio - valorDesconto);
+  // Margem = o que sobra do valor final depois de custo e imposto reais —
+  // absorve o desconto por inteiro (ver comentário acima). Sem desconto,
+  // isso é algebricamente idêntico a `precoCheio * percentualMargem / 100`
+  // (a fórmula antiga), porque `precoCheio = custoTotal / (1 -
+  // percentualTotal/100)` por construção.
+  const margemLucro = round2(valorFinal - custoTotal - totalImpostos);
+  // Percentual EFETIVO de margem alcançado (pode ficar abaixo do configurado
+  // em `config.margem_lucro_padrao` quando há desconto — é isso mesmo,
+  // reflete o lucro real desta venda, não a meta) — é o que aparece no
+  // rótulo "Margem de lucro (X%)" do Resumo Financeiro, então precisa bater
+  // com o valor em R$ ao lado.
+  const percentualMargemEfetivo = valorFinal > 0 ? round2((margemLucro / valorFinal) * 100) : 0;
 
   return {
     valor_materiais: round2(valorMateriais),
@@ -159,7 +187,7 @@ export function calcularOrcamento(input: CalcularOrcamentoInput): CalcularOrcame
     total_impostos: round2(totalImpostos),
     percentual_impostos: round2(percentualImpostos),
     margem_lucro: margemLucro,
-    percentual_margem: round2(percentualMargem),
+    percentual_margem: percentualMargemEfetivo,
     valor_desconto: valorDesconto,
     preco_cheio: round2(precoCheio),
     valor_final: valorFinal,
