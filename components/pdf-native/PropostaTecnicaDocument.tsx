@@ -200,7 +200,18 @@ export default function PropostaTecnicaDocument({ orcamento, configEmpresa }: Pr
               </View>
             ))}
             <Text style={{ ...estilos.notaRodape, marginTop: 4 }}>
-              <Text style={{ fontFamily: "Helvetica-Bold" }}>Atenção — </Text>
+              {/* Bug relatado: "Could not resolve font for Helvetica-Bold,
+                  fontWeight 400, fontStyle italic" — o react-pdf resolve a
+                  fonte combinando o `fontFamily` deste <Text> com o
+                  `fontStyle: italic` HERDADO do <Text> pai (`notaRodape`).
+                  Sem o `fontStyle: "normal"` explícito aqui, ele procurava
+                  uma variante itálica de "Helvetica-Bold" que não existe
+                  (só as 14 fontes padrão do PDF estão registradas, cada
+                  peso/estilo como um nome próprio, sem combinação
+                  automática) — quebrava a geração inteira do PDF técnico
+                  sempre que o orçamento tinha algum trecho frio (única
+                  seção que usa esse texto). */}
+              <Text style={{ fontFamily: "Helvetica-Bold", fontStyle: "normal" }}>Atenção — </Text>
               Variação estimada de ±5%: os cálculos de perda térmica no lado frio dependem de condições
               operacionais e de propriedades dos materiais isolantes em campo, que podem variar em relação ao
               projetado — a espessura especificada já incorpora essa margem de segurança.
