@@ -32,8 +32,13 @@ export function calcularMetragemCurva(diametroMm: number, quantidade: number): n
   return metragemPorCurva * quantidade;
 }
 
-/** Metragem "calculada" pela fórmula do tipo — para "plano" é o próprio valor
- * manual informado (não há fórmula; ver cabeçalho do arquivo). */
+/** Metragem "calculada" pela fórmula do tipo — para "plano" não existe uma
+ * fórmula geométrica (a metragem em si é digitada), mas o item pode
+ * representar N unidades idênticas dessa área (pedido explícito: "deve
+ * conter uma caixa para adicionar a quantidade em un assim como na parte de
+ * curvas") — reaproveita o mesmo campo `quantidade` de "curva", tratando
+ * `null` como 1 (comportamento de antes da mudança, quando o campo nem
+ * existia pra este tipo). */
 export function calcularMetragemItem(item: {
   tipo: TipoItemEscopo;
   diametro_mm: number | null;
@@ -47,16 +52,17 @@ export function calcularMetragemItem(item: {
     case "curva":
       return calcularMetragemCurva(item.diametro_mm ?? 0, item.quantidade ?? 0);
     case "plano":
-      return item.metragem_manual_m2 ?? 0;
+      return (item.metragem_manual_m2 ?? 0) * (item.quantidade ?? 1);
   }
 }
 
 /** Metragem final de um item de escopo: a calculada pela fórmula, ou a
  * manual quando `metragem_editada` está marcado (checkbox "editar metragem
- * manualmente" do pedido) — para "plano" as duas são sempre a mesma coisa,
- * já que não há fórmula própria. */
+ * manualmente" do pedido) — para "plano" é sempre a calculada (metragem por
+ * unidade × quantidade), já que não há uma fórmula geométrica alternativa
+ * pra sobrescrever. */
 export function metragemFinalItem(item: ItemEscopo): number {
-  if (item.tipo === "plano") return item.metragem_manual_m2 ?? 0;
+  if (item.tipo === "plano") return calcularMetragemItem(item);
   return item.metragem_editada ? (item.metragem_manual_m2 ?? 0) : calcularMetragemItem(item);
 }
 
@@ -151,7 +157,7 @@ export function quantidadeEscopoItem(item: ItemEscopo): string {
     case "curva":
       return `${item.quantidade ?? "—"} un.`;
     case "plano":
-      return "1";
+      return `${item.quantidade ?? 1} un.`;
   }
 }
 
@@ -162,6 +168,6 @@ export function descreverItemEscopo(item: ItemEscopo): string {
     case "curva":
       return `${item.quantidade ?? "—"} curva(s) Ø${item.diametro_mm ?? "—"}mm`;
     case "plano":
-      return `${NOME_TIPO.plano}`;
+      return item.quantidade && item.quantidade > 1 ? `${NOME_TIPO.plano} — ${item.quantidade} un.` : NOME_TIPO.plano;
   }
 }

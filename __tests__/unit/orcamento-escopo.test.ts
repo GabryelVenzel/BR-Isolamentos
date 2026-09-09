@@ -51,6 +51,12 @@ describe("calcularMetragemItem / metragemFinalItem", () => {
     expect(metragemFinalItem(plano)).toBe(10);
   });
 
+  it("plano com quantidade multiplica a metragem por unidade pela quantidade de unidades", () => {
+    const plano = item({ tipo: "plano", diametro_mm: null, comprimento_m: null, metragem_manual_m2: 10, quantidade: 3 });
+    expect(calcularMetragemItem(plano)).toBe(30);
+    expect(metragemFinalItem(plano)).toBe(30);
+  });
+
   it("tubulação usa a fórmula quando metragem_editada é false", () => {
     const tubo = item({ metragem_editada: false, metragem_manual_m2: 999 });
     expect(metragemFinalItem(tubo)).toBeCloseTo(4.712, 2);
@@ -127,8 +133,9 @@ describe("quantidadeEscopoItem", () => {
     expect(quantidadeEscopoItem(item({ tipo: "curva", quantidade: 2 }))).toBe("2 un.");
   });
 
-  it("plano: sempre \"1\" (não tem quantidade física própria)", () => {
-    expect(quantidadeEscopoItem(item({ tipo: "plano", metragem_manual_m2: 5 }))).toBe("1");
+  it("plano: quantidade em unidades, 1 quando não informada (mesmo padrão da curva)", () => {
+    expect(quantidadeEscopoItem(item({ tipo: "plano", metragem_manual_m2: 5 }))).toBe("1 un.");
+    expect(quantidadeEscopoItem(item({ tipo: "plano", metragem_manual_m2: 5, quantidade: 3 }))).toBe("3 un.");
   });
 });
 

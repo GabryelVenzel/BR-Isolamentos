@@ -36,7 +36,12 @@ export default function ModalItemEscopo({ itemInicial, onFechar, onSalvar }: Pro
     setItem((prev) => ({ ...prev, ...dados }));
   }
 
-  const metragemCalculada = item.tipo === "plano" ? null : calcularMetragemItem(item);
+  // Para "plano" só mostra a metragem calculada quando há mais de 1 unidade
+  // (pedido explícito: caixa de quantidade em un., igual "Curva") — com
+  // quantidade 1 (ou vazia) o total é o próprio valor digitado, repetir a
+  // dica não ajudaria.
+  const metragemCalculada =
+    item.tipo === "plano" ? (item.quantidade && item.quantidade > 1 ? calcularMetragemItem(item) : null) : calcularMetragemItem(item);
 
   const valido =
     item.nome.trim().length > 0 &&
@@ -137,15 +142,32 @@ export default function ModalItemEscopo({ itemInicial, onFechar, onSalvar }: Pro
         )}
 
         {item.tipo === "plano" && (
-          <div>
-            <label className="label-field">Metragem quadrada (m²)*</label>
-            <input
-              type="number"
-              step="0.01"
-              className="input-field"
-              value={item.metragem_manual_m2 ?? ""}
-              onChange={(e) => atualizar({ metragem_manual_m2: e.target.value ? Number(e.target.value) : null })}
-            />
+          <div className="space-y-1">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="label-field">Metragem quadrada (m²)*</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  className="input-field"
+                  value={item.metragem_manual_m2 ?? ""}
+                  onChange={(e) => atualizar({ metragem_manual_m2: e.target.value ? Number(e.target.value) : null })}
+                />
+              </div>
+              <div>
+                <label className="label-field">Quantidade (un.)</label>
+                <input
+                  type="number"
+                  className="input-field"
+                  placeholder="1"
+                  value={item.quantidade ?? ""}
+                  onChange={(e) => atualizar({ quantidade: e.target.value ? Number(e.target.value) : null })}
+                />
+              </div>
+            </div>
+            <p className="text-xs text-gray-400">
+              Havendo mais de uma área idêntica, informe a metragem de 1 unidade e a quantidade — o total é metragem × quantidade.
+            </p>
           </div>
         )}
 
