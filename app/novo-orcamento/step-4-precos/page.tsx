@@ -18,6 +18,17 @@ type ChaveLinha = "isolante" | "acabamento" | "rebite" | "parafuso" | "arame" | 
 interface OverrideLinha {
   quantidade?: number;
   precoUnitario?: number;
+  /** Unidade de medida exibida (migração — pedido "devo poder editar a
+   * quantidade, o preço e a unidade de medida") — cosmética: não recalcula
+   * nada, só reflete melhor o que a quantidade representa quando o valor
+   * automático é ajustado (ex.: trocar "m" por "verba" no Arame). */
+  unidade?: string;
+  /** Linha excluída deste trecho (pedido explícito: "devo conseguir excluir
+   * os itens... não somente editá-los") — zera a quantidade (some do
+   * subtotal e do detalhamento persistido, que já filtra `quantidade > 0`)
+   * e marca pra sumir da tabela; "Restaurar" limpa o override inteiro,
+   * voltando ao valor calculado automaticamente. */
+  removida?: boolean;
 }
 
 interface LinhaEdicao {
@@ -158,8 +169,30 @@ export default function Step4PrecosPage() {
         })
       : null;
 
-  function valor(chave: ChaveLinha, campo: keyof OverrideLinha, base: number): number {
+  function valor(chave: ChaveLinha, campo: "quantidade" | "precoUnitario", base: number): number {
     return overrides[chave]?.[campo] ?? base;
+  }
+
+  function unidadeAtual(chave: ChaveLinha, base: string): string {
+    return overrides[chave]?.unidade ?? base;
+  }
+
+  function estaRemovida(chave: ChaveLinha): boolean {
+    return overrides[chave]?.removida === true;
+  }
+
+  function excluirLinha(chave: ChaveLinha) {
+    // Zera a quantidade (some dos subtotais/detalhamento, que já filtram
+    // `quantidade > 0`) e marca como removida só pra decidir o que mostrar
+    // na tabela — ver comentário em `OverrideLinha.removida`.
+    setOverrides((prev) => ({ ...prev, [chave]: { ...prev[chave], quantidade: 0, removida: true } }));
+  }
+
+  function restaurarLinha(chave: ChaveLinha) {
+    setOverrides((prev) => {
+      const { [chave]: _removida, ...resto } = prev;
+      return resto;
+    });
   }
 
   // Composição em camadas do isolante (migração 025) — o catálogo agora só
@@ -310,7 +343,7 @@ export default function Step4PrecosPage() {
                 chave: l.chave as "isolante" | "acabamento" | "rebite" | "parafuso" | "arame" | "silicone",
                 titulo: TITULOS[l.chave] ?? l.titulo,
                 quantidade,
-                unidade: l.unidadeQuantidade,
+                unidade: unidadeAtual(l.chave, l.unidadeQuantidade),
                 preco_unitario: precoUnitario,
                 subtotal: Number((quantidade * precoUnitario).toFixed(2)),
               };
@@ -435,7 +468,8 @@ export default function Step4PrecosPage() {
           <a href="/config-precos" className="text-brand hover:underline">
             Configuração de Preços
           </a>
-          . Clique no lápis de qualquer linha pra ajustar só este orçamento, sem alterar o catálogo.
+          . Clique no lápis de qualquer linha pra ajustar quantidade/preço/unidade só deste orçamento (sem alterar o
+          catálogo), ou na lixeira pra excluir a linha inteira do trecho.
         </p>
       </div>
 
@@ -525,15 +559,19 @@ export default function Step4PrecosPage() {
                         <td className="py-1.5 pl-4 text-right" />
                       </tr>
                     ))}
-                    {linhas.map((l) => (
-                      <LinhaTabela
-                        key={l.chave}
-                        linha={l}
-                        quantidade={valor(l.chave, "quantidade", l.quantidadeBase)}
-                        precoUnitario={valor(l.chave, "precoUnitario", l.precoBase)}
-                        onEditar={() => setEditando(l)}
-                      />
-                    ))}
+                    {linhas
+                      .filter((l) => !estaRemovida(l.chave))
+                      .map((l) => (
+                        <LinhaTabela
+                          key={l.chave}
+                          linha={l}
+                          quantidade={valor(l.chave, "quantidade", l.quantidadeBase)}
+                          unidade={unidadeAtual(l.chave, l.unidadeQuantidade)}
+                          precoUnitario={valor(l.chave, "precoUnitario", l.precoBase)}
+                          onEditar={() => setEditando(l)}
+                          onExcluir={() => excluirLinha(l.chave)}
+                        />
+                      ))}
                   </tbody>
                 </table>
               </div>
@@ -545,8 +583,25 @@ export default function Step4PrecosPage() {
               )}
               <p className="text-xs text-gray-400">
                 Preços de Rebite/Parafuso/Arame/Silicone vêm do catálogo ("Materiais Adicionais" em Configurar
-                Preços) — o lápis ajusta só este orçamento.
+                Preços) — o lápis ajusta quantidade/preço/unidade só deste orçamento; a lixeira remove a linha
+                inteira do trecho (ex.: não vai usar Arame neste trecho).
               </p>
+              {linhas.some((l) => estaRemovida(l.chave)) && (
+                <p className="text-xs text-gray-400">
+                  Removido{linhas.filter((l) => estaRemovida(l.chave)).length > 1 ? "s" : ""} deste trecho:{" "}
+                  {linhas
+                    .filter((l) => estaRemovida(l.chave))
+                    .map((l, i, arr) => (
+                      <span key={l.chave}>
+                        {l.titulo}{" "}
+                        <button type="button" className="text-brand hover:underline" onClick={() => restaurarLinha(l.chave)}>
+                          restaurar
+                        </button>
+                        {i < arr.length - 1 ? " · " : ""}
+                      </span>
+                    ))}
+                </p>
+              )}
               <div className="border-t border-gray-100 pt-2 text-sm font-semibold">
                 <Linha label="Subtotal Materiais" valor={subtotalMaterialCatalogo} />
               </div>
@@ -561,21 +616,34 @@ export default function Step4PrecosPage() {
                 {formatarNumero(base.eficiencia_global * 100, 1)}%
                 {especificacoes.trabalho_altura && " (inclui trabalho em altura)"}. Ajustável no lápis, se precisar.
               </p>
-              <table className="min-w-full text-sm">
-                <tbody>
-                  <LinhaTabela
-                    linha={{ chave: "maoObra", titulo: "Mão de obra (dupla de 2 profissionais)", unidadeQuantidade: "h", unidadePreco: "hora", quantidadeBase: base.horas_mao_obra, precoBase: base.valor_hora_mao_obra }}
-                    quantidade={horasMaoObraEfetiva}
-                    precoUnitario={valorHoraEfetivo}
-                    onEditar={() =>
-                      setEditando({ chave: "maoObra", titulo: "Mão de obra (dupla de 2 profissionais)", unidadeQuantidade: "h", unidadePreco: "hora", quantidadeBase: base.horas_mao_obra, precoBase: base.valor_hora_mao_obra })
-                    }
-                  />
-                </tbody>
-              </table>
-              <div className="border-t border-gray-100 pt-2 text-sm font-semibold">
-                <Linha label="Subtotal Mão de Obra" valor={subtotalMaoObraHoras} />
-              </div>
+              {estaRemovida("maoObra") ? (
+                <p className="text-sm text-gray-400">
+                  Mão de obra excluída deste trecho —{" "}
+                  <button type="button" className="text-brand hover:underline" onClick={() => restaurarLinha("maoObra")}>
+                    restaurar
+                  </button>
+                </p>
+              ) : (
+                <>
+                  <table className="min-w-full text-sm">
+                    <tbody>
+                      <LinhaTabela
+                        linha={{ chave: "maoObra", titulo: "Mão de obra (dupla de 2 profissionais)", unidadeQuantidade: "h", unidadePreco: "hora", quantidadeBase: base.horas_mao_obra, precoBase: base.valor_hora_mao_obra }}
+                        quantidade={horasMaoObraEfetiva}
+                        unidade={unidadeAtual("maoObra", "h")}
+                        precoUnitario={valorHoraEfetivo}
+                        onEditar={() =>
+                          setEditando({ chave: "maoObra", titulo: "Mão de obra (dupla de 2 profissionais)", unidadeQuantidade: "h", unidadePreco: "hora", quantidadeBase: base.horas_mao_obra, precoBase: base.valor_hora_mao_obra })
+                        }
+                        onExcluir={() => excluirLinha("maoObra")}
+                      />
+                    </tbody>
+                  </table>
+                  <div className="border-t border-gray-100 pt-2 text-sm font-semibold">
+                    <Linha label="Subtotal Mão de Obra" valor={subtotalMaoObraHoras} />
+                  </div>
+                </>
+              )}
             </div>
           )}
 
@@ -774,9 +842,10 @@ export default function Step4PrecosPage() {
           linha={editando}
           quantidadeAtual={valor(editando.chave, "quantidade", editando.quantidadeBase)}
           precoAtual={valor(editando.chave, "precoUnitario", editando.precoBase)}
+          unidadeAtual={unidadeAtual(editando.chave, editando.unidadeQuantidade)}
           onFechar={() => setEditando(null)}
-          onSalvar={(quantidade, precoUnitario) => {
-            setOverrides((prev) => ({ ...prev, [editando.chave]: { quantidade, precoUnitario } }));
+          onSalvar={(quantidade, precoUnitario, unidade) => {
+            setOverrides((prev) => ({ ...prev, [editando.chave]: { quantidade, precoUnitario, unidade } }));
             setEditando(null);
           }}
         />
@@ -815,25 +884,32 @@ function LinhaResumo({ label, valor }: { label: string; valor: string }) {
 function LinhaTabela({
   linha,
   quantidade,
+  unidade,
   precoUnitario,
   onEditar,
+  onExcluir,
 }: {
   linha: LinhaEdicao;
   quantidade: number;
+  unidade: string;
   precoUnitario: number;
   onEditar: () => void;
+  onExcluir: () => void;
 }) {
   return (
     <tr>
       <td className="py-1.5 pr-4">{linha.titulo}</td>
       <td className="py-1.5 pr-4 text-right text-gray-500">
-        {formatarNumero(quantidade, linha.unidadeQuantidade === "g" || linha.unidadeQuantidade === "h" ? 1 : 2)} {linha.unidadeQuantidade}
+        {formatarNumero(quantidade, unidade === "g" || unidade === "h" ? 1 : 2)} {unidade}
       </td>
       <td className="py-1.5 pr-4 text-right text-gray-500">{formatarMoeda(precoUnitario)}</td>
       <td className="py-1.5 pr-4 text-right font-medium">{formatarMoeda(quantidade * precoUnitario)}</td>
-      <td className="py-1.5 pl-4 text-right">
+      <td className="py-1.5 pl-4 text-right space-x-2">
         <button type="button" title="Editar" className="hover:opacity-70" onClick={onEditar}>
           ✏️
+        </button>
+        <button type="button" title="Excluir deste trecho" className="hover:opacity-70" onClick={onExcluir}>
+          🗑️
         </button>
       </td>
     </tr>
@@ -844,22 +920,26 @@ function ModalEditarLinha({
   linha,
   quantidadeAtual,
   precoAtual,
+  unidadeAtual,
   onFechar,
   onSalvar,
 }: {
   linha: LinhaEdicao;
   quantidadeAtual: number;
   precoAtual: number;
+  unidadeAtual: string;
   onFechar: () => void;
-  onSalvar: (quantidade: number, precoUnitario: number) => void;
+  onSalvar: (quantidade: number, precoUnitario: number, unidade: string) => void;
 }) {
   const [quantidade, setQuantidade] = useState(String(quantidadeAtual));
   const [preco, setPreco] = useState(String(precoAtual));
+  const [unidade, setUnidade] = useState(unidadeAtual);
   const [erro, setErro] = useState<string | null>(null);
 
   function salvar() {
     const q = Number(quantidade);
     const p = Number(preco);
+    const u = unidade.trim();
     if (!(q > 0)) {
       setErro("Quantidade precisa ser maior que zero.");
       return;
@@ -868,7 +948,11 @@ function ModalEditarLinha({
       setErro("Preço não pode ser negativo.");
       return;
     }
-    onSalvar(q, p);
+    if (!u) {
+      setErro("Informe a unidade de medida.");
+      return;
+    }
+    onSalvar(q, p, u);
   }
 
   return (
@@ -878,11 +962,15 @@ function ModalEditarLinha({
 
         <div className="space-y-3">
           <div>
-            <label className="label-field">Quantidade ({linha.unidadeQuantidade})</label>
+            <label className="label-field">Quantidade</label>
             <input type="number" step="0.01" className="input-field" value={quantidade} onChange={(e) => setQuantidade(e.target.value)} />
           </div>
           <div>
-            <label className="label-field">Preço por {linha.unidadePreco} (R$)</label>
+            <label className="label-field">Unidade de medida</label>
+            <input className="input-field" placeholder="Ex.: m², un., kg, verba..." value={unidade} onChange={(e) => setUnidade(e.target.value)} />
+          </div>
+          <div>
+            <label className="label-field">Preço por {unidade.trim() || linha.unidadePreco} (R$)</label>
             <input type="number" step="0.01" className="input-field" value={preco} onChange={(e) => setPreco(e.target.value)} />
           </div>
           <p className="text-sm text-gray-500">Subtotal: {formatarMoeda(Number(quantidade || 0) * Number(preco || 0))}</p>
