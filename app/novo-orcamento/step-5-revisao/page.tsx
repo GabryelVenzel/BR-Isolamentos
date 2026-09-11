@@ -15,6 +15,7 @@ export default function Step5RevisaoPage() {
     itens,
     resultadoOrcamento,
     custosOperacionais,
+    horasUteisDiaOverride,
     setResultadoOrcamento,
     editarItem,
     removerItem,
@@ -68,6 +69,8 @@ export default function Step5RevisaoPage() {
           km_deslocamento: custos.km_deslocamento,
           noites_hospedagem: custos.noites_hospedagem,
           toneladas_frete: custos.toneladas_frete,
+          diarias_aluguel_carro: custos.diarias_aluguel_carro,
+          quantidade_alimentacao: custos.quantidade_alimentacao,
           desconto_percentual_extra: custos.desconto_percentual_extra ?? undefined,
         };
         const resposta = await fetch("/api/calcular-orcamento", {
@@ -178,6 +181,9 @@ export default function Step5RevisaoPage() {
         valor_deslocamento: resultadoOrcamento!.valor_deslocamento,
         valor_hospedagem: resultadoOrcamento!.valor_hospedagem,
         valor_frete: resultadoOrcamento!.valor_frete,
+        valor_aluguel_carro: resultadoOrcamento!.valor_aluguel_carro,
+        valor_alimentacao: resultadoOrcamento!.valor_alimentacao,
+        horas_uteis_dia: horasUteisDiaOverride,
         subtotal: resultadoOrcamento!.subtotal,
         detalhamento_impostos: resultadoOrcamento!.detalhamento_impostos,
         total_impostos: resultadoOrcamento!.total_impostos,
@@ -310,6 +316,8 @@ export default function Step5RevisaoPage() {
           <Linha label="Deslocamento" valor={resultadoOrcamento.valor_deslocamento} />
           <Linha label="Hospedagem" valor={resultadoOrcamento.valor_hospedagem} />
           <Linha label="Frete" valor={resultadoOrcamento.valor_frete} />
+          <Linha label="Aluguel de carro" valor={resultadoOrcamento.valor_aluguel_carro} />
+          <Linha label="Alimentação" valor={resultadoOrcamento.valor_alimentacao} />
           <Linha label="Custo total" valor={resultadoOrcamento.subtotal} destaque />
           {resultadoOrcamento.detalhamento_impostos.map((imposto) => (
             <Linha key={imposto.nome} label={`${imposto.nome} (${imposto.percentual.toFixed(2)}%)`} valor={imposto.valor} />

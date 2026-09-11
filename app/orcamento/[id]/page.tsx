@@ -109,6 +109,8 @@ export default async function OrcamentoDetalhePage({ params }: { params: { id: s
         <p>Deslocamento: {formatarMoeda(orcamento.valor_deslocamento)}</p>
         <p>Hospedagem: {formatarMoeda(orcamento.valor_hospedagem)}</p>
         <p>Frete: {formatarMoeda(orcamento.valor_frete)}</p>
+        <p>Aluguel de carro: {formatarMoeda(orcamento.valor_aluguel_carro)}</p>
+        <p>Alimentação: {formatarMoeda(orcamento.valor_alimentacao)}</p>
         <p className="border-t border-gray-100 pt-1">Custo total: {formatarMoeda(orcamento.subtotal)}</p>
         {(orcamento.detalhamento_impostos ?? []).map((imposto) => (
           <p key={imposto.nome}>

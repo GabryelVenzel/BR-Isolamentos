@@ -88,8 +88,13 @@ export function calcularOrcamento(input: CalcularOrcamentoInput): CalcularOrcame
   const valorDeslocamento = input.km_deslocamento * config.valor_km_deslocamento;
   const valorHospedagem = input.noites_hospedagem * config.valor_noite_hospedagem;
   const valorFrete = input.toneladas_frete * config.valor_frete_por_tonelada;
+  // Migração 032 — aluguel de carro/alimentação por diária, mesmo padrão de
+  // deslocamento/hospedagem/frete (quantidade × preço configurado).
+  const valorAluguelCarro = input.diarias_aluguel_carro * config.valor_diaria_aluguel_carro;
+  const valorAlimentacao = input.quantidade_alimentacao * config.valor_diaria_alimentacao;
 
-  const custoTotal = valorMateriais + valorMaoObra + valorDeslocamento + valorHospedagem + valorFrete;
+  const custoTotal =
+    valorMateriais + valorMaoObra + valorDeslocamento + valorHospedagem + valorFrete + valorAluguelCarro + valorAlimentacao;
 
   // --- Percentual de impostos "base", conforme o regime tributário ---
   const detalhamentoImpostosBase: Array<{ nome: string; percentual: number }> = [];
@@ -182,6 +187,8 @@ export function calcularOrcamento(input: CalcularOrcamentoInput): CalcularOrcame
     valor_deslocamento: round2(valorDeslocamento),
     valor_hospedagem: round2(valorHospedagem),
     valor_frete: round2(valorFrete),
+    valor_aluguel_carro: round2(valorAluguelCarro),
+    valor_alimentacao: round2(valorAlimentacao),
     subtotal: round2(custoTotal),
     detalhamento_impostos: detalhamentoImpostos,
     total_impostos: round2(totalImpostos),

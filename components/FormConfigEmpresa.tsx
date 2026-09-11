@@ -7,11 +7,15 @@ interface Props {
   config: ConfigEmpresa;
 }
 
+// Frete removido desta lista (pedido explícito, migração 032) — a Tela 4 do
+// orçamento continua com o campo "Frete (toneladas)" e usando
+// `valor_frete_por_tonelada` no cálculo, só não é mais editável por aqui.
 const CAMPOS_CUSTOS: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo: string }> = [
   { nome: "valor_hora_mao_obra", label: "Mão de obra", sufixo: "R$/hora" },
   { nome: "valor_km_deslocamento", label: "Deslocamento", sufixo: "R$/km" },
   { nome: "valor_noite_hospedagem", label: "Hospedagem", sufixo: "R$/noite" },
-  { nome: "valor_frete_por_tonelada", label: "Frete", sufixo: "R$/tonelada" },
+  { nome: "valor_diaria_aluguel_carro", label: "Aluguel de carro", sufixo: "R$/diária" },
+  { nome: "valor_diaria_alimentacao", label: "Alimentação", sufixo: "R$/diária" },
 ];
 
 // "Desconto competitivo padrão" e "Vedacit por junta" removidos deste
@@ -37,11 +41,12 @@ const CAMPOS_QUANTIFICACAO: Array<{ nome: keyof ConfigEmpresa; label: string; su
 
 const CAMPOS_MAO_OBRA: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo: string }> = [
   { nome: "m2_por_hora_dupla", label: "Base dupla", sufixo: "m²/hora" },
-  { nome: "eficiencia_tubulacao_pequena", label: 'Eficiência tubulação < 4"', sufixo: "× (ex.: 0.75)" },
+  { nome: "eficiencia_tubulacao_pequena", label: 'Eficiência tubulação < 3"', sufixo: "× (ex.: 0.75)" },
+  { nome: "eficiencia_tubulacao_media", label: 'Eficiência tubulação 3"–6"', sufixo: "× (ex.: 0.85)" },
   { nome: "eficiencia_curva", label: "Eficiência curva", sufixo: "× (ex.: 0.75)" },
   { nome: "eficiencia_altura", label: "Eficiência altura (> 2m)", sufixo: "× (ex.: 0.50)" },
   { nome: "eficiencia_fator_br", label: "Fator de rendimento (BR)", sufixo: "× (ex.: 0.80)" },
-  { nome: "horas_uteis_dia", label: "Horas úteis por dia", sufixo: "h" },
+  { nome: "horas_uteis_dia", label: "Horas úteis por dia (padrão)", sufixo: "h" },
 ];
 
 // Condições comerciais e projeções exibidas nas Propostas (migração 020) —
@@ -212,7 +217,11 @@ export default function FormConfigEmpresa({ config }: Props) {
         <h3 className="mb-2 text-sm font-semibold text-gray-600">Mão de obra automática</h3>
         <p className="mb-3 text-xs text-gray-500">
           Substitui o campo manual "Mão de obra (horas)" — a eficiência é o produto de todos os fatores que se
-          aplicam ao trecho (tubulação pequena × curva × altura × fator BR).
+          aplicam ao trecho (diâmetro da tubulação × curva × altura × fator BR). O diâmetro tem 3 faixas: acima de 6"
+          usa eficiência 1 (sem penalidade, sem campo próprio), entre 3" e 6" usa "Eficiência tubulação 3"–6"", abaixo
+          de 3" usa "Eficiência tubulação &lt; 3"". "Horas úteis por dia" aqui é só o padrão — cada orçamento pode
+          ajustar isso caso a caso na Tela 4, já que nem toda hora paga é produtiva (deslocamento/liberação de acesso
+          no local variam de obra pra obra).
         </p>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {CAMPOS_MAO_OBRA.map((campo) => (

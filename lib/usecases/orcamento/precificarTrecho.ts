@@ -22,7 +22,7 @@
 // quantificarMateriais.ts / calcularMaoObraAutomatica.ts.
 
 import type { ItemEscopo, LinhaDetalhamentoMaterial } from "../../types";
-import { somarMetragemEscopo, temCurvasNoEscopo, temTubulacaoPequena } from "./escopo";
+import { faixaDiametroTubulacao, somarMetragemEscopo, temCurvasNoEscopo } from "./escopo";
 import { calcularMaoObraAutomatica, type ParametrosMaoObra } from "./calcularMaoObraAutomatica";
 import { quantificarMateriais, type ParametrosQuantificacao } from "./quantificarMateriais";
 
@@ -86,7 +86,7 @@ export function precificarTrecho(input: {
   const maoObra = calcularMaoObraAutomatica(
     metragem,
     {
-      tubulacaoPequena: temTubulacaoPequena(input.escopoItens),
+      faixaDiametro: faixaDiametroTubulacao(input.escopoItens),
       temCurvas: temCurvasNoEscopo(input.escopoItens),
       trabalhoAltura: input.trabalhoAltura,
     },

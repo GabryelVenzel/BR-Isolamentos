@@ -107,9 +107,15 @@ export function areaBaseIsolamentoEscopo(itens: ItemEscopo[], espessuraMm: numbe
   return Number(itens.reduce((acc, item) => acc + areaBaseIsolamentoItem(item, espessuraMm), 0).toFixed(2));
 }
 
-/** 4 polegadas em milímetros — limiar de "tubulação pequena" pro fator de
- * eficiência de mão de obra (ver calcularMaoObraAutomatica.ts). */
-const QUATRO_POLEGADAS_MM = 101.6;
+/** Limiares de diâmetro (mm) das 3 faixas de eficiência de mão de obra por
+ * diâmetro de tubulação (migração 032 — pedido explícito: "devemos ter
+ * fatores escalonáveis do diâmetro, eficiência 1 acima de 6", abaixo de 6" e
+ * acima de 3" um outro fator ajustável e abaixo de 3" outro"). Substitui o
+ * limiar único de 4" ("tubulação pequena") usado até então. */
+const TRES_POLEGADAS_MM = 76.2;
+const SEIS_POLEGADAS_MM = 152.4;
+
+export type FaixaDiametroTubulacao = "pequena" | "media" | "grande";
 
 /** true se o trecho tem qualquer item de escopo do tipo "curva" — derivado
  * do Escopo, não é um campo manual (ver decisão 2 em sql-migration-019). */
@@ -117,13 +123,28 @@ export function temCurvasNoEscopo(itens: ItemEscopo[]): boolean {
   return itens.some((item) => item.tipo === "curva");
 }
 
-/** true se o trecho tem tubulação/curva com diâmetro < 4" — mesmo raciocínio
- * de `temCurvasNoEscopo`: já dá pra saber isso pelo Escopo, sem pedir de
- * novo como checkbox manual. */
-export function temTubulacaoPequena(itens: ItemEscopo[]): boolean {
-  return itens.some(
-    (item) => (item.tipo === "tubulacao" || item.tipo === "curva") && item.diametro_mm != null && item.diametro_mm < QUATRO_POLEGADAS_MM
-  );
+/** Faixa de diâmetro que define o fator de eficiência de mão de obra deste
+ * trecho (migração 032) — ">= 6\"" usa eficiência 1 ("grande", sem
+ * penalidade, sem precisar de campo de configuração próprio), ">= 3\" e
+ * < 6\"" usa um fator ajustável ("media"), "< 3\"" usa outro fator ajustável
+ * mais restritivo ("pequena") — ver
+ * ConfigEmpresa.eficiencia_tubulacao_pequena/eficiencia_tubulacao_media e
+ * calcularMaoObraAutomatica.ts. Quando o trecho mistura diâmetros diferentes
+ * (tubo + curvas de bitolas diferentes, por ex.), usa o MENOR diâmetro
+ * encontrado — o gargalo de produtividade é sempre o item mais difícil de
+ * manusear, não uma média. `null` quando não há nenhum item com diâmetro
+ * (só "plano") — mesmo raciocínio de `temCurvasNoEscopo`: já dá pra saber
+ * isso pelo Escopo, sem pedir de novo como campo manual. */
+export function faixaDiametroTubulacao(itens: ItemEscopo[]): FaixaDiametroTubulacao | null {
+  const diametros = itens
+    .filter((item) => (item.tipo === "tubulacao" || item.tipo === "curva") && item.diametro_mm != null)
+    .map((item) => item.diametro_mm as number);
+  if (diametros.length === 0) return null;
+
+  const menorDiametro = Math.min(...diametros);
+  if (menorDiametro < TRES_POLEGADAS_MM) return "pequena";
+  if (menorDiametro < SEIS_POLEGADAS_MM) return "media";
+  return "grande";
 }
 
 /** Um trecho pode misturar tipos de item no Escopo (ex.: tubo + curvas +

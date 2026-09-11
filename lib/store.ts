@@ -89,6 +89,15 @@ export interface WizardCustosOperacionais {
   km_deslocamento: number;
   noites_hospedagem: number;
   toneladas_frete: number;
+  /** Migração 032. */
+  diarias_aluguel_carro: number;
+  /** Migração 032. */
+  quantidade_alimentacao: number;
+  /** @deprecated Campo "Desconto extra" removido da Tela 4 (pedido
+   * explícito, migração 032) — continua existindo aqui/no motor de cálculo
+   * (lib/orcamento.ts) só por compatibilidade; nada na Tela 4 escreve mais
+   * aqui. Descontos pós-criação continuam possíveis em Editar Orçamento
+   * (campo `valor_desconto`, em R$, mecanismo separado). */
   desconto_percentual_extra: number | null;
 }
 
@@ -107,6 +116,12 @@ interface WizardState {
   resultadoTermicoFrioAtual: CalcularTermicoResultadoFrio | null;
 
   custosOperacionais: WizardCustosOperacionais;
+  /** Horas úteis/produtivas por dia PARA ESTE ORÇAMENTO (migração 032,
+   * pedido explícito — "preciso que tenha um outro fator na etapa de
+   * orçamento que eu possa definir caso a caso quantas horas são úteis de
+   * serviço"). `null` = usa o padrão de ConfigEmpresa.horas_uteis_dia. Só
+   * afeta o prazo de execução estimado, nunca o valor financeiro. */
+  horasUteisDiaOverride: number | null;
   resultadoOrcamento: CalcularOrcamentoResultado | null;
 
   setCliente: (cliente: Cliente | null) => void;
@@ -128,6 +143,7 @@ interface WizardState {
   editarItem: (index: number) => void;
   removerItem: (index: number) => void;
   setCustosOperacionais: (dados: Partial<WizardCustosOperacionais>) => void;
+  setHorasUteisDiaOverride: (horas: number | null) => void;
   setResultadoOrcamento: (resultado: CalcularOrcamentoResultado | null) => void;
   reset: () => void;
 }
@@ -159,6 +175,8 @@ const custosOperacionaisIniciais: WizardCustosOperacionais = {
   km_deslocamento: 0,
   noites_hospedagem: 0,
   toneladas_frete: 0,
+  diarias_aluguel_carro: 0,
+  quantidade_alimentacao: 0,
   desconto_percentual_extra: null,
 };
 
@@ -175,6 +193,7 @@ export const useWizardStore = create<WizardState>()(
       resultadoTermicoFrioAtual: null,
 
       custosOperacionais: custosOperacionaisIniciais,
+      horasUteisDiaOverride: null,
       resultadoOrcamento: null,
 
       setCliente: (cliente) => set({ clienteSelecionado: cliente }),
@@ -223,6 +242,7 @@ export const useWizardStore = create<WizardState>()(
 
       setCustosOperacionais: (dados) =>
         set((state) => ({ custosOperacionais: { ...state.custosOperacionais, ...dados } })),
+      setHorasUteisDiaOverride: (horas) => set({ horasUteisDiaOverride: horas }),
       setResultadoOrcamento: (resultado) => set({ resultadoOrcamento: resultado }),
 
       reset: () =>
@@ -235,6 +255,7 @@ export const useWizardStore = create<WizardState>()(
           resultadoTermicoQuenteAtual: null,
           resultadoTermicoFrioAtual: null,
           custosOperacionais: custosOperacionaisIniciais,
+          horasUteisDiaOverride: null,
           resultadoOrcamento: null,
         }),
     }),

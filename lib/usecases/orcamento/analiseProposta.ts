@@ -260,25 +260,27 @@ export function linhasItensAdicionaisExecucao(itens: ItemOrcamento[]): LinhaQuan
 }
 
 /** Quadro "Custos Operacionais" da Quantificação — deslocamento/hospedagem/
- * frete/alimentação, exibidos só como "Incluso" (sem valor, sem
- * quantidade). Deslocamento/hospedagem/frete só quando o orçamento de fato
- * tem esse custo (> 0). "Alimentação" não tem campo próprio no orçamento
- * (não existe custo rastreado separado pra isso) — entra sempre como item
- * padrão, é só uma descrição do que está incluso no preço, não uma quantia
- * calculada.
+ * frete/aluguel de carro/alimentação, exibidos só como "Incluso" (sem valor,
+ * sem quantidade — "cliente não pode ver nossas informações brutas") — cada
+ * um só entra quando o orçamento de fato tem esse custo (> 0). Migração 032:
+ * Alimentação passou a ter valor próprio rastreado (diárias ×
+ * ConfigEmpresa.valor_diaria_alimentacao), então segue a MESMA regra
+ * condicional dos demais agora, em vez de entrar sempre como item padrão sem
+ * quantia calculada nenhuma.
  *
  * Mão de obra NÃO entra mais aqui (pedido explícito, rodada "Correções
  * simples": "preciso que a mão de obra fique na lista de materiais... com a
  * quantidade de horas") — ver `linhasMaoDeObra`, que mostra as horas reais
  * junto com os materiais em vez de só "Incluso". */
 export function linhasOperacionaisIncluso(
-  orcamento: Pick<Orcamento, "valor_deslocamento" | "valor_hospedagem" | "valor_frete">
+  orcamento: Pick<Orcamento, "valor_deslocamento" | "valor_hospedagem" | "valor_frete" | "valor_aluguel_carro" | "valor_alimentacao">
 ): string[] {
   const linhas: string[] = [];
   if (orcamento.valor_deslocamento > 0) linhas.push("Deslocamento");
   if (orcamento.valor_hospedagem > 0) linhas.push("Hospedagem");
   if (orcamento.valor_frete > 0) linhas.push("Frete");
-  linhas.push("Alimentação");
+  if (orcamento.valor_aluguel_carro > 0) linhas.push("Aluguel de Carro");
+  if (orcamento.valor_alimentacao > 0) linhas.push("Alimentação");
   return linhas;
 }
 

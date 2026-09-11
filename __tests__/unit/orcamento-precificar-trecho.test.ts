@@ -31,6 +31,7 @@ const quantificacaoNeutra: ParametrosQuantificacao = {
 const maoObraNeutra: ParametrosMaoObra = {
   m2_por_hora_dupla: 1, // 1 m²/hora → horas_base = metragem, sem diluir a conta
   eficiencia_tubulacao_pequena: 0.75,
+  eficiencia_tubulacao_media: 0.85,
   eficiencia_curva: 0.75,
   eficiencia_altura: 0.5,
   eficiencia_fator_br: 1, // sem o fator BR aqui pra manter as contas redondas

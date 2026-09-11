@@ -4,11 +4,11 @@ import {
   calcularMetragemCurva,
   calcularMetragemItem,
   calcularMetragemTubulacao,
+  faixaDiametroTubulacao,
   metragemFinalItem,
   quantidadeEscopoItem,
   somarMetragemEscopo,
   temCurvasNoEscopo,
-  temTubulacaoPequena,
 } from "@/lib/usecases/orcamento/escopo";
 import type { ItemEscopo } from "@/lib/types";
 
@@ -105,22 +105,33 @@ describe("temCurvasNoEscopo", () => {
   });
 });
 
-describe("temTubulacaoPequena", () => {
-  it("true se alguma tubulação/curva tem diâmetro < 101,6mm (4 polegadas)", () => {
-    expect(temTubulacaoPequena([item({ tipo: "tubulacao", diametro_mm: 80 })])).toBe(true);
-    expect(temTubulacaoPequena([item({ tipo: "curva", diametro_mm: 50, quantidade: 2 })])).toBe(true);
+describe("faixaDiametroTubulacao", () => {
+  it("'pequena' quando o menor diâmetro é < 76,2mm (3 polegadas)", () => {
+    expect(faixaDiametroTubulacao([item({ tipo: "tubulacao", diametro_mm: 50 })])).toBe("pequena");
+    expect(faixaDiametroTubulacao([item({ tipo: "curva", diametro_mm: 70, quantidade: 2 })])).toBe("pequena");
   });
 
-  it("false se diâmetro >= 101,6mm", () => {
-    expect(temTubulacaoPequena([item({ tipo: "tubulacao", diametro_mm: 150 })])).toBe(false);
+  it("'media' quando o menor diâmetro está entre 76,2mm e 152,4mm (3\" a 6\")", () => {
+    expect(faixaDiametroTubulacao([item({ tipo: "tubulacao", diametro_mm: 80 })])).toBe("media");
+    expect(faixaDiametroTubulacao([item({ tipo: "tubulacao", diametro_mm: 150 })])).toBe("media");
   });
 
-  it("itens 'plano' (sem diâmetro) nunca contam como tubulação pequena", () => {
-    expect(temTubulacaoPequena([item({ tipo: "plano", diametro_mm: null, metragem_manual_m2: 5 })])).toBe(false);
+  it("'grande' quando o menor diâmetro é >= 152,4mm (6 polegadas)", () => {
+    expect(faixaDiametroTubulacao([item({ tipo: "tubulacao", diametro_mm: 200 })])).toBe("grande");
   });
 
-  it("lista vazia é false", () => {
-    expect(temTubulacaoPequena([])).toBe(false);
+  it("mistura de diâmetros usa o MENOR encontrado (o gargalo de produtividade)", () => {
+    expect(
+      faixaDiametroTubulacao([item({ id: "1", tipo: "tubulacao", diametro_mm: 200 }), item({ id: "2", tipo: "curva", diametro_mm: 50, quantidade: 2 })])
+    ).toBe("pequena");
+  });
+
+  it("itens 'plano' (sem diâmetro) não contam — null se só houver planos", () => {
+    expect(faixaDiametroTubulacao([item({ tipo: "plano", diametro_mm: null, metragem_manual_m2: 5 })])).toBeNull();
+  });
+
+  it("lista vazia é null", () => {
+    expect(faixaDiametroTubulacao([])).toBeNull();
   });
 });
 

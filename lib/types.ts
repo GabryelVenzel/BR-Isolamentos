@@ -194,6 +194,12 @@ export interface Orcamento {
   valor_deslocamento: number;
   valor_hospedagem: number;
   valor_frete: number;
+  /** Aluguel de carro (diárias × ConfigEmpresa.valor_diaria_aluguel_carro no
+   * momento da criação) — migração 032. */
+  valor_aluguel_carro: number;
+  /** Alimentação da equipe (diárias × ConfigEmpresa.valor_diaria_alimentacao)
+   * — migração 032. */
+  valor_alimentacao: number;
   subtotal: number;
   detalhamento_impostos: ItemDetalhamentoImposto[];
   total_impostos: number;
@@ -201,6 +207,15 @@ export interface Orcamento {
   valor_desconto: number;
   preco_cheio: number;
   valor_final: number;
+
+  /** Horas úteis/produtivas por dia PARA ESTE ORÇAMENTO especificamente
+   * (migração 032) — pode divergir de `ConfigEmpresa.horas_uteis_dia`: ex.
+   * neste local o deslocamento/liberação de acesso consome mais tempo do que
+   * o padrão, então de 10h pagas só 7h são realmente produtivas, aumentando
+   * o prazo de execução. `null` = usa o padrão da config (comportamento de
+   * antes desta migração). Só afeta o PRAZO DE EXECUÇÃO exibido nas
+   * Propostas, nunca o valor financeiro. */
+  horas_uteis_dia: number | null;
 
   // Status
   status: StatusOrcamento;
@@ -320,7 +335,18 @@ export interface ConfigEmpresa {
   valor_hora_mao_obra: number;
   valor_km_deslocamento: number;
   valor_noite_hospedagem: number;
+  /** Não é mais editável na tela Configurar Preços (pedido explícito,
+   * migração 032 — "o frete removemos dessa tela") — a Tela 4 do orçamento
+   * continua com o campo "Frete (toneladas)" e continuando usando este
+   * valor no cálculo, só não dá mais pra ajustar a taxa por essa tela. A
+   * coluna permanece no schema (nunca dropar coluna com dado real). */
   valor_frete_por_tonelada: number;
+  /** Aluguel de carro no local da obra, cobrado por diária (migração 032). */
+  valor_diaria_aluguel_carro: number;
+  /** Alimentação da equipe em campo, cobrada por diária (migração 032) —
+   * substitui a linha "Alimentação: Incluso" sem valor rastreado que existia
+   * antes (ver `linhasOperacionaisIncluso`). */
+  valor_diaria_alimentacao: number;
 
   /** @deprecated Removido da tela Configurar Preços (pedido explícito, ver
    * migração 016) — só alimentava `lib/quantificador.ts` (Método Expert),
@@ -354,9 +380,17 @@ export interface ConfigEmpresa {
   // lib/usecases/orcamento/calcularMaoObraAutomatica.ts. Substitui o campo
   // manual "Mão de obra deste trecho (horas)" que existia no wizard.
   m2_por_hora_dupla: number;
-  /** Multiplicador quando o trecho tem tubulação/curva com diâmetro < 4"
-   * (101,6mm) — derivado do Escopo, não é um campo manual. */
+  /** Multiplicador quando o diâmetro (do menor item de tubulação/curva do
+   * trecho) é menor que 3" (76,2mm) — faixa mais restritiva das 3 (migração
+   * 032: substitui o limiar único de 4" por faixas escalonáveis, pedido
+   * explícito — ver `eficiencia_tubulacao_media` e
+   * lib/usecases/orcamento/escopo.ts#faixaDiametroTubulacao). Derivado do
+   * Escopo, não é um campo manual. */
   eficiencia_tubulacao_pequena: number;
+  /** Multiplicador quando o diâmetro fica entre 3" e 6" (76,2mm–152,4mm) —
+   * faixa intermediária (migração 032). Diâmetro >= 6" usa eficiência 1 (sem
+   * penalidade), não tem campo próprio. */
+  eficiencia_tubulacao_media: number;
   /** Multiplicador quando o trecho tem algum item de escopo do tipo "curva". */
   eficiencia_curva: number;
   /** Multiplicador quando o trecho está marcado como trabalho em altura
@@ -364,6 +398,12 @@ export interface ConfigEmpresa {
   eficiencia_altura: number;
   /** Fator de rendimento da dupla brasileira — sempre aplicado. */
   eficiencia_fator_br: number;
+  /** Horas TOTAIS pagas por dia de trabalho (ex.: 9h) — usado como valor
+   * padrão pra "Horas úteis" de um orçamento novo (migração 032: cada
+   * orçamento pode ajustar esse número caso a caso na Tela 4, porque nem
+   * toda hora paga é produtiva — deslocamento e liberação de acesso no local
+   * reduzem isso, aumentando o prazo de execução real). Ver
+   * `Orcamento.horas_uteis_dia`. */
   horas_uteis_dia: number;
 
   // Condições comerciais e projeções exibidas nas Propostas (migração 020) —
@@ -521,6 +561,10 @@ export interface CalcularOrcamentoInput {
   km_deslocamento: number;
   noites_hospedagem: number;
   toneladas_frete: number;
+  /** Migração 032. */
+  diarias_aluguel_carro: number;
+  /** Migração 032. */
+  quantidade_alimentacao: number;
   desconto_percentual_extra?: number;
 }
 
@@ -536,6 +580,10 @@ export interface CalcularOrcamentoResultado {
   valor_deslocamento: number;
   valor_hospedagem: number;
   valor_frete: number;
+  /** Migração 032. */
+  valor_aluguel_carro: number;
+  /** Migração 032. */
+  valor_alimentacao: number;
   subtotal: number;
   detalhamento_impostos: ItemDetalhamentoImposto[];
   total_impostos: number;

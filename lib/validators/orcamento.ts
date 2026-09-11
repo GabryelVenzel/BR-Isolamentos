@@ -98,6 +98,13 @@ export const CreateOrcamentoSchema = z.object({
   valor_deslocamento: z.number().nonnegative(),
   valor_hospedagem: z.number().nonnegative(),
   valor_frete: z.number().nonnegative(),
+  // Migração 032.
+  valor_aluguel_carro: z.number().nonnegative().optional().default(0),
+  valor_alimentacao: z.number().nonnegative().optional().default(0),
+  // Migração 032 — horas úteis/produtivas por dia deste orçamento
+  // especificamente; `null`/ausente = usa o padrão de ConfigEmpresa no
+  // momento de gerar a Proposta (ver prazoExecucaoDiasUteis).
+  horas_uteis_dia: z.number().positive().nullable().optional(),
   subtotal: z.number().nonnegative(),
   detalhamento_impostos: z.array(z.object({ nome: z.string(), percentual: z.number(), valor: z.number() })),
   total_impostos: z.number().nonnegative(),

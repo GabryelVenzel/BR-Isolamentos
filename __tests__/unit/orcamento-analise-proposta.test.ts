@@ -345,14 +345,29 @@ describe("linhasItensAdicionaisExecucao", () => {
 });
 
 describe("linhasOperacionaisIncluso", () => {
-  it("mão de obra NÃO aparece aqui (foi pra linhasMaoDeObra, com horas reais); alimentação sempre aparece", () => {
-    const linhas = linhasOperacionaisIncluso({ valor_deslocamento: 0, valor_hospedagem: 0, valor_frete: 0 });
-    expect(linhas).toEqual(["Alimentação"]);
+  it("mão de obra NÃO aparece aqui (foi pra linhasMaoDeObra, com horas reais); sem nenhum custo, lista vazia", () => {
+    // Migração 032: Alimentação passou a ter valor próprio rastreado, então
+    // segue a MESMA regra condicional (> 0) dos demais — deixou de entrar
+    // sempre, incondicionalmente.
+    const linhas = linhasOperacionaisIncluso({
+      valor_deslocamento: 0,
+      valor_hospedagem: 0,
+      valor_frete: 0,
+      valor_aluguel_carro: 0,
+      valor_alimentacao: 0,
+    });
+    expect(linhas).toEqual([]);
   });
 
-  it("inclui deslocamento/hospedagem/frete quando o orçamento tem esse custo", () => {
-    const linhas = linhasOperacionaisIncluso({ valor_deslocamento: 200, valor_hospedagem: 300, valor_frete: 100 });
-    expect(linhas).toEqual(["Deslocamento", "Hospedagem", "Frete", "Alimentação"]);
+  it("inclui cada custo operacional só quando o orçamento de fato tem esse valor", () => {
+    const linhas = linhasOperacionaisIncluso({
+      valor_deslocamento: 200,
+      valor_hospedagem: 300,
+      valor_frete: 100,
+      valor_aluguel_carro: 150,
+      valor_alimentacao: 80,
+    });
+    expect(linhas).toEqual(["Deslocamento", "Hospedagem", "Frete", "Aluguel de Carro", "Alimentação"]);
   });
 });
 

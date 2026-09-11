@@ -9,13 +9,14 @@ export {
   calcularMetragemItem,
   calcularMetragemTubulacao,
   descreverItemEscopo,
+  faixaDiametroTubulacao,
   geometriaRepresentativa,
   metragemFinalItem,
   quantidadeEscopoItem,
   somarMetragemEscopo,
   temCurvasNoEscopo,
-  temTubulacaoPequena,
 } from "./escopo";
+export type { FaixaDiametroTubulacao } from "./escopo";
 export { acabamentoFisicoMaisProximo, materialFisicoMaisProximo } from "./materialFisico";
 export { comporCamadasIsolante, espessuraTotalComposicao } from "./composicaoIsolante";
 export type { CamadaIsolante } from "./composicaoIsolante";

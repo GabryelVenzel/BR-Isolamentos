@@ -36,10 +36,13 @@ function config(overrides: Partial<ConfigEmpresa> = {}): ConfigEmpresa {
     silicone_intervalo_m2: 0,
     m2_por_hora_dupla: 2,
     eficiencia_tubulacao_pequena: 1,
+    eficiencia_tubulacao_media: 1,
     eficiencia_curva: 1,
     eficiencia_altura: 1,
     eficiencia_fator_br: 1,
     horas_uteis_dia: 8,
+    valor_diaria_aluguel_carro: 0,
+    valor_diaria_alimentacao: 0,
     desconto_avista_percentual: 5,
     garantia_mao_obra_meses: 12,
     projecao_reajuste_tarifario_percentual: 3,
@@ -59,6 +62,8 @@ function input(overrides: Partial<CalcularOrcamentoInput> = {}): CalcularOrcamen
     km_deslocamento: 0,
     noites_hospedagem: 0,
     toneladas_frete: 0,
+    diarias_aluguel_carro: 0,
+    quantidade_alimentacao: 0,
     ...overrides,
   };
 }
@@ -82,6 +87,16 @@ describe("calcularOrcamento — markup divisor", () => {
     expect(resultado.preco_cheio).toBe(1250);
     expect(resultado.margem_lucro).toBe(250); // 20% de 1250, não 20% de 1000
     expect(resultado.valor_final).toBe(1250);
+  });
+
+  it("aluguel de carro e alimentação entram no custo total (migração 032), diárias × preço configurado", () => {
+    const cfg = config({ valor_diaria_aluguel_carro: 120, valor_diaria_alimentacao: 40 });
+    const resultado = calcularOrcamento(
+      input({ config: cfg, valor_materiais_direto: 0, horas_mao_obra: 0, diarias_aluguel_carro: 3, quantidade_alimentacao: 5 })
+    );
+    expect(resultado.valor_aluguel_carro).toBe(360); // 3 × R$120
+    expect(resultado.valor_alimentacao).toBe(200); // 5 × R$40
+    expect(resultado.subtotal).toBe(560);
   });
 
   it("bloqueia com OrcamentoConfigError quando impostos + margem somam 100% ou mais", () => {

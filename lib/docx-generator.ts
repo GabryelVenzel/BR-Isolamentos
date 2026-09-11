@@ -593,7 +593,11 @@ export async function gerarPropostaComercialDocx(orcamento: Orcamento, configEmp
   const reajuste = configEmpresa?.projecao_reajuste_tarifario_percentual ?? 3;
   const projecaoDezAnos = !somenteMaoObra && economiaAnualTotal > 0 ? projetarEconomiaAcumulada(economiaAnualTotal, reajuste, 10) : [];
   const arvores = arvoresEquivalentes(co2ToneladasAno, configEmpresa?.co2_kg_por_arvore_ano ?? 22);
-  const prazoDias = configEmpresa ? prazoExecucaoDiasUteis(itens, configEmpresa.horas_uteis_dia) : null;
+  // Horas úteis/produtivas por dia — usa o valor ajustado caso a caso para
+  // ESTE orçamento (migração 032), caindo pro padrão da config quando o
+  // orçamento não tem override — ver mesmo comentário em
+  // PropostaComercialDocument.tsx.
+  const prazoDias = configEmpresa ? prazoExecucaoDiasUteis(itens, orcamento.horas_uteis_dia ?? configEmpresa.horas_uteis_dia) : null;
   const descontoAvista = configEmpresa?.desconto_avista_percentual ?? 5;
   const garantiaMeses = configEmpresa?.garantia_mao_obra_meses ?? 12;
   const validadeDias = configEmpresa?.validade_proposta_dias ?? 30;
