@@ -259,7 +259,29 @@ export const useWizardStore = create<WizardState>()(
           resultadoOrcamento: null,
         }),
     }),
-    { name: "br-isolamentos-wizard" }
+    {
+      name: "br-isolamentos-wizard",
+      // Bug relatado: um estado salvo no navegador ANTES de um campo numérico
+      // novo ser adicionado a `custosOperacionais` (ex.: `diarias_aluguel_
+      // carro`, migração 032) não tem essa chave. O merge padrão do Zustand
+      // (`persist`) é raso — troca `custosOperacionais` INTEIRO pelo objeto
+      // salvo, sem preencher chaves que só existem na versão nova do código
+      // — a chave ficava `undefined`, e `undefined × preço` = `NaN`
+      // contaminava o cálculo inteiro (ver comentário em
+      // lib/orcamento.ts#calcularOrcamento). Mesclando campo a campo aqui,
+      // qualquer chave nova sempre nasce com o valor padrão atual em vez de
+      // ficar ausente, então esse bug não pode se repetir na próxima vez que
+      // um campo for adicionado a esses objetos aninhados.
+      merge: (persistedState, currentState) => {
+        const persisted = persistedState as Partial<WizardState> | undefined;
+        return {
+          ...currentState,
+          ...persisted,
+          custosOperacionais: { ...currentState.custosOperacionais, ...persisted?.custosOperacionais },
+          itemAtual: { ...currentState.itemAtual, ...persisted?.itemAtual },
+        };
+      },
+    }
   )
 );
 

@@ -68,6 +68,48 @@ function input(overrides: Partial<CalcularOrcamentoInput> = {}): CalcularOrcamen
   };
 }
 
+describe("calcularOrcamento — blindagem contra campos numéricos ausentes (bug relatado)", () => {
+  it("diarias_aluguel_carro/quantidade_alimentacao ausentes (undefined) não contaminam o cálculo com NaN", () => {
+    // Bug relatado: um wizard aberto no navegador ANTES desses campos
+    // existirem manda `undefined` pra eles (JSON.stringify descarta chaves
+    // undefined) — undefined × preço = NaN, que contaminava a soma inteira
+    // (custoTotal, preço cheio, impostos, margem, valor final), e NaN em
+    // JSON vira `null`, que a UI exibia como "R$ 0,00" sem erro nenhum.
+    const cfg = config({ valor_diaria_aluguel_carro: 100, valor_diaria_alimentacao: 40 });
+    const semCamposNovos = { ...input({ config: cfg, valor_materiais_direto: 0, valor_mao_obra_direto: 133, km_deslocamento: 1 }) };
+    // Simula o corpo da requisição real depois de passar por JSON.stringify
+    // (que descarta chaves com valor `undefined`) — não basta setar
+    // `undefined` no objeto TS, precisa passar pelo round-trip de verdade.
+    const semCamposNovosViaJson = JSON.parse(
+      JSON.stringify({ ...semCamposNovos, diarias_aluguel_carro: undefined, quantidade_alimentacao: undefined })
+    );
+
+    const resultado = calcularOrcamento(semCamposNovosViaJson);
+    expect(resultado.valor_aluguel_carro).toBe(0);
+    expect(resultado.valor_alimentacao).toBe(0);
+    expect(resultado.subtotal).toBe(135); // 133 (mão de obra) + 2 (1km × R$2/km, padrão do helper `config()`) — não NaN
+    expect(resultado.valor_final).toBeGreaterThan(0);
+    expect(Number.isNaN(resultado.valor_final)).toBe(false);
+  });
+
+  it("horas_mao_obra/km_deslocamento/noites_hospedagem/toneladas_frete ausentes também caem pra 0, não NaN", () => {
+    const entrada = JSON.parse(
+      JSON.stringify({
+        ...input({ valor_materiais_direto: 500 }),
+        horas_mao_obra: undefined,
+        km_deslocamento: undefined,
+        noites_hospedagem: undefined,
+        toneladas_frete: undefined,
+        diarias_aluguel_carro: undefined,
+        quantidade_alimentacao: undefined,
+      })
+    );
+    const resultado = calcularOrcamento(entrada);
+    expect(resultado.subtotal).toBe(500);
+    expect(Number.isNaN(resultado.valor_final)).toBe(false);
+  });
+});
+
 describe("calcularOrcamento — markup divisor", () => {
   it("custo total = materiais + mão de obra (horas × valor/hora) + deslocamento + hospedagem + frete", () => {
     const resultado = calcularOrcamento(
