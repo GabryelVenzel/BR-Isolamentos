@@ -6,10 +6,11 @@ import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import Logo from "./Logo";
 
-// Os 6 módulos do ERP. "Orçamento" reúne 3 rotas de topo históricas (wizard,
-// histórico, config. de preços — ver lib/module-nav.ts) que não têm um
-// prefixo de URL comum; por isso usa `match` para ficar "ativo" em qualquer
-// uma delas, mesmo apontando (`href`) só para o histórico.
+// Os 7 módulos do ERP (RH adicionado na migração 033). "Orçamento" reúne 3
+// rotas de topo históricas (wizard, histórico, config. de preços — ver
+// lib/module-nav.ts) que não têm um prefixo de URL comum; por isso usa
+// `match` para ficar "ativo" em qualquer uma delas, mesmo apontando (`href`)
+// só para o histórico.
 const LINKS: Array<{ href: string; label: string; match?: string[] }> = [
   { href: "/resumo", label: "Resumo", match: ["/resumo", "/"] },
   { href: "/engenharia", label: "Engenharia" },
@@ -17,6 +18,7 @@ const LINKS: Array<{ href: string; label: string; match?: string[] }> = [
   { href: "/operacional", label: "Operacional" },
   { href: "/historico", label: "Orçamento", match: ["/historico", "/novo-orcamento", "/config-precos", "/orcamento"] },
   { href: "/financeiro", label: "Financeiro" },
+  { href: "/rh", label: "RH" },
 ];
 
 /** Um link fica ativo na rota exata, em sub-rotas (ex.: "/comercial" ativo

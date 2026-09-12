@@ -59,6 +59,11 @@ select
   exists(select 1 from information_schema.columns where table_name = 'config_empresa' and column_name = 'eficiencia_tubulacao_media') as m032_eficiencia_tubulacao_media,
   exists(select 1 from information_schema.columns where table_name = 'config_empresa' and column_name = 'valor_diaria_aluguel_carro') as m032_custos_operacionais_novos,
   exists(select 1 from information_schema.columns where table_name = 'orcamentos' and column_name = 'horas_uteis_dia') as m032_horas_uteis_dia_por_orcamento,
+  exists(select 1 from information_schema.tables where table_name = 'documentos_empresa') as m033_documentos_empresa,
+  exists(select 1 from information_schema.tables where table_name = 'funcionarios') as m033_funcionarios,
+  exists(select 1 from information_schema.tables where table_name = 'funcionario_anexos') as m033_funcionario_anexos,
+  exists(select 1 from storage.buckets where id = 'rh-empresa-anexos') as m033_bucket_rh_empresa_anexos,
+  exists(select 1 from storage.buckets where id = 'rh-funcionarios-anexos') as m033_bucket_rh_funcionarios_anexos,
   -- Bug relatado: "não consigo anexar arquivo no lead" — m012_anexos_lead (acima)
   -- só confere a TABELA; o upload em si depende do bucket do Storage e das
   -- políticas de insert/delete, que são criados na MESMA migração 012 mas em

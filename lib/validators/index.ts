@@ -6,6 +6,7 @@ export * from "./fornecedor";
 export * from "./lead";
 export * from "./orcamento";
 export * from "./parceiro";
+export * from "./rh";
 export * from "./servico";
 export * from "./usuario";
 

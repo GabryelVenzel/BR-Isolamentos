@@ -664,3 +664,62 @@ export interface NotaFiscal {
   lancamento_id: string | null;
   created_at: string;
 }
+
+// ---------------------------------------------------------------------------
+// Módulo RH (migração 033) — documentação da empresa (lista solta, nome +
+// anexo) e cadastro de funcionários (informações básicas + N documentos
+// cada). Módulo novo, sem relação com nenhuma entidade já existente.
+// ---------------------------------------------------------------------------
+
+/** Documento solto da empresa (CNPJ, Contrato Social, PGR, PCMSO,
+ * contratos...) — nome dado pelo usuário + 1 anexo, editável (renomear) e
+ * excluível. */
+export interface DocumentoEmpresa {
+  id: string;
+  nome: string;
+  nome_arquivo: string;
+  tipo_arquivo: string;
+  tamanho_bytes: number;
+  storage_path: string;
+  url: string;
+  data_adicao: string;
+  adicionado_por: string | null;
+}
+
+export type StatusFuncionario = "ativo" | "inativo" | "desligado";
+
+/** Cadastro básico de um funcionário — o grosso da documentação (ASO, NRs,
+ * certificações...) fica em `FuncionarioAnexo`, não em colunas próprias
+ * aqui, já que a quantidade/variedade de documentos varia livremente por
+ * pessoa (pedido explícito: "podemos ter 15, 20 documentos"). */
+export interface Funcionario {
+  id: string;
+  numero_funcionario: string | null;
+  nome: string;
+  cargo: string | null;
+  cpf: string | null;
+  telefone: string | null;
+  email: string | null;
+  /** Formato "YYYY-MM-DD" (coluna `date`). */
+  data_admissao: string | null;
+  status: StatusFuncionario;
+  notas: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+/** Documento anexado a um funcionário — mesmo padrão de `FornecedorAnexo`,
+ * com um `nome` a mais (o documento tem um nome dado pelo usuário — ex.:
+ * "ASO", "NR-35" — não só o nome cru do arquivo). */
+export interface FuncionarioAnexo {
+  id: string;
+  funcionario_id: string;
+  nome: string;
+  nome_arquivo: string;
+  tipo_arquivo: string;
+  tamanho_bytes: number;
+  storage_path: string;
+  url: string;
+  data_adicao: string;
+  adicionado_por: string | null;
+}

@@ -33,3 +33,11 @@ export const FINANCEIRO_SUBNAV: ModuleSubNavItem[] = [
   { href: "/financeiro/custos-fixos", label: "Custos Fixos" },
   { href: "/financeiro/categorias", label: "Categorias & Config" },
 ];
+
+// Módulo RH (migração 033) — "Empresa" (documentos soltos da empresa) e
+// "Funcionários" (cadastro + documentação por pessoa), nessa ordem (pedido
+// explícito).
+export const RH_SUBNAV: ModuleSubNavItem[] = [
+  { href: "/rh", label: "Empresa" },
+  { href: "/rh/funcionarios", label: "Funcionários" },
+];
