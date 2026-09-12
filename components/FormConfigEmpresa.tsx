@@ -18,11 +18,20 @@ const CAMPOS_CUSTOS: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo: s
   { nome: "valor_diaria_alimentacao", label: "Alimentação", sufixo: "R$/diária" },
 ];
 
-// "Desconto competitivo padrão" e "Vedacit por junta" removidos deste
-// formulário (pedido explícito) — ver ConfigEmpresa.desconto_competitivo/
-// vedacit_gramas_por_junta (@deprecated, lib/types.ts) pra o porquê de cada
-// um. As colunas continuam no banco, só não são mais editáveis aqui.
-const CAMPOS_MARGEM: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo: string }> = [
+// Reorganização pedida explicitamente: "Margem" (que só tinha
+// margem_lucro_padrao) e a antiga "Propostas — condições comerciais e
+// projeções" viraram UM subtópico "Condições comerciais" (com margem
+// incluída) dentro de "Custos, impostos e margem" — Reajuste tarifário e CO₂
+// absorvido saíram daqui e viraram o subtópico "Projeções", em "Parâmetros
+// de Quantificação" (ver CAMPOS_PROJECOES abaixo). "Desconto competitivo
+// padrão" e "Vedacit por junta" continuam fora do formulário (pedido
+// explícito de rodada anterior) — ver ConfigEmpresa.desconto_competitivo/
+// vedacit_gramas_por_junta (@deprecated, lib/types.ts). As colunas continuam
+// no banco, só não são editáveis aqui.
+const CAMPOS_CONDICOES_COMERCIAIS: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo: string }> = [
+  { nome: "desconto_avista_percentual", label: "Desconto à vista", sufixo: "%" },
+  { nome: "garantia_mao_obra_meses", label: "Garantia de mão de obra", sufixo: "meses" },
+  { nome: "validade_proposta_dias", label: "Validade da proposta", sufixo: "dias" },
   { nome: "margem_lucro_padrao", label: "Margem de lucro padrão", sufixo: "% do preço de venda" },
 ];
 
@@ -49,15 +58,16 @@ const CAMPOS_MAO_OBRA: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo:
   { nome: "horas_uteis_dia", label: "Horas úteis por dia (padrão)", sufixo: "h" },
 ];
 
-// Condições comerciais e projeções exibidas nas Propostas (migração 020) —
-// nunca hardcoded no template do PDF/Word, ver decisão 2 em
-// sql-migration-020-detalhamento-propostas.sql.
-const CAMPOS_PROPOSTA: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo: string }> = [
-  { nome: "desconto_avista_percentual", label: "Desconto à vista", sufixo: "%" },
-  { nome: "garantia_mao_obra_meses", label: "Garantia de mão de obra", sufixo: "meses" },
+// Projeções exibidas só na Proposta Comercial (migração 020) — nunca
+// hardcoded no template do PDF/Word, ver decisão 2 em
+// sql-migration-020-detalhamento-propostas.sql. Separado de "Condições
+// comerciais" (pedido explícito) por ficar do lado de "Parâmetros de
+// Quantificação" — não são condições negociadas com o cliente, são
+// estimativas de mercado usadas só na projeção de 10 anos/benefícios
+// ambientais.
+const CAMPOS_PROJECOES: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo: string }> = [
   { nome: "projecao_reajuste_tarifario_percentual", label: "Reajuste tarifário (projeção 10 anos)", sufixo: "% a.a." },
   { nome: "co2_kg_por_arvore_ano", label: "CO₂ absorvido por árvore", sufixo: "kg/ano" },
-  { nome: "validade_proposta_dias", label: "Validade da proposta", sufixo: "dias" },
 ];
 
 export default function FormConfigEmpresa({ config }: Props) {
@@ -93,174 +103,158 @@ export default function FormConfigEmpresa({ config }: Props) {
     );
   }
 
-  return (
-    <form onSubmit={handleSubmit} className="card space-y-6">
-      <h2 className="text-lg font-semibold">Custos, impostos e margem</h2>
-
-      <div>
-        <h3 className="mb-2 text-sm font-semibold text-gray-600">Regime tributário</h3>
-        <p className="mb-3 text-xs text-gray-500">
-          Define como o percentual de impostos "base" é calculado. Impostos extras
-          (opcionais, variam por contrato) ficam na tabela de Impostos abaixo.
-        </p>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <div>
-            <label className="label-field">Regime</label>
-            <select
-              className="input-field"
-              value={valores.regime_tributario}
-              onChange={(e) =>
-                setValores((prev) => ({ ...prev, regime_tributario: e.target.value as RegimeTributario }))
-              }
-            >
-              <option value="simples_nacional">Simples Nacional</option>
-              <option value="lucro_presumido">Lucro Presumido</option>
-              <option value="personalizado">Personalizado (só impostos da lista)</option>
-            </select>
+  function camposGrid(campos: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo: string }>, colunas: string) {
+    return (
+      <div className={`grid grid-cols-1 gap-4 ${colunas}`}>
+        {campos.map((campo) => (
+          <div key={campo.nome}>
+            <label className="label-field">
+              {campo.label} <span className="text-gray-400">({campo.sufixo})</span>
+            </label>
+            {numero(campo.nome)}
           </div>
+        ))}
+      </div>
+    );
+  }
 
-          {valores.regime_tributario === "simples_nacional" && (
-            <>
-              <div>
-                <label className="label-field">
-                  Anexo <span className="text-gray-400">(confirme com o contador)</span>
-                </label>
-                <select
-                  className="input-field"
-                  value={valores.simples_nacional_anexo}
-                  onChange={(e) =>
-                    setValores((prev) => ({
-                      ...prev,
-                      simples_nacional_anexo: e.target.value as AnexoSimplesNacional,
-                    }))
-                  }
-                >
-                  <option value="III">Anexo III</option>
-                  <option value="IV">Anexo IV</option>
-                </select>
-              </div>
-              <div>
-                <label className="label-field">RBT12 (receita bruta 12 meses)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="input-field"
-                  value={valores.simples_nacional_rbt12}
-                  onChange={(e) =>
-                    setValores((prev) => ({ ...prev, simples_nacional_rbt12: Number(e.target.value) }))
-                  }
-                />
-              </div>
-            </>
+  return (
+    <form onSubmit={handleSubmit} className="card space-y-8">
+      {/* Reorganização pedida explicitamente em 2 grupos — "Custos, impostos
+          e margem" (o que entra no cálculo do orçamento em si) e "Parâmetros
+          de Quantificação" (como a quantidade de material/mão de obra é
+          derivada da metragem). */}
+      <div className="space-y-6">
+        <h2 className="text-lg font-semibold">Custos, impostos e margem</h2>
+
+        <div>
+          <h3 className="mb-2 text-sm font-semibold text-gray-600">Regime tributário</h3>
+          <p className="mb-3 text-xs text-gray-500">
+            Define como o percentual de impostos "base" é calculado. Impostos extras
+            (opcionais, variam por contrato) ficam na tabela de Impostos abaixo.
+          </p>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div>
+              <label className="label-field">Regime</label>
+              <select
+                className="input-field"
+                value={valores.regime_tributario}
+                onChange={(e) =>
+                  setValores((prev) => ({ ...prev, regime_tributario: e.target.value as RegimeTributario }))
+                }
+              >
+                <option value="simples_nacional">Simples Nacional</option>
+                <option value="lucro_presumido">Lucro Presumido</option>
+                <option value="personalizado">Personalizado (só impostos da lista)</option>
+              </select>
+            </div>
+
+            {valores.regime_tributario === "simples_nacional" && (
+              <>
+                <div>
+                  <label className="label-field">
+                    Anexo <span className="text-gray-400">(confirme com o contador)</span>
+                  </label>
+                  <select
+                    className="input-field"
+                    value={valores.simples_nacional_anexo}
+                    onChange={(e) =>
+                      setValores((prev) => ({
+                        ...prev,
+                        simples_nacional_anexo: e.target.value as AnexoSimplesNacional,
+                      }))
+                    }
+                  >
+                    <option value="III">Anexo III</option>
+                    <option value="IV">Anexo IV</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="label-field">RBT12 (receita bruta 12 meses)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    className="input-field"
+                    value={valores.simples_nacional_rbt12}
+                    onChange={(e) =>
+                      setValores((prev) => ({ ...prev, simples_nacional_rbt12: Number(e.target.value) }))
+                    }
+                  />
+                </div>
+              </>
+            )}
+          </div>
+          {valores.regime_tributario === "simples_nacional" && !valores.simples_nacional_rbt12 && (
+            <p className="mt-2 text-sm text-amber-600">
+              ⚠️ Sem o RBT12 preenchido, o sistema vai bloquear o cálculo de novos orçamentos.
+            </p>
           )}
         </div>
-        {valores.regime_tributario === "simples_nacional" && !valores.simples_nacional_rbt12 && (
-          <p className="mt-2 text-sm text-amber-600">
-            ⚠️ Sem o RBT12 preenchido, o sistema vai bloquear o cálculo de novos orçamentos.
+
+        <div>
+          <h3 className="mb-2 text-sm font-semibold text-gray-600">Custos operacionais</h3>
+          {camposGrid(CAMPOS_CUSTOS, "sm:grid-cols-2 lg:grid-cols-4")}
+        </div>
+
+        <div>
+          <h3 className="mb-2 text-sm font-semibold text-gray-600">Condições comerciais</h3>
+          <p className="mb-3 text-xs text-gray-500">
+            Exibidas nas Propostas Técnica/Comercial (Condições Comerciais) — a margem de lucro padrão também entra
+            no cálculo do orçamento em si (ver "Custo total" no Resumo Financeiro).
           </p>
-        )}
-      </div>
-
-      <div>
-        <h3 className="mb-2 text-sm font-semibold text-gray-600">Custos operacionais</h3>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {CAMPOS_CUSTOS.map((campo) => (
-            <div key={campo.nome}>
-              <label className="label-field">
-                {campo.label} <span className="text-gray-400">({campo.sufixo})</span>
-              </label>
-              {numero(campo.nome)}
-            </div>
-          ))}
+          {camposGrid(CAMPOS_CONDICOES_COMERCIAIS, "sm:grid-cols-2 lg:grid-cols-4")}
+          <div className="mt-4">
+            <label className="label-field">Forma de pagamento padrão</label>
+            <input
+              type="text"
+              className="input-field"
+              value={valores.forma_pagamento_padrao}
+              onChange={(e) => setValores((prev) => ({ ...prev, forma_pagamento_padrao: e.target.value }))}
+              placeholder="50% de entrada + 50% na conclusão dos trabalhos"
+            />
+          </div>
         </div>
       </div>
 
-      <div>
-        <h3 className="mb-2 text-sm font-semibold text-gray-600">Margem</h3>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {CAMPOS_MARGEM.map((campo) => (
-            <div key={campo.nome}>
-              <label className="label-field">
-                {campo.label} <span className="text-gray-400">({campo.sufixo})</span>
-              </label>
-              {numero(campo.nome)}
-            </div>
-          ))}
-        </div>
-      </div>
+      <div className="space-y-6 border-t border-gray-100 pt-8">
+        <h2 className="text-lg font-semibold">Parâmetros de Quantificação</h2>
 
-      <div>
-        <h3 className="mb-2 text-sm font-semibold text-gray-600">Quantificação de materiais</h3>
-        <p className="mb-3 text-xs text-gray-500">
-          Isolante e chaparia (acabamento) são calculados sobre a área da superfície JÁ ISOLADA — diâmetro do
-          tubo/curva mais 2 espessuras de isolante, não a área do tubo nu (migração 023, mais precisa que só aplicar
-          um acréscimo sobre a metragem de projeto). Rebite/parafuso/arame/silicone continuam proporcionais à
-          metragem de projeto do trecho, como antes — ver{" "}
-          <a href="/novo-orcamento/step-4-precos" className="text-brand hover:underline">
-            Tela 4 do orçamento
-          </a>
-          .
-        </p>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {CAMPOS_QUANTIFICACAO.map((campo) => (
-            <div key={campo.nome}>
-              <label className="label-field">
-                {campo.label} <span className="text-gray-400">({campo.sufixo})</span>
-              </label>
-              {numero(campo.nome)}
-            </div>
-          ))}
+        <div>
+          <h3 className="mb-2 text-sm font-semibold text-gray-600">Quantificação de materiais</h3>
+          <p className="mb-3 text-xs text-gray-500">
+            Isolante e chaparia (acabamento) são calculados sobre a área da superfície JÁ ISOLADA — diâmetro do
+            tubo/curva mais 2 espessuras de isolante, não a área do tubo nu (migração 023, mais precisa que só aplicar
+            um acréscimo sobre a metragem de projeto). Rebite/parafuso/arame/silicone continuam proporcionais à
+            metragem de projeto do trecho, como antes — ver{" "}
+            <a href="/novo-orcamento/step-4-precos" className="text-brand hover:underline">
+              Tela 4 do orçamento
+            </a>
+            .
+          </p>
+          {camposGrid(CAMPOS_QUANTIFICACAO, "sm:grid-cols-2 lg:grid-cols-3")}
         </div>
-      </div>
 
-      <div>
-        <h3 className="mb-2 text-sm font-semibold text-gray-600">Mão de obra automática</h3>
-        <p className="mb-3 text-xs text-gray-500">
-          Substitui o campo manual "Mão de obra (horas)" — a eficiência é o produto de todos os fatores que se
-          aplicam ao trecho (diâmetro da tubulação × curva × altura × fator BR). O diâmetro tem 3 faixas: acima de 6"
-          usa eficiência 1 (sem penalidade, sem campo próprio), entre 3" e 6" usa "Eficiência tubulação 3"–6"", abaixo
-          de 3" usa "Eficiência tubulação &lt; 3"". "Horas úteis por dia" aqui é só o padrão — cada orçamento pode
-          ajustar isso caso a caso na Tela 4, já que nem toda hora paga é produtiva (deslocamento/liberação de acesso
-          no local variam de obra pra obra).
-        </p>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {CAMPOS_MAO_OBRA.map((campo) => (
-            <div key={campo.nome}>
-              <label className="label-field">
-                {campo.label} <span className="text-gray-400">({campo.sufixo})</span>
-              </label>
-              {numero(campo.nome)}
-            </div>
-          ))}
+        <div>
+          <h3 className="mb-2 text-sm font-semibold text-gray-600">Mão de obra automática</h3>
+          <p className="mb-3 text-xs text-gray-500">
+            Substitui o campo manual "Mão de obra (horas)" — a eficiência é o produto de todos os fatores que se
+            aplicam ao trecho (diâmetro da tubulação × curva × altura × fator BR). O diâmetro tem 3 faixas: acima de
+            6" usa eficiência 1 (sem penalidade, sem campo próprio), entre 3" e 6" usa "Eficiência tubulação 3"–6"",
+            abaixo de 3" usa "Eficiência tubulação &lt; 3"". "Horas úteis por dia" aqui é só o padrão — cada
+            orçamento pode ajustar isso caso a caso na Tela 4, já que nem toda hora paga é produtiva
+            (deslocamento/liberação de acesso no local variam de obra pra obra).
+          </p>
+          {camposGrid(CAMPOS_MAO_OBRA, "sm:grid-cols-2 lg:grid-cols-3")}
         </div>
-      </div>
 
-      <div>
-        <h3 className="mb-2 text-sm font-semibold text-gray-600">Propostas — condições comerciais e projeções</h3>
-        <p className="mb-3 text-xs text-gray-500">
-          Exibidos nas Propostas Técnica/Comercial (Condições Comerciais, Análise de Payback e Benefícios
-          Ambientais). O reajuste tarifário é uma estimativa de mercado usada só na projeção de 10 anos — não altera
-          o cálculo do orçamento em si.
-        </p>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          {CAMPOS_PROPOSTA.map((campo) => (
-            <div key={campo.nome}>
-              <label className="label-field">
-                {campo.label} <span className="text-gray-400">({campo.sufixo})</span>
-              </label>
-              {numero(campo.nome)}
-            </div>
-          ))}
-        </div>
-        <div className="mt-4">
-          <label className="label-field">Forma de pagamento padrão</label>
-          <input
-            type="text"
-            className="input-field"
-            value={valores.forma_pagamento_padrao}
-            onChange={(e) => setValores((prev) => ({ ...prev, forma_pagamento_padrao: e.target.value }))}
-            placeholder="50% de entrada + 50% na conclusão dos trabalhos"
-          />
+        <div>
+          <h3 className="mb-2 text-sm font-semibold text-gray-600">Projeções</h3>
+          <p className="mb-3 text-xs text-gray-500">
+            Usadas só na Proposta Comercial — reajuste tarifário é uma estimativa de mercado pra projeção de economia
+            de 10 anos; CO₂ absorvido converte o CO₂ evitado em "árvores plantadas" nos Benefícios Ambientais. Nenhum
+            dos dois altera o cálculo do orçamento em si.
+          </p>
+          {camposGrid(CAMPOS_PROJECOES, "sm:grid-cols-2")}
         </div>
       </div>
 

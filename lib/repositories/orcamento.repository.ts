@@ -31,14 +31,31 @@ export class OrcamentoRepository extends BaseRepository<Orcamento> {
     return (data ?? []) as unknown as Orcamento[];
   }
 
-  /** Próximo número sequencial de orçamento no formato `ORC-<ano>-<seq>`. Não é
-   * atômico (mesma limitação do código original) — aceitável no volume atual de
-   * uso por um único operador; se o cadastro passar a ser concorrente, mover
-   * para uma sequence/função no Postgres. */
+  /** Próximo número sequencial de orçamento no formato `ORC-<ano>-<seq>`.
+   *
+   * Bug relatado: a versão anterior usava `COUNT(*)` de todas as linhas + 1
+   * — ao EXCLUIR um orçamento, a contagem cai, e o próximo número gerado
+   * colidia com um `numero` que já existia (ex.: criou 0001..0006, excluiu
+   * 0002 e 0006 → contagem vira 4 → "próximo" calculado era 0005, que já
+   * existe → erro de valor duplicado ao salvar). Corrigido pra usar o MAIOR
+   * sequencial já usado (extraído do `numero` do orçamento mais recente,
+   * `ORDER BY id DESC LIMIT 1` — `numero` só cresce com a criação, nunca é
+   * editado depois, então o maior `id` restante sempre tem o maior
+   * sequencial restante, não importa o que foi excluído no meio). Isso dá
+   * exatamente o comportamento pedido: excluir um do MEIO não afeta o
+   * próximo número (continua a sequência normal); excluir o ÚLTIMO libera
+   * esse número de novo pro próximo orçamento criado.
+   *
+   * Não é atômico (mesma limitação do código original) — aceitável no
+   * volume atual de uso por um único operador; se o cadastro passar a ser
+   * concorrente, mover para uma sequence/função no Postgres. */
   async proximoNumero(): Promise<string> {
-    const { count, error } = await this.queryBuilder().select("id", { count: "exact", head: true });
+    const { data, error } = await this.queryBuilder().select("numero").order("id", { ascending: false }).limit(1);
     if (error) throw error;
-    return `ORC-${new Date().getFullYear()}-${String((count ?? 0) + 1).padStart(4, "0")}`;
+    const ultimoNumero = data?.[0]?.numero as string | undefined;
+    const ultimoSequencial = ultimoNumero ? Number(ultimoNumero.split("-").pop()) : 0;
+    const proximoSequencial = (Number.isFinite(ultimoSequencial) ? ultimoSequencial : 0) + 1;
+    return `ORC-${new Date().getFullYear()}-${String(proximoSequencial).padStart(4, "0")}`;
   }
 
   async criarComItens(

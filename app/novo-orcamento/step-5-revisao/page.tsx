@@ -313,20 +313,23 @@ export default function Step5RevisaoPage() {
               não só horas trabalhadas, então o nome precisa refletir isso.
               O campo interno continua `valor_mao_obra` (só o rótulo mudou). */}
           <Linha label="Execução" valor={resultadoOrcamento.valor_mao_obra} />
-          {/* Ordem pedida explicitamente (pedido: "só mexer visualmente") —
-              Hospedagem não foi mencionada na lista, mantida no fim antes do
-              Custo total. */}
+          {/* Ordem pedida explicitamente — mesma ordem da Tela 4 (Custos
+              Operacionais Adicionais). */}
           <Linha label="Alimentação" valor={resultadoOrcamento.valor_alimentacao} />
           <Linha label="Deslocamento" valor={resultadoOrcamento.valor_deslocamento} />
           <Linha label="Aluguel de carro" valor={resultadoOrcamento.valor_aluguel_carro} />
-          <Linha label="Frete" valor={resultadoOrcamento.valor_frete} />
           <Linha label="Hospedagem" valor={resultadoOrcamento.valor_hospedagem} />
+          <Linha label="Frete" valor={resultadoOrcamento.valor_frete} />
           <Linha label="Custo total" valor={resultadoOrcamento.subtotal} destaque />
           {resultadoOrcamento.detalhamento_impostos.map((imposto) => (
             <Linha key={imposto.nome} label={`${imposto.nome} (${imposto.percentual.toFixed(2)}%)`} valor={imposto.valor} />
           ))}
           <Linha label={`Margem de lucro (${resultadoOrcamento.percentual_margem.toFixed(2)}%)`} valor={resultadoOrcamento.margem_lucro} />
-          <Linha label="Desconto" valor={-resultadoOrcamento.valor_desconto} />
+          {/* Linha "Desconto" removida (pedido explícito) — nesta tela o
+              desconto é sempre R$0,00, já que o campo "Desconto extra" saiu
+              da Tela 4 numa rodada anterior; um desconto real só existe
+              depois, aplicado em Editar Orçamento (que continua mostrando
+              essa linha normalmente). */}
           <div className="flex justify-between border-t border-gray-200 pt-2 text-lg font-bold">
             <span>TOTAL ORÇAMENTO</span>
             <span className="text-accent">{formatarMoeda(resultadoOrcamento.valor_final)}</span>
