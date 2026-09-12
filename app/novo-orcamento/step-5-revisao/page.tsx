@@ -250,7 +250,7 @@ export default function Step5RevisaoPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-1 text-sm sm:grid-cols-2">
+          <div className="space-y-1 text-sm">
             <p>Material: {item.materialNome}</p>
             {item.acabamentoNome && <p>Acabamento: {item.acabamentoNome}</p>}
             <p>Metragem: {formatarNumero(item.precificacao.metragem_m2, 2)} m²</p>
@@ -313,11 +313,14 @@ export default function Step5RevisaoPage() {
               não só horas trabalhadas, então o nome precisa refletir isso.
               O campo interno continua `valor_mao_obra` (só o rótulo mudou). */}
           <Linha label="Execução" valor={resultadoOrcamento.valor_mao_obra} />
-          <Linha label="Deslocamento" valor={resultadoOrcamento.valor_deslocamento} />
-          <Linha label="Hospedagem" valor={resultadoOrcamento.valor_hospedagem} />
-          <Linha label="Frete" valor={resultadoOrcamento.valor_frete} />
-          <Linha label="Aluguel de carro" valor={resultadoOrcamento.valor_aluguel_carro} />
+          {/* Ordem pedida explicitamente (pedido: "só mexer visualmente") —
+              Hospedagem não foi mencionada na lista, mantida no fim antes do
+              Custo total. */}
           <Linha label="Alimentação" valor={resultadoOrcamento.valor_alimentacao} />
+          <Linha label="Deslocamento" valor={resultadoOrcamento.valor_deslocamento} />
+          <Linha label="Aluguel de carro" valor={resultadoOrcamento.valor_aluguel_carro} />
+          <Linha label="Frete" valor={resultadoOrcamento.valor_frete} />
+          <Linha label="Hospedagem" valor={resultadoOrcamento.valor_hospedagem} />
           <Linha label="Custo total" valor={resultadoOrcamento.subtotal} destaque />
           {resultadoOrcamento.detalhamento_impostos.map((imposto) => (
             <Linha key={imposto.nome} label={`${imposto.nome} (${imposto.percentual.toFixed(2)}%)`} valor={imposto.valor} />

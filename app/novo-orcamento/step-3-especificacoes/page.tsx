@@ -61,7 +61,12 @@ export default function Step3EspecificacoesPage() {
     areaM2 > 0 &&
     (!isQuente || materialCustomizado || (!!especificacoes.espessura_mm && especificacoes.espessura_mm > 0)) &&
     (isQuente || (especificacoes.umidade_relativa !== null && especificacoes.umidade_relativa > 0)) &&
-    (!isQuente || materialCustomizado || (!!especificacoes.custo_combustivel && especificacoes.custo_combustivel > 0));
+    // Velocidade do vento: 0 (calmaria) é um valor válido, então só `null`
+    // (campo apagado) bloqueia — mesmo raciocínio de temperatura_quente/ambiente.
+    (isQuente || especificacoes.velocidade_vento_ms !== null) &&
+    (!isQuente || materialCustomizado || (!!especificacoes.custo_combustivel && especificacoes.custo_combustivel > 0)) &&
+    (!isQuente || materialCustomizado || (especificacoes.horas_operacao_dia !== null && especificacoes.horas_operacao_dia > 0)) &&
+    (!isQuente || materialCustomizado || (especificacoes.dias_operacao_semana !== null && especificacoes.dias_operacao_semana > 0));
 
   async function calcularEContinuar() {
     setErro(null);
@@ -107,8 +112,9 @@ export default function Step3EspecificacoesPage() {
         geometria: geom.geometria,
         diametro_mm: geom.diametro_mm ?? undefined,
         // Velocidade do vento: sempre 0 no quente (removida do formulário, ver
-        // decisão no commit); no frio usa o valor editável do formulário.
-        velocidade_vento_ms: isQuente ? 0 : especificacoes.velocidade_vento_ms,
+        // decisão no commit); no frio usa o valor editável do formulário —
+        // `valido` já garante que não é null antes de habilitar o botão.
+        velocidade_vento_ms: isQuente ? 0 : especificacoes.velocidade_vento_ms ?? 0,
         espessuras_mm: isQuente ? [especificacoes.espessura_mm ?? 0] : [1],
         // `valido` já garante que essas 3 não são null antes de habilitar o botão.
         temperatura_quente: especificacoes.temperatura_quente ?? 0,
@@ -118,8 +124,10 @@ export default function Step3EspecificacoesPage() {
         combustivel: especificacoes.combustivel,
         custo_combustivel: especificacoes.custo_combustivel ?? undefined,
         area_m2: areaM2,
-        horas_operacao_dia: especificacoes.horas_operacao_dia,
-        dias_operacao_semana: especificacoes.dias_operacao_semana,
+        // `valido` já garante que essas 2 não são null antes de habilitar o botão
+        // (quando exigidas — quente sem material customizado).
+        horas_operacao_dia: especificacoes.horas_operacao_dia ?? 0,
+        dias_operacao_semana: especificacoes.dias_operacao_semana ?? 0,
       };
 
       const resposta = await fetch("/api/calcular-termico", {

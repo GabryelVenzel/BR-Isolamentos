@@ -58,13 +58,19 @@ export interface WizardEspecificacoes {
   temperatura_quente: number | null;
   temperatura_ambiente: number | null;
   umidade_relativa: number | null;
-  /** Sempre 0 no quente (removido do formulário, por pedido); editável no frio. */
-  velocidade_vento_ms: number;
+  /** Sempre 0 no quente (removido do formulário, por pedido); editável no
+   * frio. Nullable pelo mesmo motivo de `temperatura_quente`/`ambiente` —
+   * "campo vazio, não 0" — mesmo 0 (calmaria) sendo um valor fisicamente
+   * válido, tem que dar pra distinguir "ainda não digitou nada". */
+  velocidade_vento_ms: number | null;
   calcular_financeiro: boolean;
   combustivel: CombustivelTipo;
   custo_combustivel: number | null;
-  horas_operacao_dia: number;
-  dias_operacao_semana: number;
+  /** Nullable pelo mesmo motivo acima — "campo vazio, não 0" (pedido
+   * explícito: apagar tudo deixa a caixa vazia, o sistema bloqueia o avanço
+   * em vez de aceitar 0 silenciosamente). */
+  horas_operacao_dia: number | null;
+  dias_operacao_semana: number | null;
   /** Override da metragem total do trecho (soma do Escopo) — checkbox "editar metragem". */
   metragem_editada: boolean;
   metragem_manual_m2: number | null;
@@ -159,8 +165,16 @@ const itemAtualInicial: WizardEspecificacoes = {
   trabalho_altura: false,
   espessura_mm: null,
   temperatura_quente: null,
-  temperatura_ambiente: null,
-  umidade_relativa: null,
+  // Pré-preenchimento pra facilitar (pedido explícito) — mesmo campo serve
+  // pro Quente ("Temperatura ambiente") e pro Frio ("Temperatura ambiente",
+  // primeiro campo do formulário nesse modo), então um valor só cobre os
+  // dois casos pedidos. Continua podendo ser apagado — vira `null`, e o
+  // sistema bloqueia o avanço (ver `valido` em step-3-especificacoes).
+  temperatura_ambiente: 30,
+  // Só usado/validado no Frio (ver FormEspecificacoes.tsx) — pré-preenchido
+  // pra facilitar, mas o campo continua no formulário mesmo no Quente
+  // (ignorado ali), sem efeito nenhum.
+  umidade_relativa: 70,
   velocidade_vento_ms: 0,
   calcular_financeiro: true,
   combustivel: "eletricidade",

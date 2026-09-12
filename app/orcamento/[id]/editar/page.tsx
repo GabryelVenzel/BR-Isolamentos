@@ -48,6 +48,23 @@ export default function EditarOrcamentoPage() {
     return { ...atual, preco_cheio, valor_final };
   }
 
+  // Pedido explícito: editar a margem em % (igual a proposta mostra), não em
+  // R$ direto. A base da conversão %→R$ é o `valor_final` ORIGINAL do
+  // orçamento (o que já estava salvo antes de abrir esta tela) — evita um
+  // cálculo circular, já que o próprio valor final muda conforme a margem
+  // muda. Mesma fórmula de `percentual_margem` em
+  // lib/orcamento.ts#calcularOrcamento (margem_lucro ÷ valor_final × 100).
+  // Capturado numa variável própria (não `orcamento.valor_final` direto) pra
+  // o TypeScript não perder a garantia de "não nulo" dentro da função abaixo.
+  const valorFinalOriginal = orcamento.valor_final;
+  const margemPercentual = valorFinalOriginal > 0 ? (orcamento.margem_lucro / valorFinalOriginal) * 100 : 0;
+
+  function alterarMargemPercentual(valorDigitado: string) {
+    const percentual = valorDigitado === "" ? 0 : Number(valorDigitado);
+    const novaMargem = Number(((percentual / 100) * valorFinalOriginal).toFixed(2));
+    atualizarCampo("margem_lucro", novaMargem);
+  }
+
   async function salvar() {
     if (!orcamento) return;
     setErro(null);
@@ -138,14 +155,15 @@ export default function EditarOrcamentoPage() {
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="label-field">Margem de lucro (R$)</label>
+            <label className="label-field">Margem de lucro (%)</label>
             <input
               type="number"
               step="0.01"
               className="input-field"
-              value={orcamento.margem_lucro}
-              onChange={(e) => atualizarCampo("margem_lucro", Number(e.target.value))}
+              value={Math.round(margemPercentual * 100) / 100}
+              onChange={(e) => alterarMargemPercentual(e.target.value)}
             />
+            <p className="mt-1 text-xs text-gray-400">Equivale a {formatarMoeda(orcamento.margem_lucro)}.</p>
           </div>
           <div>
             <label className="label-field">Desconto (R$)</label>

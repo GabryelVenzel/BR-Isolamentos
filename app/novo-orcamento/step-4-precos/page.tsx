@@ -629,6 +629,33 @@ export default function Step4PrecosPage() {
                 {formatarNumero(base.eficiencia_global * 100, 1)}%
                 {especificacoes.trabalho_altura && " (inclui trabalho em altura)"}. Ajustável no lápis, se precisar.
               </p>
+
+              {/* Horas úteis por dia deste orçamento (pedido explícito): as
+                  "horas úteis" de Configurar Preços são as horas TOTAIS pagas
+                  por dia — deslocamento/liberação de acesso no local podem
+                  reduzir quantas dessas horas são de fato produtivas, o que
+                  aumenta o prazo de execução real. Ajustável aqui, caso a
+                  caso, sem mexer no padrão global. Só afeta o prazo de
+                  execução exibido na Proposta, nunca o valor financeiro —
+                  fica na parte de Mão de Obra (pedido explícito), acima do
+                  valor calculado. */}
+              <div>
+                <label className="label-field">Horas úteis de serviço por dia (este orçamento)</label>
+                <input
+                  type="number"
+                  step="0.1"
+                  className="input-field max-w-xs"
+                  placeholder={config ? `Padrão: ${formatarNumero(config.horas_uteis_dia, 1)}h` : "—"}
+                  value={horasUteisDiaOverride ?? ""}
+                  onChange={(e) => setHorasUteisDiaOverride(e.target.value ? Number(e.target.value) : null)}
+                />
+                <p className="mt-1 text-xs text-gray-400">
+                  Das horas pagas por dia, quantas são realmente produtivas depois de descontar deslocamento e
+                  liberação de acesso no local — deixe em branco para usar o padrão de Configurar Preços. Só afeta o
+                  prazo de execução estimado na Proposta, não o valor do orçamento.
+                </p>
+              </div>
+
               {estaRemovida("maoObra") ? (
                 <p className="text-sm text-gray-400">
                   Mão de obra excluída deste trecho —{" "}
@@ -791,12 +818,30 @@ export default function Step4PrecosPage() {
             <p className="text-xs text-gray-400">Valem para o orçamento inteiro (todos os trechos juntos).</p>
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
               <div>
+                <label className="label-field">Alimentação (quantidade)</label>
+                <input
+                  type="number"
+                  className="input-field"
+                  value={custosOperacionais.quantidade_alimentacao}
+                  onChange={(e) => setCustosOperacionais({ quantidade_alimentacao: Number(e.target.value) })}
+                />
+              </div>
+              <div>
                 <label className="label-field">Deslocamento (km)</label>
                 <input
                   type="number"
                   className="input-field"
                   value={custosOperacionais.km_deslocamento}
                   onChange={(e) => setCustosOperacionais({ km_deslocamento: Number(e.target.value) })}
+                />
+              </div>
+              <div>
+                <label className="label-field">Aluguel de carro (diárias)</label>
+                <input
+                  type="number"
+                  className="input-field"
+                  value={custosOperacionais.diarias_aluguel_carro}
+                  onChange={(e) => setCustosOperacionais({ diarias_aluguel_carro: Number(e.target.value) })}
                 />
               </div>
               <div>
@@ -818,24 +863,6 @@ export default function Step4PrecosPage() {
                   onChange={(e) => setCustosOperacionais({ toneladas_frete: Number(e.target.value) })}
                 />
               </div>
-              <div>
-                <label className="label-field">Aluguel de carro (diárias)</label>
-                <input
-                  type="number"
-                  className="input-field"
-                  value={custosOperacionais.diarias_aluguel_carro}
-                  onChange={(e) => setCustosOperacionais({ diarias_aluguel_carro: Number(e.target.value) })}
-                />
-              </div>
-              <div>
-                <label className="label-field">Alimentação (quantidade)</label>
-                <input
-                  type="number"
-                  className="input-field"
-                  value={custosOperacionais.quantidade_alimentacao}
-                  onChange={(e) => setCustosOperacionais({ quantidade_alimentacao: Number(e.target.value) })}
-                />
-              </div>
             </div>
             {/* Aluguel de carro/Alimentação usam o preço por diária definido
                 em Configurar Preços — aqui só a quantidade. */}
@@ -846,30 +873,6 @@ export default function Step4PrecosPage() {
               </a>
               .
             </p>
-
-            {/* Horas úteis por dia deste orçamento (pedido explícito): as
-                "horas úteis" de Configurar Preços são as horas TOTAIS pagas
-                por dia — deslocamento/liberação de acesso no local podem
-                reduzir quantas dessas horas são de fato produtivas, o que
-                aumenta o prazo de execução real. Ajustável aqui, caso a
-                caso, sem mexer no padrão global. Só afeta o prazo de
-                execução exibido na Proposta, nunca o valor financeiro. */}
-            <div className="border-t border-gray-100 pt-4">
-              <label className="label-field">Horas úteis de serviço por dia (este orçamento)</label>
-              <input
-                type="number"
-                step="0.1"
-                className="input-field max-w-xs"
-                placeholder={config ? `Padrão: ${formatarNumero(config.horas_uteis_dia, 1)}h` : "—"}
-                value={horasUteisDiaOverride ?? ""}
-                onChange={(e) => setHorasUteisDiaOverride(e.target.value ? Number(e.target.value) : null)}
-              />
-              <p className="mt-1 text-xs text-gray-400">
-                Das horas pagas por dia, quantas são realmente produtivas depois de descontar deslocamento e
-                liberação de acesso no local — deixe em branco para usar o padrão de Configurar Preços. Só afeta o
-                prazo de execução estimado na Proposta, não o valor do orçamento.
-              </p>
-            </div>
           </div>
 
           <div className="card flex items-center justify-between border-t-4 border-t-accent">

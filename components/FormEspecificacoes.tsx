@@ -258,8 +258,8 @@ export default function FormEspecificacoes() {
               type="number"
               step="0.1"
               className="input-field"
-              value={especificacoes.velocidade_vento_ms}
-              onChange={(e) => setEspecificacoes({ velocidade_vento_ms: Number(e.target.value) })}
+              value={especificacoes.velocidade_vento_ms ?? ""}
+              onChange={(e) => setEspecificacoes({ velocidade_vento_ms: e.target.value === "" ? null : Number(e.target.value) })}
             />
           </div>
         )}
@@ -316,8 +316,8 @@ export default function FormEspecificacoes() {
               <input
                 type="number"
                 className="input-field"
-                value={especificacoes.horas_operacao_dia}
-                onChange={(e) => setEspecificacoes({ horas_operacao_dia: Number(e.target.value) })}
+                value={especificacoes.horas_operacao_dia ?? ""}
+                onChange={(e) => setEspecificacoes({ horas_operacao_dia: e.target.value === "" ? null : Number(e.target.value) })}
               />
             </div>
             <div>
@@ -325,8 +325,8 @@ export default function FormEspecificacoes() {
               <input
                 type="number"
                 className="input-field"
-                value={especificacoes.dias_operacao_semana}
-                onChange={(e) => setEspecificacoes({ dias_operacao_semana: Number(e.target.value) })}
+                value={especificacoes.dias_operacao_semana ?? ""}
+                onChange={(e) => setEspecificacoes({ dias_operacao_semana: e.target.value === "" ? null : Number(e.target.value) })}
               />
             </div>
           </div>
