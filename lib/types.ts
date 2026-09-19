@@ -335,11 +335,13 @@ export interface ConfigEmpresa {
   valor_hora_mao_obra: number;
   valor_km_deslocamento: number;
   valor_noite_hospedagem: number;
-  /** Não é mais editável na tela Configurar Preços (pedido explícito,
-   * migração 032 — "o frete removemos dessa tela") — a Tela 4 do orçamento
-   * continua com o campo "Frete (toneladas)" e continuando usando este
-   * valor no cálculo, só não dá mais pra ajustar a taxa por essa tela. A
-   * coluna permanece no schema (nunca dropar coluna com dado real). */
+  /** @deprecated Sem uso — o frete não tem mais preço configurável por
+   * tonelada (removido de Configurar Preços na migração 032; e agora o
+   * frete é digitado direto em R$ na Tela 4 do orçamento, ver
+   * `CalcularOrcamentoInput.valor_frete`). Bug relatado: este valor antigo,
+   * já não editável, continuava multiplicando o frete digitado e dava um
+   * total absurdo. A coluna permanece no schema (nunca dropar coluna com
+   * dado real), só não é lida/escrita por nenhuma tela ou cálculo. */
   valor_frete_por_tonelada: number;
   /** Aluguel de carro no local da obra, cobrado por diária (migração 032). */
   valor_diaria_aluguel_carro: number;
@@ -560,7 +562,9 @@ export interface CalcularOrcamentoInput {
   valor_mao_obra_direto?: number;
   km_deslocamento: number;
   noites_hospedagem: number;
-  toneladas_frete: number;
+  /** Frete em R$, digitado direto na Tela 4 (não mais toneladas × preço
+   * configurado) — entra no custo total como está. */
+  valor_frete: number;
   /** Migração 032. */
   diarias_aluguel_carro: number;
   /** Migração 032. */

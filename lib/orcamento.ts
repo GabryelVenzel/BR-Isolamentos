@@ -99,7 +99,9 @@ export function calcularOrcamento(input: CalcularOrcamentoInput): CalcularOrcame
   const valorMaoObra = input.valor_mao_obra_direto !== undefined ? numero(input.valor_mao_obra_direto) : numero(input.horas_mao_obra) * config.valor_hora_mao_obra;
   const valorDeslocamento = numero(input.km_deslocamento) * config.valor_km_deslocamento;
   const valorHospedagem = numero(input.noites_hospedagem) * config.valor_noite_hospedagem;
-  const valorFrete = numero(input.toneladas_frete) * config.valor_frete_por_tonelada;
+  // Frete digitado direto em R$ (sem multiplicar por nenhum preço
+  // configurado — o preço por tonelada saiu de Configurar Preços).
+  const valorFrete = numero(input.valor_frete);
   // Migração 032 — aluguel de carro/alimentação por diária, mesmo padrão de
   // deslocamento/hospedagem/frete (quantidade × preço configurado).
   const valorAluguelCarro = numero(input.diarias_aluguel_carro) * config.valor_diaria_aluguel_carro;

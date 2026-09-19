@@ -94,7 +94,9 @@ export interface WizardItem {
 export interface WizardCustosOperacionais {
   km_deslocamento: number;
   noites_hospedagem: number;
-  toneladas_frete: number;
+  /** Frete em R$ (digitado direto — não mais toneladas × preço). Um
+   * `toneladas_frete` de sessões antigas salvo no navegador fica ignorado. */
+  valor_frete: number;
   /** Migração 032. */
   diarias_aluguel_carro: number;
   /** Migração 032. */
@@ -188,7 +190,7 @@ const itemAtualInicial: WizardEspecificacoes = {
 const custosOperacionaisIniciais: WizardCustosOperacionais = {
   km_deslocamento: 0,
   noites_hospedagem: 0,
-  toneladas_frete: 0,
+  valor_frete: 0,
   diarias_aluguel_carro: 0,
   quantidade_alimentacao: 0,
   desconto_percentual_extra: null,

@@ -20,6 +20,7 @@ export type { FaixaDiametroTubulacao } from "./escopo";
 export { acabamentoFisicoMaisProximo, materialFisicoMaisProximo } from "./materialFisico";
 export { comporCamadasIsolante, espessuraTotalComposicao } from "./composicaoIsolante";
 export type { CamadaIsolante } from "./composicaoIsolante";
+export { precoAcessorioPorUnidade } from "./precoAcessorio";
 export { alocarValorFinalPorTrecho, precificarTrecho } from "./precificarTrecho";
 export type { PrecificacaoTrecho, PrecosAcessorios, TrechoParaAlocacao } from "./precificarTrecho";
 export { quantificarMateriais } from "./quantificarMateriais";

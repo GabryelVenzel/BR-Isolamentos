@@ -3,15 +3,13 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { horasMaoObraTotal, useWizardStore } from "@/lib/store";
-import { comporCamadasIsolante, precificarTrecho, somarMetragemEscopo } from "@/lib/usecases/orcamento";
+import { comporCamadasIsolante, precificarTrecho, precoAcessorioPorUnidade, somarMetragemEscopo } from "@/lib/usecases/orcamento";
 import { formatarMoeda, formatarNumero } from "@/lib/format";
 import type { CalcularOrcamentoInput, ConfigEmpresa, ImpostoConfig, PrecoConfig } from "@/lib/types";
 
-/** Preço de um acessório do catálogo (migrações 016/017) pela sua
- * `tipo_material` — 0 se ainda não cadastrado em Configurar Preços. */
-function precoAcessorio(precos: PrecoConfig[], tipo: string): number {
-  return precos.find((p) => p.tipo_material === tipo)?.preco_unitario ?? 0;
-}
+/** Preço de um acessório por unidade de quantidade — Rebite/Parafuso vêm do
+ * catálogo "por centena" e são convertidos (ver precoAcessorio.ts). */
+const precoAcessorio = precoAcessorioPorUnidade;
 
 type ChaveLinha = "isolante" | "acabamento" | "rebite" | "parafuso" | "arame" | "silicone" | "maoObra";
 
@@ -445,7 +443,7 @@ export default function Step4PrecosPage() {
         horas_mao_obra: horasMaoObraTotal(todosOsItens),
         km_deslocamento: custosOperacionais.km_deslocamento,
         noites_hospedagem: custosOperacionais.noites_hospedagem,
-        toneladas_frete: custosOperacionais.toneladas_frete,
+        valor_frete: custosOperacionais.valor_frete,
         diarias_aluguel_carro: custosOperacionais.diarias_aluguel_carro,
         quantidade_alimentacao: custosOperacionais.quantidade_alimentacao,
         desconto_percentual_extra: custosOperacionais.desconto_percentual_extra ?? undefined,
@@ -854,13 +852,13 @@ export default function Step4PrecosPage() {
                 />
               </div>
               <div>
-                <label className="label-field">Frete (toneladas)</label>
+                <label className="label-field">Frete (R$)</label>
                 <input
                   type="number"
                   step="0.01"
                   className="input-field"
-                  value={custosOperacionais.toneladas_frete}
-                  onChange={(e) => setCustosOperacionais({ toneladas_frete: Number(e.target.value) })}
+                  value={custosOperacionais.valor_frete ?? 0}
+                  onChange={(e) => setCustosOperacionais({ valor_frete: Number(e.target.value) })}
                 />
               </div>
             </div>

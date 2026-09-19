@@ -7,9 +7,9 @@ interface Props {
   config: ConfigEmpresa;
 }
 
-// Frete removido desta lista (pedido explícito, migração 032) — a Tela 4 do
-// orçamento continua com o campo "Frete (toneladas)" e usando
-// `valor_frete_por_tonelada` no cálculo, só não é mais editável por aqui.
+// Frete removido desta lista (pedido explícito, migração 032) — na Tela 4 do
+// orçamento o frete é digitado direto em R$ (não depende de nenhum preço
+// configurado aqui).
 const CAMPOS_CUSTOS: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo: string }> = [
   { nome: "valor_hora_mao_obra", label: "Mão de obra", sufixo: "R$/hora" },
   { nome: "valor_km_deslocamento", label: "Deslocamento", sufixo: "R$/km" },

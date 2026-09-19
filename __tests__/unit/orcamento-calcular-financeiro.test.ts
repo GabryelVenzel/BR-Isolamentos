@@ -61,7 +61,7 @@ function input(overrides: Partial<CalcularOrcamentoInput> = {}): CalcularOrcamen
     horas_mao_obra: 10,
     km_deslocamento: 0,
     noites_hospedagem: 0,
-    toneladas_frete: 0,
+    valor_frete: 0,
     diarias_aluguel_carro: 0,
     quantidade_alimentacao: 0,
     ...overrides,
@@ -92,14 +92,14 @@ describe("calcularOrcamento — blindagem contra campos numéricos ausentes (bug
     expect(Number.isNaN(resultado.valor_final)).toBe(false);
   });
 
-  it("horas_mao_obra/km_deslocamento/noites_hospedagem/toneladas_frete ausentes também caem pra 0, não NaN", () => {
+  it("horas_mao_obra/km_deslocamento/noites_hospedagem/valor_frete ausentes também caem pra 0, não NaN", () => {
     const entrada = JSON.parse(
       JSON.stringify({
         ...input({ valor_materiais_direto: 500 }),
         horas_mao_obra: undefined,
         km_deslocamento: undefined,
         noites_hospedagem: undefined,
-        toneladas_frete: undefined,
+        valor_frete: undefined,
         diarias_aluguel_carro: undefined,
         quantidade_alimentacao: undefined,
       })
@@ -113,7 +113,7 @@ describe("calcularOrcamento — blindagem contra campos numéricos ausentes (bug
 describe("calcularOrcamento — markup divisor", () => {
   it("custo total = materiais + mão de obra (horas × valor/hora) + deslocamento + hospedagem + frete", () => {
     const resultado = calcularOrcamento(
-      input({ valor_materiais_direto: 1000, horas_mao_obra: 10, km_deslocamento: 100, noites_hospedagem: 1, toneladas_frete: 0 })
+      input({ valor_materiais_direto: 1000, horas_mao_obra: 10, km_deslocamento: 100, noites_hospedagem: 1, valor_frete: 0 })
     );
     // mão de obra = 10h × R$100 = R$1000; deslocamento = 100km × R$2 = R$200; hospedagem = 1 × R$150
     expect(resultado.valor_mao_obra).toBe(1000);
@@ -139,6 +139,15 @@ describe("calcularOrcamento — markup divisor", () => {
     expect(resultado.valor_aluguel_carro).toBe(360); // 3 × R$120
     expect(resultado.valor_alimentacao).toBe(200); // 5 × R$40
     expect(resultado.subtotal).toBe(560);
+  });
+
+  it("frete é digitado direto em R$ — não multiplica por nenhum preço configurado (bug relatado: total absurdo)", () => {
+    // `valor_frete_por_tonelada` = 50 no helper `config()` (valor antigo,
+    // que já não é mais editável em Configurar Preços) — antes o frete
+    // digitado era multiplicado por ele.
+    const resultado = calcularOrcamento(input({ valor_materiais_direto: 0, horas_mao_obra: 0, valor_frete: 300 }));
+    expect(resultado.valor_frete).toBe(300);
+    expect(resultado.subtotal).toBe(300);
   });
 
   it("bloqueia com OrcamentoConfigError quando impostos + margem somam 100% ou mais", () => {

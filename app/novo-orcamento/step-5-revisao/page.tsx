@@ -68,7 +68,7 @@ export default function Step5RevisaoPage() {
           horas_mao_obra: horasMaoObraTotal(itensAtuais),
           km_deslocamento: custos.km_deslocamento,
           noites_hospedagem: custos.noites_hospedagem,
-          toneladas_frete: custos.toneladas_frete,
+          valor_frete: custos.valor_frete,
           diarias_aluguel_carro: custos.diarias_aluguel_carro,
           quantidade_alimentacao: custos.quantidade_alimentacao,
           desconto_percentual_extra: custos.desconto_percentual_extra ?? undefined,
