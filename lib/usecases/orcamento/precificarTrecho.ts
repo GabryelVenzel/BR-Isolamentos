@@ -22,8 +22,8 @@
 // quantificarMateriais.ts / calcularMaoObraAutomatica.ts.
 
 import type { ItemEscopo, LinhaDetalhamentoMaterial } from "../../types";
-import { faixaDiametroTubulacao, somarMetragemEscopo, temCurvasNoEscopo } from "./escopo";
-import { calcularMaoObraAutomatica, type ParametrosMaoObra } from "./calcularMaoObraAutomatica";
+import { faixaDiametroTubulacao, metragemFinalItem, somarMetragemEscopo } from "./escopo";
+import { calcularMaoObraPorItens, type ParametrosMaoObra } from "./calcularMaoObraAutomatica";
 import { quantificarMateriais, type ParametrosQuantificacao } from "./quantificarMateriais";
 
 export interface PrecosAcessorios {
@@ -83,13 +83,15 @@ export function precificarTrecho(input: {
 
   const quantidades = quantificarMateriais(input.escopoItens, input.espessuraMm, input.parametrosQuantificacao);
 
-  const maoObra = calcularMaoObraAutomatica(
-    metragem,
-    {
-      faixaDiametro: faixaDiametroTubulacao(input.escopoItens),
-      temCurvas: temCurvasNoEscopo(input.escopoItens),
-      trabalhoAltura: input.trabalhoAltura,
-    },
+  // Item a item (bug relatado: 100 m de reta + 2 curvas dobrava o tempo do
+  // trecho todo) — cada item do Escopo com a eficiência dele, horas somadas.
+  const maoObra = calcularMaoObraPorItens(
+    input.escopoItens.map((item) => ({
+      metragemM2: metragemFinalItem(item),
+      faixaDiametro: faixaDiametroTubulacao([item]),
+      ehCurva: item.tipo === "curva",
+    })),
+    input.trabalhoAltura,
     input.parametrosMaoObra
   );
 

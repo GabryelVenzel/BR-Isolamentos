@@ -623,7 +623,7 @@ export default function Step4PrecosPage() {
             <div className="card space-y-2">
               <h2 className="text-lg font-semibold">Mão de obra</h2>
               <p className="text-xs text-gray-400">
-                Automática: {formatarNumero(metragem, 2)} m² ÷ {formatarNumero(config.m2_por_hora_dupla, 2)} m²/h, eficiência{" "}
+                Automática: {formatarNumero(metragem, 2)} m² ÷ {formatarNumero(config.m2_por_hora_dupla, 2)} m²/h, eficiência média{" "}
                 {formatarNumero(base.eficiencia_global * 100, 1)}%
                 {especificacoes.trabalho_altura && " (inclui trabalho em altura)"}. Ajustável no lápis, se precisar.
               </p>

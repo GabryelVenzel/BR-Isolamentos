@@ -25,8 +25,8 @@ export { alocarValorFinalPorTrecho, precificarTrecho } from "./precificarTrecho"
 export type { PrecificacaoTrecho, PrecosAcessorios, TrechoParaAlocacao } from "./precificarTrecho";
 export { quantificarMateriais } from "./quantificarMateriais";
 export type { ParametrosQuantificacao, QuantificacaoMateriais } from "./quantificarMateriais";
-export { calcularMaoObraAutomatica } from "./calcularMaoObraAutomatica";
-export type { FatoresMaoObra, MaoObraAutomatica, ParametrosMaoObra } from "./calcularMaoObraAutomatica";
+export { calcularMaoObraAutomatica, calcularMaoObraPorItens } from "./calcularMaoObraAutomatica";
+export type { FatoresMaoObra, ItemMaoObra, MaoObraAutomatica, ParametrosMaoObra } from "./calcularMaoObraAutomatica";
 export {
   arvoresEquivalentes,
   calcularBeneficiosConsolidados,
