@@ -41,6 +41,12 @@ export default function TableOrcamentos({ orcamentos, onExcluir }: Props) {
             <tr key={orcamento.id} className="hover:bg-gray-50">
               <td className="px-4 py-3 font-medium text-brand">
                 <Link href={`/orcamento/${orcamento.id}`}>{orcamento.numero}</Link>
+                {/* Código interno (O00038) — é o que aparece em Comercial
+                    (vincular ao lead) e em Operacional (serviços); mostrar
+                    aqui também deixa conferir que é o mesmo orçamento. */}
+                {orcamento.numero_orcamento && (
+                  <span className="block text-xs font-normal text-gray-400">{orcamento.numero_orcamento}</span>
+                )}
               </td>
               <td className="px-4 py-3">{orcamento.cliente?.nome ?? "—"}</td>
               <td className="px-4 py-3">{formatarData(orcamento.data_criacao)}</td>

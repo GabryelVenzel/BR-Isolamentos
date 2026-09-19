@@ -33,6 +33,17 @@ const LABEL_TIPO_INTERACAO: Record<TipoInteracaoLead, string> = {
   proposta_enviada: "Proposta enviada",
 };
 
+/** Rótulo de um orçamento na hora de vincular/mostrar o vínculo. Um
+ * orçamento tem DOIS identificadores: o número da proposta (ORC-2026-0006,
+ * o que aparece no Histórico e nos PDFs) e o código interno (O00038, o que
+ * aparece em Serviços). Antes só o código interno aparecia aqui, e não
+ * batia com nada que o usuário via no Histórico — impossível conferir se o
+ * orçamento vinculado era o certo. Mostra os dois. */
+function rotuloOrcamento(o: Pick<Orcamento, "numero" | "numero_orcamento" | "valor_final">): string {
+  const numeros = o.numero_orcamento ? `${o.numero} (${o.numero_orcamento})` : o.numero;
+  return `${numeros} — ${formatarMoeda(o.valor_final)}`;
+}
+
 type AbaInterna = "dados" | "timeline" | "interacoes";
 
 interface Props {
@@ -491,8 +502,7 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
                       <h3 className="font-montserrat text-xs font-bold uppercase text-brand">Orçamento vinculado</h3>
                       {lead.orcamento_id ? (
                         <p className="rounded-input bg-brand-light px-3 py-2 text-sm text-brand">
-                          {lead.orcamento?.numero_orcamento ?? lead.orcamento?.numero ?? `#${lead.orcamento_id}`}
-                          {lead.orcamento && ` — ${formatarMoeda(lead.orcamento.valor_final)}`}
+                          {lead.orcamento ? rotuloOrcamento(lead.orcamento) : `#${lead.orcamento_id}`}
                         </p>
                       ) : (
                         <p className="text-xs text-gray-500">
@@ -508,7 +518,7 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
                           <option value="">Selecione um orçamento...</option>
                           {orcamentosDoCliente.map((o) => (
                             <option key={o.id} value={o.id}>
-                              {o.numero_orcamento ?? o.numero} — {formatarMoeda(o.valor_final)}
+                              {rotuloOrcamento(o)}
                             </option>
                           ))}
                         </select>
