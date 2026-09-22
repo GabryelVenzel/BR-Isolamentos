@@ -76,6 +76,30 @@ function Cabecalho({ orcamento }: { orcamento: Orcamento }) {
   );
 }
 
+// Bloco estrategicamente posicionado ao final do conteúdo (pedido explícito)
+// — contato pessoal de quem responde tecnicamente pela proposta, distinto da
+// linha genérica "Contato: X · Y" do rodapé (Rodape, abaixo). Só aparece se
+// o nome estiver configurado (Configurar Preços → "Contato técnico").
+function ContatoTecnico({ configEmpresa }: { configEmpresa?: ConfigEmpresa | null }) {
+  if (!configEmpresa?.responsavel_tecnico_nome) return null;
+  return (
+    <View style={estilos.caixaContato} wrap={false}>
+      <Text style={estilos.caixaContatoTitulo}>Contato técnico</Text>
+      <Text style={estilos.caixaContatoNome}>{configEmpresa.responsavel_tecnico_nome}</Text>
+      {configEmpresa.responsavel_tecnico_cargo && (
+        <Text style={estilos.caixaContatoCargo}>{configEmpresa.responsavel_tecnico_cargo}</Text>
+      )}
+      {configEmpresa.responsavel_tecnico_whatsapp && (
+        <Text style={estilos.caixaContatoLinha}>WhatsApp/Telefone: {configEmpresa.responsavel_tecnico_whatsapp}</Text>
+      )}
+      {configEmpresa.responsavel_tecnico_email && (
+        <Text style={estilos.caixaContatoLinha}>E-mail: {configEmpresa.responsavel_tecnico_email}</Text>
+      )}
+      {configEmpresa.cnpj && <Text style={estilos.caixaContatoLinha}>CNPJ: {configEmpresa.cnpj}</Text>}
+    </View>
+  );
+}
+
 function Rodape({ configEmpresa, validadeDias }: { configEmpresa?: ConfigEmpresa | null; validadeDias: number }) {
   const contato = [configEmpresa?.telefone_empresa, configEmpresa?.email_empresa].filter(Boolean).join("  ·  ");
   return (
@@ -420,6 +444,8 @@ export default function PropostaTecnicaDocument({ orcamento, configEmpresa }: Pr
             detalha investimento, prazo de execução e condições de pagamento.
           </Text>
         </View>
+
+        <ContatoTecnico configEmpresa={configEmpresa} />
 
         <Rodape configEmpresa={configEmpresa} validadeDias={validadeDias} />
         <Text

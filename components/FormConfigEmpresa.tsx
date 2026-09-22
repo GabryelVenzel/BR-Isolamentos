@@ -70,6 +70,18 @@ const CAMPOS_PROJECOES: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo
   { nome: "co2_kg_por_arvore_ano", label: "CO₂ absorvido por árvore", sufixo: "kg/ano" },
 ];
 
+// Bloco de contato exibido na Proposta Técnica (migração 034, pedido
+// explícito) — distinto de telefone_empresa/email_empresa (linha genérica
+// "Contato: X · Y" do rodapé de ambas as Propostas): aqui é o contato
+// pessoal de quem responde tecnicamente pela proposta.
+const CAMPOS_CONTATO_TECNICO: Array<{ nome: keyof ConfigEmpresa; label: string; placeholder: string }> = [
+  { nome: "responsavel_tecnico_nome", label: "Nome", placeholder: "Fabiano Garcia" },
+  { nome: "responsavel_tecnico_cargo", label: "Cargo/posição", placeholder: "Responsável Técnico" },
+  { nome: "responsavel_tecnico_whatsapp", label: "WhatsApp/telefone", placeholder: "+55 11 92113-2612" },
+  { nome: "responsavel_tecnico_email", label: "E-mail", placeholder: "fabiano.garcia@br-isolamentos.com.br" },
+  { nome: "cnpj", label: "CNPJ da empresa", placeholder: "64.343.539/0001-26" },
+];
+
 export default function FormConfigEmpresa({ config }: Props) {
   const [valores, setValores] = useState<ConfigEmpresa>(config);
   const [salvando, setSalvando] = useState(false);
@@ -112,6 +124,31 @@ export default function FormConfigEmpresa({ config }: Props) {
               {campo.label} <span className="text-gray-400">({campo.sufixo})</span>
             </label>
             {numero(campo.nome)}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  function texto(nome: keyof ConfigEmpresa, placeholder: string) {
+    return (
+      <input
+        type="text"
+        className="input-field"
+        value={(valores[nome] as string | null) ?? ""}
+        onChange={(e) => setValores((prev) => ({ ...prev, [nome]: e.target.value || null }))}
+        placeholder={placeholder}
+      />
+    );
+  }
+
+  function camposGridTexto(campos: Array<{ nome: keyof ConfigEmpresa; label: string; placeholder: string }>, colunas: string) {
+    return (
+      <div className={`grid grid-cols-1 gap-4 ${colunas}`}>
+        {campos.map((campo) => (
+          <div key={campo.nome}>
+            <label className="label-field">{campo.label}</label>
+            {texto(campo.nome, campo.placeholder)}
           </div>
         ))}
       </div>
@@ -213,6 +250,16 @@ export default function FormConfigEmpresa({ config }: Props) {
               placeholder="50% de entrada + 50% na conclusão dos trabalhos"
             />
           </div>
+        </div>
+
+        <div>
+          <h3 className="mb-2 text-sm font-semibold text-gray-600">Contato técnico (Proposta Técnica)</h3>
+          <p className="mb-3 text-xs text-gray-500">
+            Exibido num bloco de destaque na Proposta Técnica — o contato pessoal de quem responde tecnicamente pela
+            proposta (WhatsApp/e-mail direto), além do CNPJ da empresa. O bloco só aparece se "Nome" estiver
+            preenchido.
+          </p>
+          {camposGridTexto(CAMPOS_CONTATO_TECNICO, "sm:grid-cols-2 lg:grid-cols-3")}
         </div>
       </div>
 

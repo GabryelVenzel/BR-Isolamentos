@@ -493,6 +493,24 @@ function blocoCliente(orcamento: Orcamento, variante: "comercial" | "tecnica", v
   return caixa(conteudo, { fill: COR_BRAND_LIGHT });
 }
 
+/** Bloco estrategicamente posicionado ao final do conteúdo da Proposta
+ * Técnica (pedido explícito) — contato pessoal de quem responde tecnicamente
+ * pela proposta, distinto da linha genérica "Contato: X · Y" do rodapé
+ * (rodapeConteudo). `null` se o nome não estiver configurado. Mesmo bloco/
+ * estilo de PropostaTecnicaDocument.tsx#ContatoTecnico. */
+function blocoContatoTecnico(configEmpresa: ConfigEmpresa | null | undefined): Table | null {
+  if (!configEmpresa?.responsavel_tecnico_nome) return null;
+  const conteudo: Paragraph[] = [
+    new Paragraph({ spacing: { after: 40 }, children: [new TextRun({ text: "CONTATO TÉCNICO", bold: true, color: COR_BRAND, size: 18 })] }),
+    new Paragraph({ children: [new TextRun({ text: configEmpresa.responsavel_tecnico_nome, bold: true, color: COR_CINZA, size: 23 })] }),
+  ];
+  if (configEmpresa.responsavel_tecnico_cargo) conteudo.push(linhaClienteTexto(configEmpresa.responsavel_tecnico_cargo));
+  if (configEmpresa.responsavel_tecnico_whatsapp) conteudo.push(linhaClienteTexto(`WhatsApp/Telefone: ${configEmpresa.responsavel_tecnico_whatsapp}`));
+  if (configEmpresa.responsavel_tecnico_email) conteudo.push(linhaClienteTexto(`E-mail: ${configEmpresa.responsavel_tecnico_email}`));
+  if (configEmpresa.cnpj) conteudo.push(linhaClienteTexto(`CNPJ: ${configEmpresa.cnpj}`));
+  return caixa(conteudo, { fill: COR_BRAND_LIGHT });
+}
+
 // ---------------------------------------------------------------------------
 // Blocos compartilhados entre as duas Propostas (mesmo conteúdo/formato,
 // pedido explícito — ver comentário equivalente em PropostaComercialDocument).
@@ -1032,6 +1050,9 @@ export async function gerarPropostaTecnicaDocx(orcamento: Orcamento, configEmpre
       ],
     })
   );
+
+  const contatoTecnico = blocoContatoTecnico(configEmpresa);
+  if (contatoTecnico) children.push(espaco(), contatoTecnico);
 
   const notaRodape = `Proposta técnica sem valores comerciais — consulte a Proposta Comercial para o investimento. Orçamento válido por ${validadeDias} dias. Cálculos conforme normas ASTM C680, ISO 12241 e ABNT NBR 16281.`;
 

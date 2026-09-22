@@ -110,6 +110,35 @@ export const estilos = StyleSheet.create({
     color: CORES.cinzaClaro,
     marginTop: 2,
   },
+  caixaContato: {
+    backgroundColor: CORES.brandLight,
+    borderRadius: 4,
+    padding: 12,
+    marginTop: 4,
+    marginBottom: 14,
+  },
+  caixaContatoTitulo: {
+    fontSize: 9.5,
+    fontFamily: "Helvetica-Bold",
+    color: CORES.brand,
+    textTransform: "uppercase",
+    marginBottom: 6,
+  },
+  caixaContatoNome: {
+    fontSize: 12,
+    fontFamily: "Helvetica-Bold",
+    color: CORES.cinza,
+  },
+  caixaContatoCargo: {
+    fontSize: 9.5,
+    color: CORES.cinzaClaro,
+    marginBottom: 4,
+  },
+  caixaContatoLinha: {
+    fontSize: 9.5,
+    color: CORES.cinza,
+    marginTop: 2,
+  },
   blocoDestaque: {
     borderLeftWidth: 3,
     borderLeftColor: CORES.accent,

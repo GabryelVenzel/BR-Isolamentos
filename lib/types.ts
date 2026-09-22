@@ -435,6 +435,21 @@ export interface ConfigEmpresa {
    * desconto à vista e do "parcelado: consulte" que continuam fixos) —
    * migração 021. */
   forma_pagamento_padrao: string;
+
+  // Contato do responsável técnico exibido num bloco estratégico na Proposta
+  // Técnica (migração 034, pedido explícito) — distinto de telefone_empresa/
+  // email_empresa acima (linha genérica "Contato: X · Y" do rodapé, que
+  // continua existindo em paralelo): aqui é o contato PESSOAL de quem
+  // responde tecnicamente pela proposta, não a linha geral da empresa.
+  /** Nome do responsável técnico (ex.: "Fabiano Garcia"). Bloco só aparece na
+   * Proposta Técnica se este campo estiver preenchido. */
+  responsavel_tecnico_nome: string | null;
+  /** Cargo/posição exibido junto ao nome (ex.: "Responsável Técnico"). */
+  responsavel_tecnico_cargo: string | null;
+  /** WhatsApp/telefone direto do responsável técnico. */
+  responsavel_tecnico_whatsapp: string | null;
+  /** E-mail direto do responsável técnico. */
+  responsavel_tecnico_email: string | null;
 }
 
 /** Imposto/taxa adicional configurável livremente (ex.: INSS retido em cessão de mão
