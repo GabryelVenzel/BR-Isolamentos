@@ -206,9 +206,13 @@ function caixa(conteudo: Array<Paragraph | Table>, opts: { fill: string; bordaEs
 
 /** Espaço em branco depois de uma caixa — tabelas não têm margem própria no
  * Word, então um parágrafo vazio faz esse papel (equivalente ao
- * `marginBottom` das caixas no PDF). */
+ * `marginBottom` das caixas no PDF). Run vazio com tamanho explícito (size:
+ * 22, o padrão do Word) — necessário pra este parágrafo não depender do
+ * tamanho de fonte padrão do documento, que agora é minúsculo de propósito
+ * (ver comentário sobre `alturaParagrafoFinal`/`styles.default` em
+ * secaoCapa/gerarPropostaTecnicaDocx/gerarPropostaComercialDocx). */
 function espaco(pontos = 200): Paragraph {
-  return new Paragraph({ spacing: { before: pontos } });
+  return new Paragraph({ spacing: { before: pontos }, children: [new TextRun({ text: "", size: 22 })] });
 }
 
 /** Linha "label ........ valor", usada dentro do card de Resumo Financeiro —
@@ -347,16 +351,29 @@ function secaoCapa(tipo: "Técnica" | "Comercial", orcamento: Orcamento, logo: A
     }),
   ];
 
-  // Bug relatado: a capa é uma tabela de 1 célula ocupando os 297mm inteiros
-  // da página (truque pra fundo colorido de ponta a ponta) — mas como essa
-  // seção não é a última do documento, o Word PRECISA de um parágrafo depois
-  // da tabela pra guardar a quebra de seção. Com a tabela já ocupando 100% da
-  // altura (sem nenhuma folga), esse parágrafo obrigatório transborda pra uma
-  // 2ª página, que fica vazia antes do conteúdo de verdade começar na 3ª.
-  // Correção: a tabela fica alguns twips mais baixa que a página inteira, e o
-  // parágrafo final ocupa exatamente essa sobra — com a mesma cor de fundo da
-  // capa, então não aparece nenhuma faixa branca.
-  const alturaParagrafoFinal = 20; // twips (1pt) — altura mínima possível.
+  // Bug relatado (2 rodadas): a capa é uma tabela de 1 célula ocupando os
+  // 297mm inteiros da página (truque pra fundo colorido de ponta a ponta) —
+  // mas como essa seção não é a última do documento, a própria biblioteca
+  // `docx` SEMPRE insere um parágrafo extra depois da tabela pra guardar a
+  // quebra de seção (Body.addSection → createSectionParagraph, sem nenhum
+  // hook público pra estilizar esse parágrafo específico). Com a tabela já
+  // ocupando 100% da altura, esse parágrafo (mais o nosso próprio, abaixo)
+  // transbordava pra uma 2ª página em branco antes do conteúdo de verdade
+  // começar na 3ª — a 1ª tentativa (só reservar espaço pro NOSSO parágrafo)
+  // não bastou, porque o parágrafo da própria lib continuava usando o
+  // tamanho de fonte padrão do Word (~11pt), grande demais pra sobra
+  // reservada.
+  // Correção completa: (1) a tabela fica um pouco mais baixa que a página
+  // inteira, sobrando espaço pro nosso parágrafo final (colorido, "some" no
+  // fundo da capa) MAIS um respiro extra pro parágrafo da lib; (2)
+  // `styles.default.document.run.size` (ver fim de
+  // gerarPropostaTecnicaDocx/gerarPropostaComercialDocx) reduz o tamanho de
+  // fonte padrão do documento pra 1pt — como todo TextRun deste arquivo já
+  // define o próprio `size` explicitamente, isso só afeta esse parágrafo da
+  // lib (que não tem nenhum texto/estilo próprio), encolhendo-o o bastante
+  // pra caber folgado na sobra reservada.
+  const alturaParagrafoFinal = 20; // twips (1pt) — nosso parágrafo, colorido.
+  const respiroParagrafoDaLib = 40; // twips — folga extra pro parágrafo que a lib insere sozinha.
 
   return {
     properties: {
@@ -374,7 +391,7 @@ function secaoCapa(tipo: "Técnica" | "Comercial", orcamento: Orcamento, logo: A
         borders: semBordasTabela(),
         rows: [
           new TableRow({
-            height: { value: convertMillimetersToTwip(297) - alturaParagrafoFinal, rule: HeightRule.EXACT },
+            height: { value: convertMillimetersToTwip(297) - alturaParagrafoFinal - respiroParagrafoDaLib, rule: HeightRule.EXACT },
             children: [
               new TableCell({
                 verticalAlign: VerticalAlign.CENTER,
@@ -399,7 +416,12 @@ function secaoCapa(tipo: "Técnica" | "Comercial", orcamento: Orcamento, logo: A
 // ---------------------------------------------------------------------------
 
 function linhaDivisoria(cor: string, posicao: "top" | "bottom"): Paragraph {
-  return new Paragraph({ border: { [posicao]: { style: BorderStyle.SINGLE, size: 10, color: cor, space: 4 } } as never, spacing: { after: 0 } });
+  return new Paragraph({
+    border: { [posicao]: { style: BorderStyle.SINGLE, size: 10, color: cor, space: 4 } } as never,
+    spacing: { after: 0 },
+    // Run vazio com tamanho explícito — mesmo motivo de espaco() acima.
+    children: [new TextRun({ text: "", size: 22 })],
+  });
 }
 
 function cabecalhoConteudo(orcamento: Orcamento, tituloDocumento: string): Header {
@@ -803,6 +825,12 @@ export async function gerarPropostaComercialDocx(orcamento: Orcamento, configEmp
   const notaRodape = `Proposta comercial preparada especialmente para o cliente acima. Orçamento válido por ${validadeDias} dias. Cálculos conforme normas ASTM C680, ISO 12241 e ABNT NBR 16281.`;
 
   const doc = new Document({
+    // Ver comentário em secaoCapa() sobre o parágrafo obrigatório que a lib
+    // insere sozinha após a tabela da capa — este `size: 2` (1pt) é o que faz
+    // esse parágrafo específico (o único sem `size` próprio em todo o
+    // documento) ficar pequeno o bastante pra não transbordar pra uma 2ª
+    // página em branco.
+    styles: { default: { document: { run: { size: 2 } } } },
     sections: [
       secaoCapa("Comercial", orcamento, logo),
       {
@@ -1076,6 +1104,9 @@ export async function gerarPropostaTecnicaDocx(orcamento: Orcamento, configEmpre
   const notaRodape = `Proposta técnica sem valores comerciais — consulte a Proposta Comercial para o investimento. Orçamento válido por ${validadeDias} dias. Cálculos conforme normas ASTM C680, ISO 12241 e ABNT NBR 16281.`;
 
   const doc = new Document({
+    // Ver comentário em secaoCapa() e no mesmo ponto de
+    // gerarPropostaComercialDocx sobre esse `size: 2`.
+    styles: { default: { document: { run: { size: 2 } } } },
     sections: [
       secaoCapa("Técnica", orcamento, logo),
       {
