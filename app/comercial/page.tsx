@@ -220,6 +220,10 @@ function ComercialPageConteudo() {
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Comercial</h1>
+          <p className="text-sm italic text-gray-400">
+            "O próprio SENHOR irá à sua frente e estará com você; ele nunca o deixará nem o abandonará. Não tenha
+            medo! Não desanime!"
+          </p>
           <p className="text-sm text-gray-500">
             {aba === "crm" && `${leads.length} lead${leads.length === 1 ? "" : "s"}, ${formatarMoeda(valorTotalAtivo)} em negociação ativa.`}
             {aba === "clientes" && "Cadastro de clientes e histórico de leads."}
