@@ -781,6 +781,9 @@ export async function gerarPropostaComercialDocx(orcamento: Orcamento, configEmp
     })
   );
 
+  const contatoTecnico = blocoContatoTecnico(configEmpresa);
+  if (contatoTecnico) children.push(espaco(), contatoTecnico);
+
   const notaRodape = `Proposta comercial preparada especialmente para o cliente acima. Orçamento válido por ${validadeDias} dias. Cálculos conforme normas ASTM C680, ISO 12241 e ABNT NBR 16281.`;
 
   const doc = new Document({

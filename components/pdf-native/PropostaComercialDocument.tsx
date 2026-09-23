@@ -101,6 +101,31 @@ function Rodape({ configEmpresa, validadeDias }: { configEmpresa?: ConfigEmpresa
   );
 }
 
+// Bloco estrategicamente posicionado ao final do conteúdo (pedido explícito,
+// mesmo bloco/estilo de PropostaTecnicaDocument.tsx#ContatoTecnico) — contato
+// pessoal de quem responde tecnicamente pela proposta, distinto da linha
+// genérica "Contato: X · Y" do rodapé (Rodape, acima). Só aparece se o nome
+// estiver configurado (Configurar Preços → "Contato técnico").
+function ContatoTecnico({ configEmpresa }: { configEmpresa?: ConfigEmpresa | null }) {
+  if (!configEmpresa?.responsavel_tecnico_nome) return null;
+  return (
+    <View style={estilos.caixaContato} wrap={false}>
+      <Text style={estilos.caixaContatoTitulo}>Contato técnico</Text>
+      <Text style={estilos.caixaContatoNome}>{configEmpresa.responsavel_tecnico_nome}</Text>
+      {configEmpresa.responsavel_tecnico_cargo && (
+        <Text style={estilos.caixaContatoCargo}>{configEmpresa.responsavel_tecnico_cargo}</Text>
+      )}
+      {configEmpresa.responsavel_tecnico_whatsapp && (
+        <Text style={estilos.caixaContatoLinha}>WhatsApp/Telefone: {configEmpresa.responsavel_tecnico_whatsapp}</Text>
+      )}
+      {configEmpresa.responsavel_tecnico_email && (
+        <Text style={estilos.caixaContatoLinha}>E-mail: {configEmpresa.responsavel_tecnico_email}</Text>
+      )}
+      {configEmpresa.cnpj && <Text style={estilos.caixaContatoLinha}>CNPJ: {configEmpresa.cnpj}</Text>}
+    </View>
+  );
+}
+
 function Linha({ label, valor, destaque }: { label: string; valor: string; destaque?: boolean }) {
   return (
     <View style={estilos.linhaFinanceira}>
@@ -428,6 +453,8 @@ export default function PropostaComercialDocument({ orcamento, configEmpresa }: 
             alterar os valores estimados.
           </Text>
         </View>
+
+        <ContatoTecnico configEmpresa={configEmpresa} />
 
         <Rodape configEmpresa={configEmpresa} validadeDias={validadeDias} />
         <Text style={estilos.paginaNumero} render={({ pageNumber, totalPages }) => `${pageNumber} / ${totalPages}`} fixed />
