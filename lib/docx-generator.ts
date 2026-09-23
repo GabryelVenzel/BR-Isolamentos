@@ -30,6 +30,7 @@ import {
   Header,
   HeightRule,
   ImageRun,
+  LineRuleType,
   Packer,
   PageNumber,
   Paragraph,
@@ -346,6 +347,17 @@ function secaoCapa(tipo: "Técnica" | "Comercial", orcamento: Orcamento, logo: A
     }),
   ];
 
+  // Bug relatado: a capa é uma tabela de 1 célula ocupando os 297mm inteiros
+  // da página (truque pra fundo colorido de ponta a ponta) — mas como essa
+  // seção não é a última do documento, o Word PRECISA de um parágrafo depois
+  // da tabela pra guardar a quebra de seção. Com a tabela já ocupando 100% da
+  // altura (sem nenhuma folga), esse parágrafo obrigatório transborda pra uma
+  // 2ª página, que fica vazia antes do conteúdo de verdade começar na 3ª.
+  // Correção: a tabela fica alguns twips mais baixa que a página inteira, e o
+  // parágrafo final ocupa exatamente essa sobra — com a mesma cor de fundo da
+  // capa, então não aparece nenhuma faixa branca.
+  const alturaParagrafoFinal = 20; // twips (1pt) — altura mínima possível.
+
   return {
     properties: {
       page: {
@@ -362,7 +374,7 @@ function secaoCapa(tipo: "Técnica" | "Comercial", orcamento: Orcamento, logo: A
         borders: semBordasTabela(),
         rows: [
           new TableRow({
-            height: { value: convertMillimetersToTwip(297), rule: HeightRule.EXACT },
+            height: { value: convertMillimetersToTwip(297) - alturaParagrafoFinal, rule: HeightRule.EXACT },
             children: [
               new TableCell({
                 verticalAlign: VerticalAlign.CENTER,
@@ -372,6 +384,10 @@ function secaoCapa(tipo: "Técnica" | "Comercial", orcamento: Orcamento, logo: A
             ],
           }),
         ],
+      }),
+      new Paragraph({
+        spacing: { before: 0, after: 0, line: alturaParagrafoFinal, lineRule: LineRuleType.EXACT },
+        shading: { type: ShadingType.CLEAR, fill: COR_BRAND, color: "auto" },
       }),
     ],
   };
