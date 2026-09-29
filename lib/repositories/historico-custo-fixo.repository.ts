@@ -27,4 +27,15 @@ export class HistoricoCustoFixoRepository extends BaseRepository<HistoricoCustoF
     if (error) throw error;
     return (data as unknown as HistoricoCustoFixo) ?? null;
   }
+
+  /** Usado por `marcarComoPago` (lançamentos genéricos) pra saber se o
+   * lançamento marcado como pago "por fora" (aba Lançamentos, não pelo botão
+   * do card de Custo Fixo) pertence a um custo fixo — e, se sim, sincronizar
+   * o histórico junto (ver comentário em lib/usecases/financeiro/marcarComoPago.ts). */
+  async buscarPorLancamentoId(lancamentoId: string): Promise<HistoricoCustoFixo | null> {
+    const { data, error } = await this.queryBuilder().select(this.select).eq("lancamento_id", lancamentoId).maybeSingle();
+
+    if (error) throw error;
+    return (data as unknown as HistoricoCustoFixo) ?? null;
+  }
 }

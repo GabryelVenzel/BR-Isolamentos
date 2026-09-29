@@ -73,7 +73,7 @@ export function createFinanceiroContext(supabase: SupabaseClient) {
     },
 
     marcarComoPago(id: string, dataPagamento?: string): Promise<LancamentoFinanceiro> {
-      return marcarComoPago(id, dataPagamento, { lancamentoRepo });
+      return marcarComoPago(id, dataPagamento, { lancamentoRepo, historicoRepo: historicoCustoFixoRepo });
     },
 
     removerLancamento(id: string): Promise<void> {

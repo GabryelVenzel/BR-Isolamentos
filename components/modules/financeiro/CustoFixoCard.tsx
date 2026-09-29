@@ -63,7 +63,7 @@ export default function CustoFixoCard({ custoFixo, onEditar, onMudou }: Props) {
         toast.erro(data.error ?? "Não foi possível marcar como pago.");
         return;
       }
-      toast.sucesso("Custo fixo pago — lançamento criado em Lançamentos.");
+      toast.sucesso("Custo fixo pago — lançamento atualizado em Lançamentos.");
       setHistorico(null);
       if (expandido) alternarExpandir();
       onMudou();
