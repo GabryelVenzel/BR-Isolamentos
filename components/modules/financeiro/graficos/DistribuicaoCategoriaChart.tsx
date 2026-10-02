@@ -17,16 +17,12 @@ export default function DistribuicaoCategoriaChart({ titulo, dados }: Props) {
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <Pie
-              data={dados}
-              dataKey="valor"
-              nameKey="categoria"
-              cx="50%"
-              cy="50%"
-              outerRadius={80}
-              isAnimationActive={false}
-              label={(entrada) => `${entrada.categoria} (${entrada.percentual.toFixed(0)}%)`}
-            >
+            {/* Bug relatado: o rótulo externo (com linha-guia) cortava do
+                lado esquerdo do card quando o nome da categoria era grande —
+                removido; o nome continua disponível no hover (Tooltip,
+                automático via `nameKey`) e na legenda abaixo, mesmo padrão
+                de RevenueDistributionChart.tsx (aba Geral). */}
+            <Pie data={dados} dataKey="valor" nameKey="categoria" cx="50%" cy="50%" outerRadius={80} isAnimationActive={false}>
               {dados.map((linha, index) => (
                 <Cell key={linha.categoria} fill={CORES[index % CORES.length]} />
               ))}

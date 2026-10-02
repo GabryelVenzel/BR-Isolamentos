@@ -16,16 +16,10 @@ export default function OrigemChart({ dados }: Props) {
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <Pie
-              data={dados}
-              dataKey="quantidade"
-              nameKey="origem"
-              cx="50%"
-              cy="50%"
-              outerRadius={80}
-              isAnimationActive={false}
-              label={(entrada) => `${entrada.origem} (${entrada.percentual.toFixed(0)}%)`}
-            >
+            {/* Bug relatado (mesmo de DistribuicaoCategoriaChart.tsx): o
+                rótulo externo cortava do lado esquerdo do card — removido;
+                nome disponível no hover (Tooltip) e na legenda abaixo. */}
+            <Pie data={dados} dataKey="quantidade" nameKey="origem" cx="50%" cy="50%" outerRadius={80} isAnimationActive={false}>
               {dados.map((linha, index) => (
                 <Cell key={linha.origem} fill={CORES[index % CORES.length]} />
               ))}
