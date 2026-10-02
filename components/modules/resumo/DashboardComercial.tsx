@@ -1,13 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import FilterBar from "./FilterBar";
 import ComissoesPorParceiroChart from "./graficos/ComissoesPorParceiroChart";
 import FunilChart from "./graficos/FunilChart";
 import OrigemChart from "./graficos/OrigemChart";
 import ResponsavelChart from "./graficos/ResponsavelChart";
 import { gerarPdfDeElemento, baixarArquivo } from "@/lib/pdf-generator";
 import { formatarEtapa, formatarMoeda, formatarNumero } from "@/lib/format";
+import type { FiltrosResumo } from "@/lib/types/resumo";
 import type { RelatorioComercial } from "@/lib/usecases/comercial";
+
+const FILTROS_INICIAIS: FiltrosResumo = { periodo: "mes_atual" };
 
 /** Aba "Comercial" do dashboard centralizado de Resumo — antes vivia como
  * aba "Relatórios" dentro do próprio módulo Comercial; movida pra cá pra
@@ -17,20 +21,23 @@ import type { RelatorioComercial } from "@/lib/usecases/comercial";
  *
  * Só o filtro de Período ficou aqui (Responsável e Temperatura, que existiam
  * antes, foram removidos por pedido — ver mesmo raciocínio em
- * DashboardOperacao.tsx). */
+ * DashboardOperacao.tsx). Pedido explícito (rodada "filtros por linhas"): usa
+ * agora o MESMO FilterBar da aba Geral (Semana/Mês/Ano × Atual/Anterior +
+ * Personalizado), em vez do `<select>` próprio que existia aqui antes. */
 export default function DashboardComercial() {
   const [relatorio, setRelatorio] = useState<RelatorioComercial | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
-  const [periodo, setPeriodo] = useState<"" | "7dias" | "30dias" | "mes">("");
+  const [filtros, setFiltros] = useState<FiltrosResumo>(FILTROS_INICIAIS);
   const [exportando, setExportando] = useState(false);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
     setErro(null);
     try {
-      const params = new URLSearchParams();
-      if (periodo) params.set("periodo", periodo);
+      const params = new URLSearchParams({ periodo: filtros.periodo });
+      if (filtros.dataInicioCustom) params.set("dataInicio", filtros.dataInicioCustom);
+      if (filtros.dataFimCustom) params.set("dataFim", filtros.dataFimCustom);
 
       const response = await fetch(`/api/comercial/relatorios?${params.toString()}`);
       const payload = await response.json();
@@ -44,7 +51,7 @@ export default function DashboardComercial() {
     } finally {
       setCarregando(false);
     }
-  }, [periodo]);
+  }, [filtros]);
 
   useEffect(() => {
     carregar();
@@ -62,25 +69,7 @@ export default function DashboardComercial() {
 
   return (
     <div className="space-y-6">
-      <div className="card flex flex-wrap items-end gap-3">
-        <div>
-          <label className="label-field">Período</label>
-          <select className="input-field" value={periodo} onChange={(e) => setPeriodo(e.target.value as never)}>
-            <option value="">Todo período</option>
-            <option value="7dias">Últimos 7 dias</option>
-            <option value="30dias">Últimos 30 dias</option>
-            <option value="mes">Este mês</option>
-          </select>
-        </div>
-        <div className="ml-auto flex items-end gap-2">
-          <button type="button" className="btn-secondary" onClick={exportarPdf} disabled={exportando || !relatorio}>
-            {exportando ? "Gerando..." : "📥 Exportar"}
-          </button>
-          <button type="button" className="btn-primary" onClick={carregar} disabled={carregando}>
-            {carregando ? "Atualizando..." : "🔄 Atualizar"}
-          </button>
-        </div>
-      </div>
+      <FilterBar filtros={filtros} onChange={setFiltros} onExportPdf={exportarPdf} onRefresh={carregar} atualizando={carregando || exportando} />
 
       {carregando ? (
         <p className="text-sm text-gray-500">Carregando relatório...</p>

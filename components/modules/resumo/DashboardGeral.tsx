@@ -22,7 +22,7 @@ import type {
 } from "@/lib/types/resumo";
 import type { FunilResultado } from "@/lib/usecases/resumo";
 
-const FILTROS_INICIAIS: FiltrosResumo = { periodo: "mes" };
+const FILTROS_INICIAIS: FiltrosResumo = { periodo: "mes_atual" };
 
 /** Aba "Geral" do dashboard centralizado de Resumo — visão executiva única:
  * alertas críticos, 6 KPIs principais e os 4 gráficos de visão geral (não de
@@ -175,7 +175,7 @@ export default function DashboardGeral() {
         {kpis && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <KPICard
-              titulo={kpis.periodoLabel === "Este mês" ? "Receita do mês" : "Receita do período"}
+              titulo={filtros.periodo === "mes_atual" ? "Receita do mês" : "Receita do período"}
               icone="📊"
               valor={formatarMoeda(kpis.receita.valor)}
               cor={corTendenciaReceita}

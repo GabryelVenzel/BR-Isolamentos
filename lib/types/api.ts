@@ -5,14 +5,22 @@
 import type { ListOptions } from "./common";
 import type { FiltrosResumo, Periodo, TipoTrabalhoFiltro } from "./resumo";
 
-const PERIODOS_VALIDOS: Periodo[] = ["7d", "30d", "90d", "mes", "ano", "tudo", "custom"];
+const PERIODOS_VALIDOS: Periodo[] = [
+  "semana_atual",
+  "semana_anterior",
+  "mes_atual",
+  "mes_anterior",
+  "ano_atual",
+  "ano_anterior",
+  "custom",
+];
 const TIPOS_VALIDOS: TipoTrabalhoFiltro[] = ["quente", "frio", "misto"];
 
 /** Parseia os filtros da FilterBar do dashboard (módulo Resumo) a partir da
  * query string — usado por todas as rotas de app/api/resumo/*. */
 export function parseFiltrosResumo(searchParams: URLSearchParams): FiltrosResumo {
   const periodoParam = searchParams.get("periodo");
-  const periodo = PERIODOS_VALIDOS.includes(periodoParam as Periodo) ? (periodoParam as Periodo) : "mes";
+  const periodo = PERIODOS_VALIDOS.includes(periodoParam as Periodo) ? (periodoParam as Periodo) : "mes_atual";
 
   const tipoParam = searchParams.get("tipo");
   const tipoTrabalho = TIPOS_VALIDOS.includes(tipoParam as TipoTrabalhoFiltro)

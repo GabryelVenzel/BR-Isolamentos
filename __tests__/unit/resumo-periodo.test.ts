@@ -1,21 +1,89 @@
 import { calcularTendencia, periodoAnterior, resolverPeriodo } from "@/lib/usecases/resumo";
 
-describe("resolverPeriodo", () => {
-  it("'mes' resolve pro primeiro dia do mês corrente até hoje", () => {
-    const hoje = new Date();
-    const intervalo = resolverPeriodo("mes");
-    const primeiroDiaEsperado = new Date(hoje.getFullYear(), hoje.getMonth(), 1).toISOString().slice(0, 10);
+// "Hoje" tem que ser calculado do MESMO jeito que a implementação (fuso de
+// Brasília, via Intl.DateTimeFormat) — usar `new Date().toISOString()` aqui
+// reintroduziria exatamente o bug que resolverPeriodo corrige (ver comentário
+// no topo de lib/usecases/resumo/periodo.ts): depois das ~21h de Brasília,
+// `.toISOString()` já mostra o dia seguinte (UTC).
+function hojeBrasiliaISO(): string {
+  return new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(new Date());
+}
 
-    expect(intervalo.dataInicio).toBe(primeiroDiaEsperado);
-    expect(intervalo.dataFim).toBe(hoje.toISOString().slice(0, 10));
-    expect(intervalo.label).toBe("Este mês");
+function paraData(iso: string): Date {
+  const [ano, mes, dia] = iso.split("-").map(Number);
+  return new Date(Date.UTC(ano, mes - 1, dia));
+}
+
+function paraISO(data: Date): string {
+  return `${data.getUTCFullYear()}-${String(data.getUTCMonth() + 1).padStart(2, "0")}-${String(data.getUTCDate()).padStart(2, "0")}`;
+}
+
+// Pedido explícito (rodada "filtros por linhas"): os 6 períodos de linha
+// (Semana/Mês/Ano × Atual/Anterior) são fechados e alinhados ao calendário —
+// substituem o antigo esquema de janela móvel (7d/30d/90d/tudo).
+describe("resolverPeriodo", () => {
+  it("'semana_atual' começa numa segunda-feira e vai até hoje", () => {
+    const hoje = hojeBrasiliaISO();
+    const intervalo = resolverPeriodo("semana_atual");
+
+    expect(new Date(`${intervalo.dataInicio}T12:00:00`).getDay()).toBe(1); // segunda-feira
+    expect(intervalo.dataFim).toBe(hoje);
+    const dias = (paraData(intervalo.dataFim).getTime() - paraData(intervalo.dataInicio).getTime()) / 86_400_000;
+    expect(dias).toBeGreaterThanOrEqual(0);
+    expect(dias).toBeLessThanOrEqual(6);
+    expect(intervalo.label).toBe("Semana atual");
   });
 
-  it("'7d' cobre exatamente 7 dias (hoje inclusive)", () => {
-    const intervalo = resolverPeriodo("7d");
-    const dias =
-      (new Date(intervalo.dataFim).getTime() - new Date(intervalo.dataInicio).getTime()) / 86_400_000 + 1;
+  it("'semana_anterior' é uma semana fechada de segunda a domingo, imediatamente antes da atual", () => {
+    const intervalo = resolverPeriodo("semana_anterior");
+
+    expect(new Date(`${intervalo.dataInicio}T12:00:00`).getDay()).toBe(1); // segunda
+    expect(new Date(`${intervalo.dataFim}T12:00:00`).getDay()).toBe(0); // domingo
+    const dias = (new Date(intervalo.dataFim).getTime() - new Date(intervalo.dataInicio).getTime()) / 86_400_000 + 1;
     expect(dias).toBe(7);
+
+    const atual = resolverPeriodo("semana_atual");
+    expect(new Date(intervalo.dataFim).getTime()).toBeLessThan(new Date(atual.dataInicio).getTime());
+    expect(intervalo.label).toBe("Semana anterior");
+  });
+
+  it("'mes_atual' resolve pro primeiro dia do mês corrente até hoje", () => {
+    const hoje = paraData(hojeBrasiliaISO());
+    const intervalo = resolverPeriodo("mes_atual");
+    const primeiroDiaEsperado = paraISO(new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), 1)));
+
+    expect(intervalo.dataInicio).toBe(primeiroDiaEsperado);
+    expect(intervalo.dataFim).toBe(paraISO(hoje));
+    expect(intervalo.label).toBe("Mês atual");
+  });
+
+  it("'mes_anterior' cobre o mês anterior INTEIRO (dia 1 ao último dia), não só 30 dias corridos", () => {
+    const hoje = paraData(hojeBrasiliaISO());
+    const intervalo = resolverPeriodo("mes_anterior");
+    const inicioEsperado = paraISO(new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth() - 1, 1)));
+    const fimEsperado = paraISO(new Date(Date.UTC(hoje.getUTCFullYear(), hoje.getUTCMonth(), 0))); // último dia do mês anterior
+
+    expect(intervalo.dataInicio).toBe(inicioEsperado);
+    expect(intervalo.dataFim).toBe(fimEsperado);
+    expect(intervalo.label).toBe("Mês anterior");
+  });
+
+  it("'ano_atual' resolve de 1º de janeiro até hoje", () => {
+    const hoje = paraData(hojeBrasiliaISO());
+    const intervalo = resolverPeriodo("ano_atual");
+
+    expect(intervalo.dataInicio).toBe(`${hoje.getUTCFullYear()}-01-01`);
+    expect(intervalo.dataFim).toBe(paraISO(hoje));
+    expect(intervalo.label).toBe("Ano atual");
+  });
+
+  it("'ano_anterior' cobre o ano anterior INTEIRO (1º de janeiro a 31 de dezembro)", () => {
+    const hoje = paraData(hojeBrasiliaISO());
+    const intervalo = resolverPeriodo("ano_anterior");
+
+    expect(intervalo.dataInicio).toBe(`${hoje.getUTCFullYear() - 1}-01-01`);
+    expect(intervalo.dataFim).toBe(`${hoje.getUTCFullYear() - 1}-12-31`);
+    expect(intervalo.label).toBe("Ano anterior");
   });
 
   it("'custom' exige dataInicio e dataFim, senão lança erro", () => {

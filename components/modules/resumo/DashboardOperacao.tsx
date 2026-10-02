@@ -1,16 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import FilterBar from "./FilterBar";
 import FunilServicosChart from "./graficos/FunilServicosChart";
 import CustoRealOrcadoChart from "./graficos/CustoRealOrcadoChart";
 import { TIPOS_TRABALHO_OPCOES } from "@/components/modules/operacional/MultiSelectTiposTrabalho";
 import { gerarPdfDeElemento, baixarArquivo } from "@/lib/pdf-generator";
 import { formatarMoeda, formatarNumero } from "@/lib/format";
+import type { FiltrosResumo } from "@/lib/types/resumo";
 import type { RelatorioOperacional } from "@/lib/usecases/operacional";
 
 // Lista revisada (migração 027) — reaproveita a mesma fonte de sempre, ver
 // MultiSelectTiposTrabalho.tsx.
 const LABEL_TIPO: Record<string, string> = Object.fromEntries(TIPOS_TRABALHO_OPCOES.map((o) => [o.valor, o.label]));
+
+const FILTROS_INICIAIS: FiltrosResumo = { periodo: "mes_atual" };
 
 /** Aba "Operação" do dashboard centralizado de Resumo — antes vivia como
  * aba "Relatórios" dentro do próprio módulo Operacional; movida pra cá pra
@@ -21,23 +25,24 @@ const LABEL_TIPO: Record<string, string> = Object.fromEntries(TIPOS_TRABALHO_OPC
  * Só o filtro de Período ficou aqui (Tipo de Trabalho e Responsável, que
  * existiam antes, foram removidos por pedido — o Resumo é visão executiva
  * rápida; quem quiser esse recorte detalhado usa a aba Relatórios dentro do
- * próprio módulo Operacional). "Este ano"/"Personalizado" não foram
- * adicionados aqui como no filtro de Período da aba Geral — exigiriam
- * estender `/api/operacional/relatorios`, que só aceita 7dias/30dias/mes/
- * todos hoje; fora do escopo desta rodada de padronização visual. */
+ * próprio módulo Operacional). Pedido explícito (rodada "filtros por
+ * linhas"): usa agora o MESMO FilterBar da aba Geral (Semana/Mês/Ano ×
+ * Atual/Anterior + Personalizado), em vez do `<select>` próprio e mais
+ * simples (7/30 dias/mês) que existia aqui antes. */
 export default function DashboardOperacao() {
   const [relatorio, setRelatorio] = useState<RelatorioOperacional | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
-  const [periodo, setPeriodo] = useState<"" | "7dias" | "30dias" | "mes">("");
+  const [filtros, setFiltros] = useState<FiltrosResumo>(FILTROS_INICIAIS);
   const [exportando, setExportando] = useState(false);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
     setErro(null);
     try {
-      const params = new URLSearchParams();
-      if (periodo) params.set("periodo", periodo);
+      const params = new URLSearchParams({ periodo: filtros.periodo });
+      if (filtros.dataInicioCustom) params.set("dataInicio", filtros.dataInicioCustom);
+      if (filtros.dataFimCustom) params.set("dataFim", filtros.dataFimCustom);
 
       const response = await fetch(`/api/operacional/relatorios?${params.toString()}`);
       const payload = await response.json();
@@ -51,7 +56,7 @@ export default function DashboardOperacao() {
     } finally {
       setCarregando(false);
     }
-  }, [periodo]);
+  }, [filtros]);
 
   useEffect(() => {
     carregar();
@@ -69,25 +74,7 @@ export default function DashboardOperacao() {
 
   return (
     <div className="space-y-6">
-      <div className="card flex flex-wrap items-end gap-3">
-        <div>
-          <label className="label-field">Período</label>
-          <select className="input-field" value={periodo} onChange={(e) => setPeriodo(e.target.value as never)}>
-            <option value="">Todo período</option>
-            <option value="7dias">Últimos 7 dias</option>
-            <option value="30dias">Últimos 30 dias</option>
-            <option value="mes">Este mês</option>
-          </select>
-        </div>
-        <div className="ml-auto flex items-end gap-2">
-          <button type="button" className="btn-secondary" onClick={exportarPdf} disabled={exportando || !relatorio}>
-            {exportando ? "Gerando..." : "📥 Exportar"}
-          </button>
-          <button type="button" className="btn-primary" onClick={carregar} disabled={carregando}>
-            {carregando ? "Atualizando..." : "🔄 Atualizar"}
-          </button>
-        </div>
-      </div>
+      <FilterBar filtros={filtros} onChange={setFiltros} onExportPdf={exportarPdf} onRefresh={carregar} atualizando={carregando || exportando} />
 
       <div id="resumo-operacao-export" className="space-y-6 bg-gray-50">
       {carregando ? (

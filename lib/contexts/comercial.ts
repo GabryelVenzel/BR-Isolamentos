@@ -225,6 +225,7 @@ export function createComercialContext(supabase: SupabaseClient) {
       atribuidoA?: string;
       temperatura?: string;
       criadosApartirDe?: string;
+      criadosAte?: string;
     }): Promise<RelatorioComercial> {
       const leads = await leadRepo.listar(filtros);
       const historico = leads.length > 0 ? await historicoRepo.listarPorLeads(leads.map((l) => l.id)) : [];

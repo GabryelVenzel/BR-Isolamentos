@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createFinanceiroContext } from "@/lib/contexts/financeiro";
 import { apiError, apiSuccess } from "@/lib/types/common";
+import { parseFiltrosResumo } from "@/lib/types/api";
+import { resolverPeriodo } from "@/lib/usecases/resumo";
 import { toHttpError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import {
@@ -12,25 +14,30 @@ import {
   calcularReceitaVsDespesaPorMes,
 } from "@/lib/usecases/financeiro";
 
-const DIAS_POR_PERIODO: Record<string, number> = { "30dias": 30, "3meses": 90, "12meses": 365 };
-
 /** GET: relatório financeiro completo — KPIs, distribuição por categoria,
- * custos fixos vs variáveis, receita/despesa por mês, alertas. Filtros:
- * `periodo` (30dias|3meses|12meses, default 12meses), `categoria`, `tipo`. */
+ * custos fixos vs variáveis, receita/despesa por mês, alertas. Período agora
+ * é o MESMO filtro por linhas (Semana/Mês/Ano × Atual/Anterior +
+ * Personalizado) da aba Geral do Resumo — ver `parseFiltrosResumo`/
+ * `resolverPeriodo` e components/modules/resumo/FilterBar.tsx.
+ * `lancamentos_financeiros.data` é uma coluna DATE (não timestamp), então
+ * `dataInicio`/`dataFim` (YYYY-MM-DD) entram direto em `listarLancamentos`,
+ * sem o ajuste de "T23:59:59" que as rotas de Comercial/Operação precisam
+ * pra `created_at` (timestamp). Demais filtros via query string: `categoria`,
+ * `tipo`. */
 export async function GET(request: Request) {
   const ctx = createFinanceiroContext(createSupabaseServerClient());
   const { searchParams } = new URL(request.url);
 
   try {
-    const periodo = searchParams.get("periodo") ?? "12meses";
-    const dias = DIAS_POR_PERIODO[periodo] ?? DIAS_POR_PERIODO["12meses"];
-    const dataInicio = new Date(Date.now() - dias * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const filtros = parseFiltrosResumo(searchParams);
+    const intervalo = resolverPeriodo(filtros.periodo, filtros.dataInicioCustom, filtros.dataFimCustom);
 
     const [lancamentos, custosFixosMensal] = await Promise.all([
       ctx.listarLancamentos({
         categoria: searchParams.get("categoria") ?? undefined,
         tipo: searchParams.get("tipo") ?? undefined,
-        dataInicio,
+        dataInicio: intervalo.dataInicio,
+        dataFim: intervalo.dataFim,
       }),
       ctx.custoFixoRepo.totalMensalAtivo(),
     ]);

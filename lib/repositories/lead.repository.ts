@@ -10,6 +10,10 @@ export interface FiltrosLead {
   /** Só leads criados a partir desta data (ISO) — filtro "Período" do
    * Kanban/Relatórios. */
   criadosApartirDe?: string;
+  /** Até esta data (ISO, inclusive) — par de `criadosApartirDe` pra períodos
+   * FECHADOS (ex.: "mês anterior" tem início E fim definidos, não só "a
+   * partir de"). Ver lib/usecases/resumo/periodo.ts#resolverPeriodo. */
+  criadosAte?: string;
 }
 
 export class LeadRepository extends BaseRepository<Lead> {
@@ -33,6 +37,7 @@ export class LeadRepository extends BaseRepository<Lead> {
     if (filtros.temperatura) query = query.eq("temperatura", filtros.temperatura);
     if (filtros.origem) query = query.eq("origem", filtros.origem);
     if (filtros.criadosApartirDe) query = query.gte("created_at", filtros.criadosApartirDe);
+    if (filtros.criadosAte) query = query.lte("created_at", filtros.criadosAte);
 
     const { data, error } = await query;
     if (error) throw error;

@@ -3,7 +3,19 @@
 // lib/types/domain.ts. Nada aqui é persistido; são só os retornos das rotas
 // de app/api/resumo/*.
 
-export type Periodo = "7d" | "30d" | "90d" | "mes" | "ano" | "tudo" | "custom";
+// Pedido explícito: filtro por linhas comparáveis (Semana/Mês/Ano × Atual/
+// Anterior) pra análises e comparativos rápidos — substitui o antigo "Últimos
+// N dias" (janela móvel, difícil de comparar "maçã com maçã") por períodos
+// fechados e alinhados ao calendário. Ver lib/usecases/resumo/periodo.ts
+// #resolverPeriodo pros intervalos exatos de cada um.
+export type Periodo =
+  | "semana_atual"
+  | "semana_anterior"
+  | "mes_atual"
+  | "mes_anterior"
+  | "ano_atual"
+  | "ano_anterior"
+  | "custom";
 export type TipoTrabalhoFiltro = "quente" | "frio" | "misto";
 
 /** Filtros cross-cutting da FilterBar — ver components/modules/resumo/FilterBar.tsx. */

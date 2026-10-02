@@ -277,7 +277,12 @@ export function createOperacionalContext(supabase: SupabaseClient) {
 
     // --- Relatórios ---
 
-    async gerarRelatorio(filtros: { criadosApartirDe?: string; tipoTrabalho?: string; responsavelEmail?: string }): Promise<RelatorioOperacional> {
+    async gerarRelatorio(filtros: {
+      criadosApartirDe?: string;
+      criadosAte?: string;
+      tipoTrabalho?: string;
+      responsavelEmail?: string;
+    }): Promise<RelatorioOperacional> {
       const servicos = await servicoRepo.listar(filtros);
       return gerarRelatorioOperacional(servicos);
     },

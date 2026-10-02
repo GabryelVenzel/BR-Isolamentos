@@ -7,6 +7,8 @@ export interface FiltrosServico {
   tipoTrabalho?: TipoTrabalhoOperacional | string;
   responsavelEmail?: string;
   criadosApartirDe?: string;
+  /** Até esta data (ISO, inclusive) — ver mesmo campo em FiltrosLead. */
+  criadosAte?: string;
 }
 
 export class ServicoRepository extends BaseRepository<Servico> {
@@ -27,6 +29,7 @@ export class ServicoRepository extends BaseRepository<Servico> {
     if (filtros.tipoTrabalho) query = query.eq("tipo_trabalho", filtros.tipoTrabalho);
     if (filtros.responsavelEmail) query = query.eq("responsavel_email", filtros.responsavelEmail);
     if (filtros.criadosApartirDe) query = query.gte("created_at", filtros.criadosApartirDe);
+    if (filtros.criadosAte) query = query.lte("created_at", filtros.criadosAte);
 
     const { data, error } = await query;
     if (error) throw error;
