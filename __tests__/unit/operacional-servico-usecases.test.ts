@@ -135,50 +135,24 @@ describe("finalizarServico", () => {
     expect(historicoRepo.create).toHaveBeenCalledWith(expect.objectContaining({ tipo_evento: "finalizacao" }));
   });
 
-  it("cria um lançamento de receita pendente vinculado ao serviço (integração com o Financeiro)", async () => {
+  it("NÃO cria lançamento de receita sozinho (pedido explícito — categorias de receita agora exigem escolha manual)", async () => {
+    // Antes finalizar criava um lançamento automático com categoria genérica
+    // "Venda de orçamento/serviço" — removido quando essa categoria virou 6
+    // específicas (M.O. Fixo Quente/Frio etc., ver migração 036), já que
+    // nenhuma delas é derivável sozinha a partir do serviço.
     const servicoRepo = criarServicoRepoFake(
       servico({ numero_servico: "S00042", fotos_url: ["foto.jpg"], pdf_relatorio_url: "relatorio.pdf", orcamento_id: 7 })
     );
     const historicoRepo = criarHistoricoRepoFake();
-    const lancamentoRepo = { create: jest.fn(async (dados: unknown) => dados) };
-
-    await finalizarServico(
-      "s1",
-      { valor_real: 5000 },
-      { servicoRepo: servicoRepo as never, historicoRepo: historicoRepo as never, lancamentoRepo: lancamentoRepo as never }
-    );
-
-    expect(lancamentoRepo.create).toHaveBeenCalledWith(
-      expect.objectContaining({ tipo: "receita", valor: 5000, pago: false, servico_id: "s1", orcamento_id: 7 })
-    );
-  });
-
-  it("lançamento de receita usa valor_orcado como estimativa quando valor_real não é informado", async () => {
-    const servicoRepo = criarServicoRepoFake(
-      servico({ fotos_url: ["foto.jpg"], pdf_relatorio_url: "relatorio.pdf", valor_orcado: 3000 })
-    );
-    const historicoRepo = criarHistoricoRepoFake();
-    const lancamentoRepo = { create: jest.fn(async (dados: unknown) => dados) };
-
-    await finalizarServico(
-      "s1",
-      {},
-      { servicoRepo: servicoRepo as never, historicoRepo: historicoRepo as never, lancamentoRepo: lancamentoRepo as never }
-    );
-
-    expect(lancamentoRepo.create).toHaveBeenCalledWith(expect.objectContaining({ valor: 3000 }));
-  });
-
-  it("não quebra se lancamentoRepo não for passado (compatibilidade)", async () => {
-    const servicoRepo = criarServicoRepoFake(servico({ fotos_url: ["foto.jpg"], pdf_relatorio_url: "relatorio.pdf" }));
-    const historicoRepo = criarHistoricoRepoFake();
 
     const resultado = await finalizarServico(
       "s1",
-      { valor_real: 1000 },
+      { valor_real: 5000 },
       { servicoRepo: servicoRepo as never, historicoRepo: historicoRepo as never }
     );
+
     expect(resultado.etapa).toBe("finalizado");
+    expect(resultado.valor_real).toBe(5000);
   });
 
   it("rejeita finalizar um serviço já finalizado", async () => {

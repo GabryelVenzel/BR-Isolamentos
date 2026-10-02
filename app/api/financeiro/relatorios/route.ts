@@ -6,17 +6,14 @@ import { parseFiltrosResumo } from "@/lib/types/api";
 import { resolverPeriodo } from "@/lib/usecases/resumo";
 import { toHttpError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
-import {
-  calcularAlertas,
-  calcularCustosFixosVsVariaveis,
-  calcularDistribuicaoPorCategoria,
-  calcularKpisFinanceiro,
-  calcularReceitaVsDespesaPorMes,
-} from "@/lib/usecases/financeiro";
+import { calcularAlertas, calcularDistribuicaoPorCategoria, calcularKpisFinanceiro, calcularReceitaVsDespesaPorMes } from "@/lib/usecases/financeiro";
 
 /** GET: relatório financeiro completo — KPIs, distribuição por categoria,
- * custos fixos vs variáveis, receita/despesa por mês, alertas. Período agora
- * é o MESMO filtro por linhas (Semana/Mês/Ano × Atual/Anterior +
+ * receita/despesa por mês, alertas. Custos Fixos x Variáveis saiu daqui
+ * (pedido explícito, rodada "inverter gráficos de aba") — foi pra
+ * `/api/resumo/charts/custos-fixos-variaveis` (aba Geral do Resumo); a aba
+ * Financeira ganhou a Projeção de Caixa no lugar (ver DashboardFinanceira.tsx).
+ * Período agora é o MESMO filtro por linhas (Semana/Mês/Ano × Atual/Anterior +
  * Personalizado) da aba Geral do Resumo — ver `parseFiltrosResumo`/
  * `resolverPeriodo` e components/modules/resumo/FilterBar.tsx.
  * `lancamentos_financeiros.data` é uma coluna DATE (não timestamp), então
@@ -48,7 +45,6 @@ export async function GET(request: Request) {
       kpis: calcularKpisFinanceiro(lancamentos, custosFixosMensal),
       distribuicaoReceitas: calcularDistribuicaoPorCategoria(lancamentos, "receita"),
       distribuicaoDespesas: calcularDistribuicaoPorCategoria(lancamentos, "despesa"),
-      custosFixosVsVariaveis: calcularCustosFixosVsVariaveis(lancamentos),
       receitaVsDespesaPorMes: calcularReceitaVsDespesaPorMes(lancamentos),
       alertas: calcularAlertas(pendentes),
     };

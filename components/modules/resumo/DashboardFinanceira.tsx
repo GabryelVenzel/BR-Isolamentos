@@ -1,26 +1,19 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import CashFlowChart from "./CashFlowChart";
 import FilterBar from "./FilterBar";
 import ReceitaDespesaChart from "@/components/modules/financeiro/graficos/ReceitaDespesaChart";
 import DistribuicaoCategoriaChart from "@/components/modules/financeiro/graficos/DistribuicaoCategoriaChart";
-import CustosFixosVariaveisChart from "@/components/modules/financeiro/graficos/CustosFixosVariaveisChart";
 import { gerarPdfDeElemento, baixarArquivo } from "@/lib/pdf-generator";
 import { formatarMoeda, formatarNumero } from "@/lib/format";
-import type { FiltrosResumo } from "@/lib/types/resumo";
-import type {
-  AlertaFinanceiro,
-  CustosFixosVsVariaveis,
-  DistribuicaoCategoria,
-  KpisFinanceiro,
-  ReceitaDespesaMes,
-} from "@/lib/usecases/financeiro";
+import type { FiltrosResumo, ProjecaoCaixaResumo } from "@/lib/types/resumo";
+import type { AlertaFinanceiro, DistribuicaoCategoria, KpisFinanceiro, ReceitaDespesaMes } from "@/lib/usecases/financeiro";
 
 interface RelatorioFinanceiro {
   kpis: KpisFinanceiro;
   distribuicaoReceitas: DistribuicaoCategoria[];
   distribuicaoDespesas: DistribuicaoCategoria[];
-  custosFixosVsVariaveis: CustosFixosVsVariaveis;
   receitaVsDespesaPorMes: ReceitaDespesaMes[];
   alertas: AlertaFinanceiro[];
 }
@@ -44,9 +37,16 @@ const FILTROS_INICIAIS: FiltrosResumo = { periodo: "mes_atual" };
  * Pedido explícito (rodada "filtros por linhas"): usa agora o MESMO
  * FilterBar da aba Geral (Semana/Mês/Ano × Atual/Anterior + Personalizado),
  * em vez do `<select>` próprio (30 dias/3 meses/12 meses) que existia aqui
- * antes. */
+ * antes.
+ *
+ * Pedido explícito (rodada "inverter gráficos de aba"): Custos Fixos x
+ * Variáveis saiu daqui (foi pra aba Geral) e deu lugar à Projeção de Caixa
+ * (CashFlowChart, mesmo componente/rota da aba Geral — `/api/resumo/charts/
+ * cashflow-projecao`, sem filtro de período, já que é sempre "daqui pra
+ * frente"). */
 export default function DashboardFinanceira() {
   const [relatorio, setRelatorio] = useState<RelatorioFinanceiro | null>(null);
+  const [projecao, setProjecao] = useState<ProjecaoCaixaResumo | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [filtros, setFiltros] = useState<FiltrosResumo>(FILTROS_INICIAIS);
@@ -60,13 +60,18 @@ export default function DashboardFinanceira() {
       if (filtros.dataInicioCustom) params.set("dataInicio", filtros.dataInicioCustom);
       if (filtros.dataFimCustom) params.set("dataFim", filtros.dataFimCustom);
 
-      const response = await fetch(`/api/financeiro/relatorios?${params.toString()}`);
+      const [response, responseProjecao] = await Promise.all([
+        fetch(`/api/financeiro/relatorios?${params.toString()}`),
+        fetch("/api/resumo/charts/cashflow-projecao"),
+      ]);
       const payload = await response.json();
+      const payloadProjecao = await responseProjecao.json();
       if (payload.success) {
         setRelatorio(payload.data);
       } else {
         setErro(payload.error ?? "Erro ao carregar o relatório.");
       }
+      if (payloadProjecao.success) setProjecao(payloadProjecao.data);
     } catch {
       setErro("Erro de conexão ao carregar o relatório.");
     } finally {
@@ -131,7 +136,7 @@ export default function DashboardFinanceira() {
             <DistribuicaoCategoriaChart titulo="Distribuição de Despesas" dados={relatorio.distribuicaoDespesas} />
           </div>
 
-          <CustosFixosVariaveisChart dados={relatorio.custosFixosVsVariaveis} />
+          {projecao && <CashFlowChart projecao={projecao} />}
 
           {relatorio.alertas.length > 0 && (
             <div className="card">

@@ -1,10 +1,10 @@
 import type { CustoFixoRepository, LancamentoFinanceiroRepository } from "../../repositories";
 import type { DiaCashFlow, ProjecaoCaixaResumo } from "../../types/resumo";
 
-const DIAS_PROJECAO = 30;
+const DIAS_PROJECAO = 60; // pedido explícito — era 30.
 
 /**
- * Projeção de caixa pros próximos 30 dias. Metodologia (documentada porque a
+ * Projeção de caixa pros próximos 60 dias. Metodologia (documentada porque a
  * tabela não guarda um "saldo em conta" real — é derivada, não um dado direto):
  *
  *   saldo de hoje = soma histórica de tudo já PAGO (receita paga - despesa
@@ -12,7 +12,7 @@ const DIAS_PROJECAO = 30;
  *   realmente já entrou/saiu, é a aproximação mais correta disponível sem
  *   integração bancária.
  *
- *   cada um dos 30 dias seguintes soma:
+ *   cada um dos 60 dias seguintes soma:
  *     (a) lançamentos NÃO pagos cuja `data` cai naquele dia (receita soma,
  *         despesa subtrai) — `data` como proxy de vencimento, mesma
  *         convenção usada no alerta de "contas vencidas". Desde que

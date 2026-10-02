@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import AlertsBanner from "@/components/modules/resumo/AlertsBanner";
-import CashFlowChart from "@/components/modules/resumo/CashFlowChart";
+import CustosFixosVariaveisChart from "@/components/modules/financeiro/graficos/CustosFixosVariaveisChart";
 import FilterBar from "@/components/modules/resumo/FilterBar";
 import KPICard, { type CorCard } from "@/components/modules/resumo/KPICard";
 import LeadsFunnelChart from "@/components/modules/resumo/LeadsFunnelChart";
@@ -11,16 +11,11 @@ import RevenueVsExpenseChart from "@/components/modules/resumo/RevenueVsExpenseC
 import TopPartnersChart from "@/components/modules/resumo/TopPartnersChart";
 import { formatarDataHora, formatarMoeda } from "@/lib/format";
 import { baixarArquivo, gerarPdfDeElemento } from "@/lib/pdf-generator";
-import type {
-  AlertaResumo,
-  DistribuicaoTipoResumo,
-  FiltrosResumo,
-  KpisResumo,
-  ParceiroTopResumo,
-  PontoReceitaDespesa,
-  ProjecaoCaixaResumo,
-} from "@/lib/types/resumo";
+import type { AlertaResumo, DistribuicaoTipoResumo, FiltrosResumo, KpisResumo, ParceiroTopResumo, PontoReceitaDespesa } from "@/lib/types/resumo";
+import type { CustosFixosVsVariaveis } from "@/lib/usecases/financeiro";
 import type { FunilResultado } from "@/lib/usecases/resumo";
+
+const CUSTOS_FIXOS_VARIAVEIS_INICIAL: CustosFixosVsVariaveis = { fixos: 0, variaveis: 0, totalDespesa: 0 };
 
 const FILTROS_INICIAIS: FiltrosResumo = { periodo: "mes_atual" };
 
@@ -46,7 +41,7 @@ export default function DashboardGeral() {
   const [funil, setFunil] = useState<FunilResultado | null>(null);
   const [distribuicao, setDistribuicao] = useState<DistribuicaoTipoResumo[]>([]);
   const [parceiros, setParceiros] = useState<ParceiroTopResumo[]>([]);
-  const [projecao, setProjecao] = useState<ProjecaoCaixaResumo | null>(null);
+  const [custosFixosVsVariaveis, setCustosFixosVsVariaveis] = useState<CustosFixosVsVariaveis>(CUSTOS_FIXOS_VARIAVEIS_INICIAL);
 
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
@@ -64,24 +59,24 @@ export default function DashboardGeral() {
       if (filtros.responsavel) params.set("responsavel", filtros.responsavel);
       const qs = params.toString();
 
-      const [rKpis, rAlertas, rReceitaDespesa, rFunil, rDistribuicao, rParceiros, rProjecao] = await Promise.all([
+      const [rKpis, rAlertas, rReceitaDespesa, rFunil, rDistribuicao, rParceiros, rCustosFixosVariaveis] = await Promise.all([
         fetch(`/api/resumo/kpis?${qs}`),
         fetch("/api/resumo/alerts"),
         fetch(`/api/resumo/charts/receita-vs-despesa?${qs}`),
         fetch("/api/resumo/charts/leads-funil"),
         fetch(`/api/resumo/charts/receita-distribuicao?${qs}`),
         fetch("/api/resumo/charts/parceiros-top"),
-        fetch("/api/resumo/charts/cashflow-projecao"),
+        fetch(`/api/resumo/charts/custos-fixos-variaveis?${qs}`),
       ]);
 
-      const [pKpis, pAlertas, pReceitaDespesa, pFunil, pDistribuicao, pParceiros, pProjecao] = await Promise.all([
+      const [pKpis, pAlertas, pReceitaDespesa, pFunil, pDistribuicao, pParceiros, pCustosFixosVariaveis] = await Promise.all([
         rKpis.json(),
         rAlertas.json(),
         rReceitaDespesa.json(),
         rFunil.json(),
         rDistribuicao.json(),
         rParceiros.json(),
-        rProjecao.json(),
+        rCustosFixosVariaveis.json(),
       ]);
 
       if (!pKpis.success) {
@@ -95,7 +90,7 @@ export default function DashboardGeral() {
       if (pFunil.success) setFunil(pFunil.data);
       if (pDistribuicao.success) setDistribuicao(pDistribuicao.data);
       if (pParceiros.success) setParceiros(pParceiros.data);
-      if (pProjecao.success) setProjecao(pProjecao.data);
+      if (pCustosFixosVariaveis.success) setCustosFixosVsVariaveis(pCustosFixosVariaveis.data);
       setUltimaAtualizacao(new Date());
     } catch {
       setErro("Erro de conexão ao carregar o dashboard.");
@@ -253,7 +248,7 @@ export default function DashboardGeral() {
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
           <RevenueDistributionChart dados={distribuicao} />
           <TopPartnersChart parceiros={parceiros} />
-          {projecao && <CashFlowChart projecao={projecao} />}
+          <CustosFixosVariaveisChart dados={custosFixosVsVariaveis} />
         </div>
       </div>
 

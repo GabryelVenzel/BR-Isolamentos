@@ -9,7 +9,7 @@ interface Props {
   projecao: ProjecaoCaixaResumo;
 }
 
-/** Projeção de saldo em caixa pros próximos 30 dias — ver metodologia
+/** Projeção de saldo em caixa pros próximos 60 dias — ver metodologia
  * comentada em lib/usecases/resumo/projecaoCaixa.ts (é uma estimativa, não
  * um saldo bancário real; documentado ali e reforçado na legenda abaixo). */
 export default function CashFlowChart({ projecao }: Props) {
@@ -23,7 +23,7 @@ export default function CashFlowChart({ projecao }: Props) {
 
   return (
     <div className="card">
-      <h3 className="mb-1 font-montserrat text-sm font-bold uppercase text-brand">Projeção de Caixa (30 dias)</h3>
+      <h3 className="mb-1 font-montserrat text-sm font-bold uppercase text-brand">Projeção de Caixa (60 dias)</h3>
       <p className="mb-3 text-xs text-gray-400">
         Estimativa a partir dos lançamentos já registrados + custos fixos configurados — não é um saldo bancário real.
       </p>

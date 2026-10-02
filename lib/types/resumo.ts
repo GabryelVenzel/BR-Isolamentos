@@ -113,7 +113,7 @@ export interface ParceiroTopResumo {
 }
 
 export interface DiaCashFlow {
-  dia: number; // 1-30
+  dia: number; // 1-60
   data: string; // ISO
   saldoProjetado: number;
   negativo: boolean;

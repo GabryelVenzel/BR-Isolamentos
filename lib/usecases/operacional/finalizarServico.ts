@@ -1,6 +1,6 @@
 import { ConflictError, NotFoundError, ValidationError } from "../../errors";
-import type { HistoricoServicoRepository, LancamentoFinanceiroRepository, ServicoRepository } from "../../repositories";
-import type { HistoricoServico, LancamentoFinanceiro, Servico } from "../../types/domain";
+import type { HistoricoServicoRepository, ServicoRepository } from "../../repositories";
+import type { HistoricoServico, Servico } from "../../types/domain";
 import { FinalizarServicoSchema, parseOrThrow } from "../../validators";
 
 /** Checklist de finalização (regra do pedido — "não deixa finalizar sem
@@ -11,22 +11,18 @@ import { FinalizarServicoSchema, parseOrThrow } from "../../validators";
  * `valor_real` é OPCIONAL (pedido explícito — antes bloqueava finalizar,
  * agora não; ver FinalizarServicoSchema).
  *
- * Integração com o módulo Financeiro: finalizar cria automaticamente um
- * lançamento de RECEITA pendente (pedido explícito — "Status: Pendente até
- * receber"), vinculado ao serviço/orçamento, pro sócio não ter que lançar
- * manualmente toda venda fechada. Como `valor_real` agora pode não vir
- * preenchido, esse lançamento usa `valor_orcado` como estimativa quando
- * faltar (precisa de algum número — `LancamentoFinanceiro.valor` não é
- * opcional) — mas o `valor_real` GRAVADO NO SERVIÇO fica `null` nesse caso,
- * pra não inventar dado no relatório "Custo Real vs Orçado" (ver
- * lib/usecases/operacional/relatorio.ts, que só considera serviços com
- * valor_real != null). `lancamentoRepo` é opcional só pra não quebrar quem
- * já chamava este use case sem ele (testes existentes) — em produção o
- * contexto (lib/contexts/operacional.ts) sempre passa. */
+ * NÃO cria mais um lançamento de receita sozinho (pedido explícito, rodada
+ * "categorias de receita por tipo de serviço"): com a receita agora
+ * dividida em 6 categorias específicas (M.O. Fixo Quente/Frio, Material e
+ * M.O. Fixo Quente/Frio, M.O. Removível, M.O. Delineamento — ver migração
+ * 036), não existe mais 1 categoria genérica óbvia pra preencher sozinho, e
+ * nenhuma delas é derivável automaticamente a partir dos dados do serviço.
+ * O lançamento de receita da venda passa a ser sempre criado manualmente
+ * (aba Lançamentos), escolhendo a categoria certa caso a caso. */
 export async function finalizarServico(
   servicoId: string,
   input: unknown,
-  repos: { servicoRepo: ServicoRepository; historicoRepo: HistoricoServicoRepository; lancamentoRepo?: LancamentoFinanceiroRepository },
+  repos: { servicoRepo: ServicoRepository; historicoRepo: HistoricoServicoRepository },
   usuarioEmail?: string | null
 ): Promise<Servico> {
   const dados = parseOrThrow(FinalizarServicoSchema, input);
@@ -65,20 +61,6 @@ export async function finalizarServico(
     descricao: valorReal != null ? `Serviço finalizado — valor real: ${valorReal}.` : "Serviço finalizado.",
     usuario_email: usuarioEmail ?? null,
   } as Partial<HistoricoServico>);
-
-  if (repos.lancamentoRepo) {
-    await repos.lancamentoRepo.create({
-      tipo: "receita",
-      categoria: "Venda de orçamento/serviço",
-      descricao: `Serviço ${servico.numero_servico}${servico.cliente ? ` — ${servico.cliente.nome}` : ""}`,
-      valor: valorReal ?? servico.valor_orcado ?? 0,
-      data: dataFimReal,
-      pago: false,
-      orcamento_id: servico.orcamento_id,
-      servico_id: servico.id,
-      lead_id: servico.lead_id,
-    } as Partial<LancamentoFinanceiro>);
-  }
 
   return atualizado;
 }

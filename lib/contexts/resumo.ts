@@ -24,6 +24,7 @@ import {
   resolverPeriodo,
   topParceiros,
 } from "../usecases/resumo";
+import { calcularCustosFixosVsVariaveis } from "../usecases/financeiro";
 
 export function createResumoContext(supabase: SupabaseClient) {
   const lancamentoRepo = new LancamentoFinanceiroRepository(supabase);
@@ -70,6 +71,17 @@ export function createResumoContext(supabase: SupabaseClient) {
 
     chartProjecaoCaixa(): Promise<ProjecaoCaixaResumo> {
       return projecaoCaixa(lancamentoRepo, custoFixoRepo);
+    },
+
+    // Pedido explícito (rodada "inverter gráficos de aba"): Custos Fixos x
+    // Variáveis passou da aba Financeira pra Geral — mesmo cálculo
+    // (lib/usecases/financeiro/relatorio.ts), só que filtrado pelo período da
+    // FilterBar do Resumo (Financeira já fazia isso dentro de
+    // /api/financeiro/relatorios; aqui tira o lançamento do período direto).
+    async chartCustosFixosVsVariaveis(filtros: FiltrosResumo) {
+      const intervalo = resolverPeriodo(filtros.periodo, filtros.dataInicioCustom, filtros.dataFimCustom);
+      const lancamentos = await lancamentoRepo.listar({ dataInicio: intervalo.dataInicio, dataFim: intervalo.dataFim });
+      return calcularCustosFixosVsVariaveis(lancamentos);
     },
   };
 }
