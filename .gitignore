@@ -14,6 +14,17 @@
 
 # credentials doc (contains GitHub token + Supabase keys in plain text)
 0-DocumentosIniciais/Dados&chaves.md
+**/Dados&chaves.md
+
+# local-only working folders (client studies, photos, reference proposals,
+# institutional site, one-off scripts) — never part of the app
+/0-DocumentosIniciais/0-DocumentosIniciais/
+/0_estudosBR/
+/3-FotosEvideos/
+/5-propostasreferencias/
+/6-PropostasParceiros/
+/SiteInstitucional/
+/scripts/
 
 # misc
 .DS_Store
