@@ -2,6 +2,7 @@
 
 import { useState, type ChangeEvent } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { urlArquivo } from "@/lib/arquivos";
 import type { AnexoLancamento } from "@/lib/types/domain";
 
 const BUCKET = "lancamentos-anexos";
@@ -110,10 +111,10 @@ export default function AnexosUpload({ anexos, onChange }: Props) {
                 </div>
               </div>
               <div className="mt-2 flex gap-3 text-xs">
-                <a href={anexo.url} target="_blank" rel="noreferrer" className="text-brand hover:underline">
+                <a href={urlArquivo(anexo.url)} target="_blank" rel="noreferrer" className="text-brand hover:underline">
                   👁️ Ver
                 </a>
-                <a href={anexo.url} download={anexo.nome} className="text-brand hover:underline">
+                <a href={urlArquivo(anexo.url, { baixarComo: anexo.nome })} className="text-brand hover:underline">
                   ⬇️ Download
                 </a>
                 <button type="button" className="text-status-error hover:underline" onClick={() => remover(anexo.url)}>

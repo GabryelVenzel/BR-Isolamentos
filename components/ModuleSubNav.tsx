@@ -2,11 +2,14 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useAcesso } from "@/lib/hooks/useAcesso";
 import { CLASSES_ABA_ATIVA, CLASSES_ABA_BASE, CLASSES_ABA_INATIVA } from "@/components/TabsNavigation";
 
 export interface ModuleSubNavItem {
   href: string;
   label: string;
+  /** Aba visível só pra administradores (ver lib/acesso.ts). */
+  apenasAdmin?: boolean;
 }
 
 interface Props {
@@ -18,8 +21,10 @@ interface Props {
  * módulo. Complementa (não substitui) indicadores de fluxo interno como o do
  * wizard de orçamento (app/novo-orcamento/layout.tsx), que tem semântica de
  * progresso linear, diferente de "trocar de seção dentro do módulo". */
-export default function ModuleSubNav({ items }: Props) {
+export default function ModuleSubNav({ items: todos }: Props) {
   const pathname = usePathname();
+  const { acesso } = useAcesso();
+  const items = todos.filter((item) => !item.apenasAdmin || acesso?.admin);
 
   // Escolhe o item mais específico que combina com a rota atual (maior
   // href), não "todo item cujo href é prefixo" — senão, numa lista como

@@ -9,6 +9,9 @@ export interface Usuario {
   nome: string;
   telefone: string | null;
   role: Role;
+  /** Módulos liberados (migração 039, ver lib/acesso.ts) — ignorado quando
+   * `role` é "admin", que acessa tudo. */
+  modulos: string[];
   ativo: boolean;
   criado_em: string;
 }

@@ -89,8 +89,8 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
   const [atribuidoA, setAtribuidoA] = useState("");
   const [salvandoDados, setSalvandoDados] = useState(false);
   // Responsável agora é um <select> dinâmico (não mais texto livre) — fonte:
-  // /api/usuarios, o mesmo roster já usado em Comercial → Configurações →
-  // Responsáveis (ver ResponsaveisSection.tsx). Continua sendo `usuarios`,
+  // /api/usuarios, os usuários ativos cadastrados em RH → Usuários (ver
+  // app/rh/usuarios/page.tsx). Continua sendo `usuarios`,
   // não uma tabela `responsaveis_comerciais` nova — decisão confirmada com o
   // usuário pra não duplicar o cadastro de pessoas.
   const [usuarios, setUsuarios] = useState<Array<{ email: string; nome: string }>>([]);

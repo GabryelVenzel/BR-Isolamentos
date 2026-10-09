@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "./toast";
-import ResponsaveisSection from "./ResponsaveisSection";
+import Link from "next/link";
 
 type FormPrazos = Record<"dias_prospeccao" | "dias_contato" | "dias_proposta" | "dias_negociacao", string>;
 
@@ -153,7 +153,16 @@ export default function ConfiguracoesTab() {
         />
       </div>
 
-      <ResponsaveisSection />
+      {/* O cadastro de responsáveis saiu daqui: quem pode ser atribuído a um
+          lead é a lista de usuários ativos, gerenciada em RH → Usuários
+          (migração 039). */}
+      <p className="text-xs text-gray-500">
+        Os responsáveis que aparecem no Kanban são os usuários ativos do sistema — o cadastro fica em{" "}
+        <Link href="/rh/usuarios" className="font-semibold text-brand hover:underline">
+          RH → Usuários
+        </Link>{" "}
+        (acesso de administrador).
+      </p>
     </div>
   );
 }

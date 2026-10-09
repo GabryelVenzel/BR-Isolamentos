@@ -1,24 +1,36 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { resolverEmailDeLogin } from "@/lib/auth-usuarios";
+import { DOMINIO_EMAIL, acessoDeMetadata, emailPermitido, rotaInicial } from "@/lib/acesso";
 
 export async function POST(request: Request) {
-  const { email: identificador, password } = await request.json().catch(() => ({}));
+  const { email: informado, password } = await request.json().catch(() => ({}));
 
-  if (!identificador || !password) {
-    return NextResponse.json({ error: "Informe usuário/email e senha." }, { status: 400 });
+  if (typeof informado !== "string" || typeof password !== "string" || !informado.trim() || !password) {
+    return NextResponse.json({ error: "Informe o e-mail e a senha." }, { status: 400 });
+  }
+
+  const email = informado.trim().toLowerCase();
+  if (!emailPermitido(email)) {
+    return NextResponse.json({ error: `Use o seu e-mail @${DOMINIO_EMAIL}.` }, { status: 400 });
   }
 
   const supabase = createSupabaseServerClient();
-  // O campo de login aceita tanto um "usuário" (ex.: BR-ISOLAMENTO) quanto o email
-  // direto — resolve para o email real antes de chamar o Supabase Auth.
-  const email = resolverEmailDeLogin(identificador);
-
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error || !data.session) {
-    return NextResponse.json({ error: "Credenciais inválidas." }, { status: 401 });
+    // Mesma mensagem pra e-mail inexistente e senha errada, de propósito — não
+    // revela quais e-mails têm conta.
+    return NextResponse.json({ error: "E-mail ou senha incorretos." }, { status: 401 });
   }
 
-  return NextResponse.json({ user: { email: data.user?.email } });
+  const acesso = acessoDeMetadata(data.user?.app_metadata);
+  if (!acesso.ativo) {
+    await supabase.auth.signOut();
+    return NextResponse.json({ error: "Seu acesso está desativado. Fale com o administrador." }, { status: 403 });
+  }
+
+  return NextResponse.json({
+    user: { email: data.user?.email },
+    destino: acesso.trocarSenha ? "/conta/senha" : rotaInicial(acesso) ?? "/sem-acesso",
+  });
 }

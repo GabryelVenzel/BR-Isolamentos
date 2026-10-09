@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState, type ChangeEvent } from "react";
 import { toast } from "./toast";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { urlArquivo } from "@/lib/arquivos";
 import { formatarData } from "@/lib/format";
 import type { FornecedorAnexo } from "@/lib/types/domain";
 
@@ -162,10 +163,10 @@ export default function FornecedorAnexos({ fornecedorId }: Props) {
                 </div>
               </div>
               <div className="mt-2 flex gap-3 text-xs">
-                <a href={anexo.url} target="_blank" rel="noreferrer" className="text-brand hover:underline">
+                <a href={urlArquivo(anexo.url)} target="_blank" rel="noreferrer" className="text-brand hover:underline">
                   👁️ Ver
                 </a>
-                <a href={anexo.url} download={anexo.nome_arquivo} className="text-brand hover:underline">
+                <a href={urlArquivo(anexo.url, { baixarComo: anexo.nome_arquivo })} className="text-brand hover:underline">
                   ⬇️ Download
                 </a>
                 <button type="button" className="text-status-error hover:underline" onClick={() => remover(anexo)}>

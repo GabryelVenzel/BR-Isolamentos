@@ -40,4 +40,6 @@ export const FINANCEIRO_SUBNAV: ModuleSubNavItem[] = [
 export const RH_SUBNAV: ModuleSubNavItem[] = [
   { href: "/rh", label: "Empresa" },
   { href: "/rh/funcionarios", label: "Funcionários" },
+  // Usuários e níveis de acesso (migração 039) — só administradores veem.
+  { href: "/rh/usuarios", label: "Usuários", apenasAdmin: true },
 ];

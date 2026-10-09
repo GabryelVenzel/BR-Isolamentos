@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ChangeEvent } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { urlArquivo } from "@/lib/arquivos";
 
 type TipoImagem = "quente" | "frio" | "ambos" | null;
 
@@ -161,7 +162,7 @@ export default function GaleriaImagensProposta({ onChange }: Props) {
             {imagens.map((imagem) => (
               <div key={imagem.id} className="space-y-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={imagem.url} alt={imagem.legenda ?? ""} className="h-32 w-full rounded-lg object-cover" />
+                <img src={urlArquivo(imagem.url)} alt={imagem.legenda ?? ""} className="h-32 w-full rounded-lg object-cover" />
                 <select
                   className="input-field text-xs"
                   value={imagem.tipo_trabalho ?? "ambos"}

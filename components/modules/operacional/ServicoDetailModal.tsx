@@ -5,6 +5,7 @@ import { toast } from "./toast";
 import ModalAdicionarParceiroServico from "./ModalAdicionarParceiroServico";
 import { TIPOS_TRABALHO_OPCOES } from "./MultiSelectTiposTrabalho";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { urlArquivo } from "@/lib/arquivos";
 import { formatarDataHora, formatarMoeda } from "@/lib/format";
 import type { HistoricoServico, InteracaoServico, Servico, ServicoParceiroExecucao, TipoInteracaoServico } from "@/lib/types/domain";
 
@@ -485,13 +486,13 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
                         {servico.fotos_url.map((url) => (
                           <div key={url} className="overflow-hidden rounded-lg border border-brand-light bg-brand-light/20">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
-                            <img src={url} alt="Foto do projeto" className="h-20 w-full object-cover" />
+                            <img src={urlArquivo(url)} alt="Foto do projeto" className="h-20 w-full object-cover" />
                             <div className="flex items-center justify-between gap-1 p-1.5">
                               <span className="truncate text-[11px] text-brand" title={nomeArquivo(url)}>
                                 ✅ {nomeArquivo(url)}
                               </span>
                               <div className="flex shrink-0 gap-1.5">
-                                <a href={url} target="_blank" rel="noreferrer" title="Visualizar" className="hover:opacity-70">
+                                <a href={urlArquivo(url)} target="_blank" rel="noreferrer" title="Visualizar" className="hover:opacity-70">
                                   👁️
                                 </a>
                                 <button type="button" title="Remover" className="hover:opacity-70" disabled={enviandoArquivo !== null} onClick={() => removerArquivo("fotos_url", url)}>
@@ -517,7 +518,7 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
                         <div className="flex items-center justify-between gap-3 rounded-lg border border-accent-light bg-accent-light/40 p-2">
                           <span className="truncate text-xs text-accent-dark">✅ {nomeArquivo(servico.pdf_relatorio_url)}</span>
                           <div className="flex shrink-0 gap-2">
-                            <a href={servico.pdf_relatorio_url} target="_blank" rel="noreferrer" title="Visualizar" className="hover:opacity-70">
+                            <a href={urlArquivo(servico.pdf_relatorio_url)} target="_blank" rel="noreferrer" title="Visualizar" className="hover:opacity-70">
                               👁️
                             </a>
                             <label className="cursor-pointer hover:opacity-70" title="Substituir">

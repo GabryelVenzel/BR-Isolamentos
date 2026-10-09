@@ -5,21 +5,30 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import Logo from "./Logo";
+import { podeAcessarModulo, type Acesso, type Modulo } from "@/lib/acesso";
+import { useAcesso } from "@/lib/hooks/useAcesso";
 
 // Os 7 módulos do ERP (RH adicionado na migração 033). "Orçamento" reúne 3
 // rotas de topo históricas (wizard, histórico, config. de preços — ver
 // lib/module-nav.ts) que não têm um prefixo de URL comum; por isso usa
 // `match` para ficar "ativo" em qualquer uma delas, mesmo apontando (`href`)
 // só para o histórico.
-const LINKS: Array<{ href: string; label: string; match?: string[] }> = [
-  { href: "/resumo", label: "Resumo", match: ["/resumo", "/"] },
-  { href: "/engenharia", label: "Engenharia" },
-  { href: "/comercial", label: "Comercial" },
-  { href: "/operacional", label: "Operacional" },
-  { href: "/historico", label: "Orçamento", match: ["/historico", "/novo-orcamento", "/config-precos", "/orcamento"] },
-  { href: "/financeiro", label: "Financeiro" },
-  { href: "/rh", label: "RH" },
+const LINKS: Array<{ href: string; label: string; modulo: Modulo; match?: string[] }> = [
+  { href: "/resumo", label: "Resumo", modulo: "resumo", match: ["/resumo", "/"] },
+  { href: "/engenharia", label: "Engenharia", modulo: "engenharia" },
+  { href: "/comercial", label: "Comercial", modulo: "comercial" },
+  { href: "/operacional", label: "Operacional", modulo: "operacional" },
+  { href: "/historico", label: "Orçamento", modulo: "orcamento", match: ["/historico", "/novo-orcamento", "/config-precos", "/orcamento"] },
+  { href: "/financeiro", label: "Financeiro", modulo: "financeiro" },
+  { href: "/rh", label: "RH", modulo: "rh" },
 ];
+
+/** Só os módulos liberados pro usuário aparecem no menu (ver lib/acesso.ts).
+ * Enquanto o acesso carrega, o menu fica vazio em vez de piscar itens que
+ * vão sumir em seguida. */
+function linksVisiveis(acesso: Acesso | null) {
+  return acesso ? LINKS.filter((link) => podeAcessarModulo(acesso, link.modulo)) : [];
+}
 
 /** Um link fica ativo na rota exata, em sub-rotas (ex.: "/comercial" ativo
  * em "/comercial/abc123") e, quando declarado, em qualquer prefixo de
@@ -35,6 +44,8 @@ export default function Navbar() {
   const [email, setEmail] = useState<string | null>(null);
   const [nomeExibicao, setNomeExibicao] = useState<string | null>(null);
   const [saindo, setSaindo] = useState(false);
+  const { acesso } = useAcesso();
+  const links = linksVisiveis(acesso);
 
   useEffect(() => {
     // A Navbar fica no layout raiz, ao lado de `{children}` — fora do alcance do
@@ -86,12 +97,12 @@ export default function Navbar() {
   return (
     <header className="bg-brand">
       <div className="mx-auto flex h-[60px] max-w-6xl items-center justify-between px-4">
-        <Link href="/resumo" className="flex items-center">
+        <Link href="/" className="flex items-center">
           <Logo variant="white" height={34} />
         </Link>
 
         <nav className="hidden items-center gap-6 md:flex">
-          {LINKS.map((link) => {
+          {links.map((link) => {
             const ativo = ehAtivo(pathname, link);
             return (
               <Link
@@ -115,6 +126,12 @@ export default function Navbar() {
               {nomeExibicao ?? email}
             </span>
           )}
+          <Link
+            href="/conta/senha"
+            className="font-montserrat text-sm font-medium text-white/70 transition-colors hover:text-white"
+          >
+            Senha
+          </Link>
           <button
             type="button"
             onClick={handleLogout}
@@ -127,7 +144,7 @@ export default function Navbar() {
       </div>
 
       <nav className="flex items-center gap-4 overflow-x-auto border-t border-white/10 px-4 py-2 md:hidden">
-        {LINKS.map((link) => {
+        {links.map((link) => {
           const ativo = ehAtivo(pathname, link);
           return (
             <Link

@@ -36,3 +36,5 @@ export { HistoricoCustoFixoRepository } from "./historico-custo-fixo.repository"
 export { CategoriaLancamentoRepository } from "./categoria-lancamento.repository";
 export type { FiltrosCategoriaLancamento } from "./categoria-lancamento.repository";
 export { ConfigFinanceiroRepository } from "./config-financeiro.repository";
+export { AuditoriaRepository } from "./auditoria.repository";
+export type { FiltrosAuditoria, RegistroAuditoria } from "./auditoria.repository";

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type ChangeEvent } from "react";
 import ToastContainer from "@/components/modules/rh/ToastContainer";
 import { toast } from "@/components/modules/rh/toast";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
+import { urlArquivo } from "@/lib/arquivos";
 import { formatarData } from "@/lib/format";
 import type { DocumentoEmpresa } from "@/lib/types/domain";
 
@@ -246,10 +247,10 @@ export default function RhEmpresaPage() {
                   <td className="px-4 py-2 text-gray-500">{formatarData(documento.data_adicao)}</td>
                   <td className="px-4 py-2">
                     <div className="flex items-center justify-end gap-3 text-xs">
-                      <a href={documento.url} target="_blank" rel="noreferrer" className="text-brand hover:underline">
+                      <a href={urlArquivo(documento.url)} target="_blank" rel="noreferrer" className="text-brand hover:underline">
                         👁️ Ver
                       </a>
-                      <a href={documento.url} download={documento.nome_arquivo} className="text-brand hover:underline">
+                      <a href={urlArquivo(documento.url, { baixarComo: documento.nome_arquivo })} className="text-brand hover:underline">
                         ⬇️
                       </a>
                       <button type="button" className="hover:opacity-70" title="Editar nome" onClick={() => iniciarEdicao(documento)}>
