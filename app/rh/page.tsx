@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type ChangeEvent } from "react";
 import { toast } from "@/components/modules/rh/toast";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { urlArquivo } from "@/lib/arquivos";
+import SeloValidade from "@/components/ui/SeloValidade";
 import { formatarData } from "@/lib/format";
 import type { DocumentoEmpresa } from "@/lib/types/domain";
 import { confirmar } from "@/components/ui/confirmar";
@@ -33,6 +34,8 @@ export default function RhEmpresaPage() {
   const [documentos, setDocumentos] = useState<DocumentoEmpresa[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [novoNome, setNovoNome] = useState("");
+  const [novaValidade, setNovaValidade] = useState("");
+  const [validadeEditada, setValidadeEditada] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [nomeEditado, setNomeEditado] = useState("");
@@ -85,6 +88,7 @@ export default function RhEmpresaPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nome: novoNome.trim(),
+          validade: novaValidade || null,
           nome_arquivo: arquivo.name,
           tipo_arquivo: extensao(arquivo.name),
           tamanho_bytes: arquivo.size,
@@ -101,6 +105,7 @@ export default function RhEmpresaPage() {
       toast.sucesso("Documento adicionado.");
       setDocumentos((prev) => [...prev, payload.data].sort((a, b) => a.nome.localeCompare(b.nome)));
       setNovoNome("");
+      setNovaValidade("");
     } catch (error) {
       // Bug relatado em AnexosLead.tsx (mesmo padrão aqui): faltava este
       // `catch`. Sem ele, qualquer exceção (rede, CORS, SDK do Supabase
@@ -116,6 +121,7 @@ export default function RhEmpresaPage() {
   function iniciarEdicao(documento: DocumentoEmpresa) {
     setEditandoId(documento.id);
     setNomeEditado(documento.nome);
+    setValidadeEditada(documento.validade ?? "");
   }
 
   async function salvarEdicao(id: string) {
@@ -127,14 +133,14 @@ export default function RhEmpresaPage() {
       const response = await fetch(`/api/rh/documentos/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nome: nomeEditado.trim() }),
+        body: JSON.stringify({ nome: nomeEditado.trim(), validade: validadeEditada || null }),
       });
       const payload = await response.json();
       if (!response.ok || !payload.success) {
-        toast.erro(payload.error ?? "Não foi possível renomear o documento.");
+        toast.erro(payload.error ?? "Não foi possível salvar o documento.");
         return;
       }
-      toast.sucesso("Documento renomeado.");
+      toast.sucesso("Documento atualizado.");
       setDocumentos((prev) => prev.map((d) => (d.id === id ? payload.data : d)).sort((a, b) => a.nome.localeCompare(b.nome)));
       setEditandoId(null);
     } catch {
@@ -180,6 +186,12 @@ export default function RhEmpresaPage() {
             value={novoNome}
             onChange={(e) => setNovoNome(e.target.value)}
           />
+          <div className="flex items-center gap-2">
+            <label htmlFor="doc-validade" className="whitespace-nowrap text-sm text-gray-600">
+              Validade
+            </label>
+            <input id="doc-validade" type="date" className="input-field" value={novaValidade} onChange={(e) => setNovaValidade(e.target.value)} />
+          </div>
           <label
             className={`flex cursor-pointer items-center justify-center whitespace-nowrap rounded-lg border-2 border-dashed p-2 px-4 text-sm ${
               novoNome.trim() ? "border-brand text-brand hover:bg-brand-light/40" : "border-gray-300 text-gray-400"
@@ -189,7 +201,9 @@ export default function RhEmpresaPage() {
             {enviando ? "Enviando..." : "+ Anexar arquivo"}
           </label>
         </div>
-        <p className="text-xs text-gray-400">PDF, Word, Excel ou imagem — até 20 MB por arquivo.</p>
+        <p className="text-xs text-gray-400">
+          PDF, Word, Excel ou imagem — até 20 MB por arquivo. A validade é opcional: preenchida, o sistema avisa antes de vencer.
+        </p>
       </div>
 
       {carregando ? (
@@ -201,6 +215,7 @@ export default function RhEmpresaPage() {
               <tr className="table-header">
                 <th className="px-4 py-2 text-left">Documento</th>
                 <th className="px-4 py-2 text-left">Arquivo</th>
+                <th className="px-4 py-2 text-left">Validade</th>
                 <th className="px-4 py-2 text-left">Adicionado em</th>
                 <th className="px-4 py-2 text-right">Ações</th>
               </tr>
@@ -232,6 +247,19 @@ export default function RhEmpresaPage() {
                     <IconeArquivo tipo={documento.tipo_arquivo} className="mr-1 inline h-4 w-4 align-[-3px] text-brand" />
                     {documento.nome_arquivo} <span className="text-xs text-gray-400">({formatarTamanho(documento.tamanho_bytes)})</span>
                   </td>
+                  <td data-label="Validade" className="px-4 py-2 text-gray-600">
+                    {editandoId === documento.id ? (
+                      <input
+                        type="date"
+                        aria-label="Validade"
+                        className="input-field"
+                        value={validadeEditada}
+                        onChange={(e) => setValidadeEditada(e.target.value)}
+                      />
+                    ) : (
+                      <SeloValidade validade={documento.validade} />
+                    )}
+                  </td>
                   <td data-label="Adicionado em" className="px-4 py-2 text-gray-500">{formatarData(documento.data_adicao)}</td>
                   <td data-label="Ações" className="px-4 py-2">
                     <div className="flex items-center justify-end gap-3 text-xs">
@@ -241,7 +269,7 @@ export default function RhEmpresaPage() {
                       <a href={urlArquivo(documento.url, { baixarComo: documento.nome_arquivo })} className="text-brand hover:underline">
                         <Download className="icone" aria-hidden />
                       </a>
-                      <button type="button" className="hover:opacity-70" title="Editar nome" aria-label="Editar nome" onClick={() => iniciarEdicao(documento)}>
+                      <button type="button" className="hover:opacity-70" title="Editar nome e validade" aria-label="Editar nome e validade" onClick={() => iniciarEdicao(documento)}>
                         <Pencil className="icone" aria-hidden />
                       </button>
                       <button type="button" className="text-status-error hover:underline" onClick={() => remover(documento)}>
@@ -253,7 +281,7 @@ export default function RhEmpresaPage() {
               ))}
               {documentos.length === 0 && (
                 <tr>
-                  <td colSpan={4} className="px-4 py-6 text-center text-gray-400">
+                  <td colSpan={5} className="px-4 py-6 text-center text-gray-400">
                     Nenhum documento cadastrado ainda.
                   </td>
                 </tr>

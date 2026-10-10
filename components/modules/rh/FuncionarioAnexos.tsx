@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type ChangeEvent } from "react";
 import { toast } from "./toast";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { urlArquivo } from "@/lib/arquivos";
+import SeloValidade from "@/components/ui/SeloValidade";
 import { formatarData } from "@/lib/format";
 import type { FuncionarioAnexo } from "@/lib/types/domain";
 import { confirmar } from "@/components/ui/confirmar";
@@ -41,6 +42,8 @@ export default function FuncionarioAnexos({ funcionarioId }: Props) {
   const [carregando, setCarregando] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [novoNome, setNovoNome] = useState("");
+  const [novaValidade, setNovaValidade] = useState("");
+  const [validadeEditada, setValidadeEditada] = useState("");
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [nomeEditado, setNomeEditado] = useState("");
 
@@ -97,6 +100,7 @@ export default function FuncionarioAnexos({ funcionarioId }: Props) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           nome: novoNome.trim(),
+          validade: novaValidade || null,
           nome_arquivo: arquivo.name,
           tipo_arquivo: extensao(arquivo.name),
           tamanho_bytes: arquivo.size,
@@ -113,6 +117,7 @@ export default function FuncionarioAnexos({ funcionarioId }: Props) {
       toast.sucesso("Documento adicionado.");
       setAnexos((prev) => [payload.data, ...prev]);
       setNovoNome("");
+      setNovaValidade("");
     } catch (error) {
       // Bug relatado em AnexosLead.tsx (mesmo padrão aqui): faltava este
       // `catch`. Sem ele, qualquer exceção (rede, CORS, SDK do Supabase
@@ -128,6 +133,7 @@ export default function FuncionarioAnexos({ funcionarioId }: Props) {
   function iniciarEdicao(anexo: FuncionarioAnexo) {
     setEditandoId(anexo.id);
     setNomeEditado(anexo.nome);
+    setValidadeEditada(anexo.validade ?? "");
   }
 
   async function salvarEdicao(id: string) {
@@ -139,7 +145,7 @@ export default function FuncionarioAnexos({ funcionarioId }: Props) {
       const response = await fetch(`/api/rh/funcionarios/${funcionarioId}/anexos/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nome: nomeEditado.trim() }),
+        body: JSON.stringify({ nome: nomeEditado.trim(), validade: validadeEditada || null }),
       });
       const payload = await response.json();
       if (!response.ok || !payload.success) {
@@ -189,12 +195,20 @@ export default function FuncionarioAnexos({ funcionarioId }: Props) {
                 <IconeArquivo tipo={anexo.tipo_arquivo} />
                 <div className="min-w-0 flex-1">
                   {editandoId === anexo.id ? (
-                    <div className="flex items-center gap-1">
+                    <div className="flex flex-wrap items-center gap-1">
                       <input
+                        aria-label="Nome do documento"
                         className="input-field py-1 text-sm"
                         value={nomeEditado}
                         onChange={(e) => setNomeEditado(e.target.value)}
                         autoFocus
+                      />
+                      <input
+                        type="date"
+                        aria-label="Validade"
+                        className="input-field py-1 text-sm"
+                        value={validadeEditada}
+                        onChange={(e) => setValidadeEditada(e.target.value)}
                       />
                       <button type="button" className="text-xs text-accent hover:underline" onClick={() => salvarEdicao(anexo.id)}>
                         OK
@@ -208,6 +222,11 @@ export default function FuncionarioAnexos({ funcionarioId }: Props) {
                   <p className="truncate text-xs text-gray-400" title={anexo.nome_arquivo}>
                     {anexo.nome_arquivo} · {formatarTamanho(anexo.tamanho_bytes)} · {formatarData(anexo.data_adicao)}
                   </p>
+                  {editandoId !== anexo.id && (
+                    <p className="mt-1 text-xs text-gray-600">
+                      Validade: <SeloValidade validade={anexo.validade} />
+                    </p>
+                  )}
                 </div>
               </div>
               <div className="mt-2 flex gap-3 text-xs">
@@ -218,7 +237,7 @@ export default function FuncionarioAnexos({ funcionarioId }: Props) {
                   <Download className="icone" aria-hidden /> Download
                 </a>
                 <button type="button" className="text-brand hover:underline" onClick={() => iniciarEdicao(anexo)}>
-                  <Pencil className="icone" aria-hidden /> Renomear
+                  <Pencil className="icone" aria-hidden /> Editar
                 </button>
                 <button type="button" className="text-status-error hover:underline" onClick={() => remover(anexo)}>
                   <Trash2 className="icone" aria-hidden /> Remover
@@ -237,6 +256,14 @@ export default function FuncionarioAnexos({ funcionarioId }: Props) {
             placeholder='Nome do documento (ex.: "ASO", "NR-35"...)'
             value={novoNome}
             onChange={(e) => setNovoNome(e.target.value)}
+          />
+          <input
+            type="date"
+            aria-label="Validade do documento (opcional)"
+            title="Validade (opcional)"
+            className="input-field sm:w-44"
+            value={novaValidade}
+            onChange={(e) => setNovaValidade(e.target.value)}
           />
           <label
             className={`flex cursor-pointer items-center justify-center whitespace-nowrap rounded-lg border-2 border-dashed p-2 px-4 text-sm ${

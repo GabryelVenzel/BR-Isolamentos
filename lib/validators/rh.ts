@@ -5,10 +5,18 @@ import { validarCpf } from "../mascaras";
 // fornecedor/lead) — ver CreateFornecedorAnexoSchema em lib/validators/fornecedor.ts.
 const LIMITE_ANEXO_RH_BYTES = 20 * 1024 * 1024;
 
+// Validade de um documento (migração 042) — opcional; vazio = não vence.
+const Validade = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Data de validade inválida.")
+  .nullable()
+  .optional();
+
 // --- Documentos da empresa (lista solta) ---
 
 export const CreateDocumentoEmpresaSchema = z.object({
   nome: z.string().trim().min(1, "Informe o nome do documento."),
+  validade: Validade,
   nome_arquivo: z.string().trim().min(1),
   tipo_arquivo: z.string().trim().min(1),
   tamanho_bytes: z.number().int().positive().max(LIMITE_ANEXO_RH_BYTES, "Arquivo maior que 20 MB."),
@@ -22,6 +30,7 @@ export const CreateDocumentoEmpresaSchema = z.object({
 // troca excluindo e reanexando.
 export const UpdateDocumentoEmpresaSchema = z.object({
   nome: z.string().trim().min(1, "Informe o nome do documento."),
+  validade: Validade,
 });
 
 // --- Funcionários ---
@@ -51,6 +60,7 @@ export const UpdateFuncionarioSchema = CreateFuncionarioSchema.partial();
 export const CreateFuncionarioAnexoSchema = z.object({
   funcionario_id: z.string().min(1),
   nome: z.string().trim().min(1, "Informe o nome do documento."),
+  validade: Validade,
   nome_arquivo: z.string().trim().min(1),
   tipo_arquivo: z.string().trim().min(1),
   tamanho_bytes: z.number().int().positive().max(LIMITE_ANEXO_RH_BYTES, "Arquivo maior que 20 MB."),
@@ -63,6 +73,7 @@ export const CreateFuncionarioAnexoSchema = z.object({
 // UpdateDocumentoEmpresaSchema.
 export const UpdateFuncionarioAnexoSchema = z.object({
   nome: z.string().trim().min(1, "Informe o nome do documento."),
+  validade: Validade,
 });
 
 export type CreateDocumentoEmpresaInput = z.infer<typeof CreateDocumentoEmpresaSchema>;

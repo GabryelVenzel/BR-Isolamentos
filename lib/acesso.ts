@@ -104,6 +104,9 @@ export function regraDaRota(pathname: string, metodo: string): Regra {
 
   if (comecaCom(pathname, "/api")) {
     if (comecaCom(pathname, "/api/auth") || comecaCom(pathname, "/api/arquivo")) return { livre: true };
+    // Central de pendências: cada um recebe só os alertas dos seus módulos
+    // (lib/contexts/alertas.ts); alterar os prazos é de administrador.
+    if (comecaCom(pathname, "/api/alertas")) return leitura ? { livre: true } : { apenasAdmin: true };
 
     // Os dashboards do Resumo consomem os relatórios dos outros módulos.
     if (leitura && pathname === "/api/financeiro/relatorios") return { modulos: ["financeiro", "resumo"] };

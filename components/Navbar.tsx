@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import Logo from "./Logo";
+import SinoAlertas from "./SinoAlertas";
 import { podeAcessarModulo, type Acesso, type Modulo } from "@/lib/acesso";
 import { useAcesso } from "@/lib/hooks/useAcesso";
 import { classeLargura } from "@/lib/largura";
@@ -122,6 +123,7 @@ export default function Navbar() {
         </nav>
 
         <div className="flex items-center gap-3">
+          {acesso?.ativo && !acesso.trocarSenha && <SinoAlertas admin={acesso.admin} />}
           {email && (
             <span className="hidden font-alfaim text-sm text-white/70 sm:inline">
               {nomeExibicao ?? email}

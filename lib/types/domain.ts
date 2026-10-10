@@ -704,6 +704,8 @@ export interface NotaFiscal {
 export interface DocumentoEmpresa {
   id: string;
   nome: string;
+  /** Migração 042 — data de validade (YYYY-MM-DD); `null` = não vence. */
+  validade: string | null;
   nome_arquivo: string;
   tipo_arquivo: string;
   tamanho_bytes: number;
@@ -742,6 +744,8 @@ export interface FuncionarioAnexo {
   id: string;
   funcionario_id: string;
   nome: string;
+  /** Migração 042 — data de validade (YYYY-MM-DD); `null` = não vence. */
+  validade: string | null;
   nome_arquivo: string;
   tipo_arquivo: string;
   tamanho_bytes: number;

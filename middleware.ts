@@ -28,6 +28,9 @@ export async function middleware(request: NextRequest) {
     const isPublic = PUBLIC_PATHS.some((path) => pathname.startsWith(path));
     const isApi = pathname.startsWith("/api");
     const isApiAuth = pathname.startsWith("/api/auth");
+    // Rotina diária chamada pela Vercel, sem sessão de usuário — a própria
+    // rota confere o segredo (ver app/api/cron/diario/route.ts).
+    if (pathname.startsWith("/api/cron")) return response;
 
     if (!user) {
       if (isApi && !isApiAuth) {
