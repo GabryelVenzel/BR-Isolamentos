@@ -6,6 +6,8 @@ import ModalCliente from "./ModalCliente";
 import { formatarDataHora } from "@/lib/format";
 import type { Cliente } from "@/lib/types";
 import type { ClienteResumo } from "@/lib/types/domain";
+import { confirmar } from "@/components/ui/confirmar";
+import { Pencil, Trash2 } from "lucide-react";
 
 const POR_PAGINA = 10;
 
@@ -42,7 +44,7 @@ export default function ClientesTab() {
   }, [carregar]);
 
   async function excluir(cliente: ClienteResumo) {
-    if (!confirm(`Excluir o cliente "${cliente.nome}"?`)) return;
+    if (!(await confirmar(`Excluir o cliente "${cliente.nome}"?`))) return;
     const response = await fetch(`/api/clientes/${cliente.id}`, { method: "DELETE" });
     const data = await response.json();
     if (!response.ok) {
@@ -74,7 +76,7 @@ export default function ClientesTab() {
         <p className="text-sm text-gray-500">Carregando...</p>
       ) : (
         <div className="card overflow-x-auto p-0">
-          <table className="w-full text-sm">
+          <table className="tabela-cartoes w-full text-sm">
             <thead>
               <tr className="table-header">
                 <th className="px-4 py-2 text-left">Nome</th>
@@ -89,20 +91,20 @@ export default function ClientesTab() {
             <tbody className="divide-y divide-gray-100">
               {clientesPagina.map((cliente) => (
                 <tr key={cliente.id}>
-                  <td className="px-4 py-2 font-medium">{cliente.nome}</td>
-                  <td className="px-4 py-2 text-gray-500">{cliente.telefone ?? "—"}</td>
-                  <td className="px-4 py-2 text-gray-500">{cliente.email ?? "—"}</td>
-                  <td className="px-4 py-2 text-gray-500">{cliente.cidade ?? "—"}</td>
-                  <td className="px-4 py-2 text-gray-500">
+                  <td data-label="Nome" className="px-4 py-2 font-medium">{cliente.nome}</td>
+                  <td data-label="Telefone" className="px-4 py-2 text-gray-500">{cliente.telefone ?? "—"}</td>
+                  <td data-label="Email" className="px-4 py-2 text-gray-500">{cliente.email ?? "—"}</td>
+                  <td data-label="Cidade" className="px-4 py-2 text-gray-500">{cliente.cidade ?? "—"}</td>
+                  <td data-label="Última interação" className="px-4 py-2 text-gray-500">
                     {cliente.ultima_interacao ? formatarDataHora(cliente.ultima_interacao) : "—"}
                   </td>
-                  <td className="px-4 py-2 text-gray-500">{cliente.total_leads}</td>
-                  <td className="px-4 py-2 text-right">
-                    <button type="button" className="mr-2 hover:opacity-70" title="Editar" onClick={() => setEditando(cliente)}>
-                      ✏️
+                  <td data-label="Leads" className="px-4 py-2 text-gray-500">{cliente.total_leads}</td>
+                  <td data-label="Ações" className="px-4 py-2 text-right">
+                    <button type="button" className="mr-2 hover:opacity-70" title="Editar" aria-label="Editar" onClick={() => setEditando(cliente)}>
+                      <Pencil className="icone" aria-hidden />
                     </button>
-                    <button type="button" className="hover:opacity-70" title="Excluir" onClick={() => excluir(cliente)}>
-                      🗑️
+                    <button type="button" className="hover:opacity-70" title="Excluir" aria-label="Excluir" onClick={() => excluir(cliente)}>
+                      <Trash2 className="icone" aria-hidden />
                     </button>
                   </td>
                 </tr>

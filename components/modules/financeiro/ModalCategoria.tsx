@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "./toast";
 import type { CategoriaLancamento, TipoLancamentoFinanceiro } from "@/lib/types/domain";
+import FecharComEsc from "@/components/ui/FecharComEsc";
 
 interface Props {
   categoria: CategoriaLancamento | null; // null = criar nova
@@ -64,7 +65,8 @@ export default function ModalCategoria({ categoria, onFechar, onSalvo }: Props) 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4" onClick={onFechar}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
+      <FecharComEsc onFechar={onFechar} />
       <div className="w-full max-w-md rounded-card bg-white p-6 shadow-card-hover" onClick={(e) => e.stopPropagation()}>
         <h2 className="mb-4 font-montserrat text-lg font-bold text-brand">
           {categoria ? "Editar Categoria" : "Nova Categoria"}

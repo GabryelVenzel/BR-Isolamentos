@@ -239,6 +239,10 @@ export interface ClienteResumo {
   nome: string;
   telefone: string | null;
   email: string | null;
+  /** Migração 040 — a view passou a trazer razão social e CEP (sem eles, editar
+   * um cliente pela aba Clientes apagava a razão social ao salvar). */
+  razao_social: string | null;
+  cep: string | null;
   endereco: string | null;
   cidade: string | null;
   estado: string | null;
@@ -302,6 +306,8 @@ export interface Parceiro {
   email: string | null;
   telefone: string | null;
   cnpj: string | null;
+  /** Migração 040. */
+  cep: string | null;
   endereco: string | null;
   cidade: string | null;
   estado: string | null;
@@ -392,6 +398,8 @@ export interface Fornecedor {
   email: string | null;
   telefone: string | null;
   cnpj: string | null;
+  /** Migração 040. */
+  cep: string | null;
   endereco: string | null;
   cidade: string | null;
   estado: string | null;

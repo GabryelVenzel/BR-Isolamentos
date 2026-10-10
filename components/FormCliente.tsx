@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CampoCnpj, CampoTelefone } from "@/components/ui/CamposDocumento";
 import type { Cliente } from "@/lib/types";
 
 interface Props {
@@ -126,18 +127,24 @@ export default function FormCliente({ clienteSelecionado, onSelecionar }: Props)
           </div>
           <div>
             <label className="label-field">Telefone</label>
-            <input
-              className="input-field"
-              value={novoCliente.telefone}
-              onChange={(e) => setNovoCliente((prev) => ({ ...prev, telefone: e.target.value }))}
-            />
+            <CampoTelefone value={novoCliente.telefone} onChange={(v) => setNovoCliente((prev) => ({ ...prev, telefone: v }))} />
           </div>
           <div>
             <label className="label-field">CNPJ/CPF</label>
-            <input
-              className="input-field"
+            <CampoCnpj
+              aceitaCpf
               value={novoCliente.cnpj_cpf}
-              onChange={(e) => setNovoCliente((prev) => ({ ...prev, cnpj_cpf: e.target.value }))}
+              onChange={(v) => setNovoCliente((prev) => ({ ...prev, cnpj_cpf: v }))}
+              onDados={(d) =>
+                setNovoCliente((prev) => ({
+                  ...prev,
+                  nome: prev.nome || d.nomeFantasia || d.razaoSocial,
+                  razao_social: prev.razao_social || d.razaoSocial,
+                  email: prev.email || d.email,
+                  telefone: prev.telefone || d.telefone,
+                  endereco: prev.endereco || [d.endereco, d.cidade && `${d.cidade}/${d.estado}`].filter(Boolean).join(" — "),
+                }))
+              }
             />
           </div>
           <div className="sm:col-span-2">

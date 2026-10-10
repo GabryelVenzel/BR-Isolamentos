@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { validarCnpj, validarCpf } from "../mascaras";
 
 // Lista revisada (migração 027) — ver comentário em TipoTrabalhoOperacional
 // (lib/types/domain.ts) sobre por que `bancada`/`caldeiraria` preservam a
@@ -22,13 +23,24 @@ export const CreateParceiroSchema = z.object({
   razao_social: z.string().trim().nullable().optional(),
   email: z.string().trim().email("E-mail inválido.").nullable().optional(),
   telefone: z.string().trim().nullable().optional(),
-  cnpj: z.string().trim().nullable().optional(),
+  cnpj: z
+    .string()
+    .trim()
+    .nullable()
+    .optional()
+    .refine((v) => !v || validarCnpj(v), "CNPJ inválido — confira os números."),
+  cep: z.string().trim().nullable().optional(),
   endereco: z.string().trim().nullable().optional(),
   // Sigla vem de um dropdown fixo agora (ModalParceiro.tsx) — a validação de
   // tamanho continua como salvaguarda de schema, não porque a UI ainda
   // aceita digitação livre.
   estado: z.string().trim().length(2, "Use a sigla do estado (ex.: SP).").nullable().optional(),
-  cpf: z.string().trim().nullable().optional(),
+  cpf: z
+    .string()
+    .trim()
+    .nullable()
+    .optional()
+    .refine((v) => !v || validarCpf(v), "CPF inválido — confira os números."),
   conta_bancaria: z.string().trim().nullable().optional(),
   // "especialidade" (singular, classificação fixa) NÃO existe em Parceiro —
   // foi movida pra Fornecedor (ver sql-migration-014). Isso aqui embaixo

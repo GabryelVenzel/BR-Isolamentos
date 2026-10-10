@@ -43,6 +43,8 @@ export interface KpisResumo {
   leadsAtivos: {
     quantidade: number;
     valorEmProspeccao: number;
+    /** Soma do valor de todos os leads ativos (qualquer etapa antes de Fechado/Perdido). */
+    valorEmAberto: number;
     novosNoPeriodo: number;
   };
   fechados: {

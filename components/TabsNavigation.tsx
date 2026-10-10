@@ -28,7 +28,7 @@ export const CLASSES_ABA_BASE = "rounded-t-lg px-4 py-2 font-montserrat text-sm 
  * de navegação diferente. */
 export default function TabsNavigation<T extends string>({ tabs, activeTab, onTabChange }: Props<T>) {
   return (
-    <div className="flex gap-1 border-b border-gray-200">
+    <div className="flex flex-wrap gap-1 border-b border-gray-200">
       {tabs.map((tab) => (
         <button
           key={tab.valor}

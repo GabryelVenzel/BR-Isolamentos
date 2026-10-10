@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import ToastContainer from "@/components/modules/financeiro/ToastContainer";
 import { toast } from "@/components/modules/financeiro/toast";
 import ModalLancamento from "@/components/modules/financeiro/ModalLancamento";
 import { formatarData, formatarMoeda } from "@/lib/format";
 import type { CategoriaLancamento, LancamentoFinanceiro } from "@/lib/types/domain";
+import { confirmar } from "@/components/ui/confirmar";
+import { Paperclip, Pencil, Trash2 } from "lucide-react";
 
 export default function LancamentosPage() {
   const [lancamentos, setLancamentos] = useState<LancamentoFinanceiro[]>([]);
@@ -56,7 +57,7 @@ export default function LancamentosPage() {
   }
 
   async function excluir(lancamento: LancamentoFinanceiro) {
-    if (!confirm(`Excluir o lançamento "${lancamento.descricao}"?`)) return;
+    if (!(await confirmar(`Excluir o lançamento "${lancamento.descricao}"?`))) return;
     const response = await fetch(`/api/financeiro/lancamentos/${lancamento.id}`, { method: "DELETE" });
     const data = await response.json();
     if (!response.ok || !data.success) {
@@ -73,8 +74,6 @@ export default function LancamentosPage() {
 
   return (
     <div className="space-y-6">
-      <ToastContainer />
-
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Lançamentos</h1>
@@ -113,7 +112,7 @@ export default function LancamentosPage() {
         <p className="text-sm text-gray-500">Carregando...</p>
       ) : (
         <div className="card overflow-x-auto p-0">
-          <table className="w-full text-sm">
+          <table className="tabela-cartoes w-full text-sm">
             <thead>
               <tr className="table-header">
                 <th className="px-4 py-2 text-left">Data</th>
@@ -128,42 +127,42 @@ export default function LancamentosPage() {
             <tbody className="divide-y divide-gray-100">
               {lancamentosFiltrados.map((lancamento) => (
                 <tr key={lancamento.id}>
-                  <td className="px-4 py-2">{formatarData(lancamento.data)}</td>
-                  <td className="px-4 py-2">
+                  <td data-label="Data" className="px-4 py-2">{formatarData(lancamento.data)}</td>
+                  <td data-label="Tipo" className="px-4 py-2">
                     <span className={`badge ${lancamento.tipo === "receita" ? "bg-accent-light text-accent-dark" : "bg-red-100 text-status-error"}`}>
                       {lancamento.tipo === "receita" ? "Receita" : "Despesa"}
                     </span>
                   </td>
-                  <td className="px-4 py-2 text-gray-500">{lancamento.categoria}</td>
-                  <td className="px-4 py-2">{lancamento.descricao}</td>
-                  <td className={`px-4 py-2 text-right font-medium ${lancamento.tipo === "receita" ? "text-accent" : "text-status-error"}`}>
+                  <td data-label="Categoria" className="px-4 py-2 text-gray-500">{lancamento.categoria}</td>
+                  <td data-label="Descrição" className="px-4 py-2">{lancamento.descricao}</td>
+                  <td data-label="Valor" className={`whitespace-nowrap px-4 py-2 text-right font-medium ${lancamento.tipo === "receita" ? "text-accent" : "text-status-error"}`}>
                     {lancamento.tipo === "despesa" && "- "}
                     {formatarMoeda(lancamento.valor)}
                   </td>
-                  <td className="px-4 py-2">
+                  <td data-label="Situação" className="px-4 py-2">
                     {lancamento.pago ? (
                       <span className="badge bg-accent-light text-accent-dark">Pago</span>
                     ) : (
-                      <button type="button" className="badge bg-secondary-light text-brand" onClick={() => marcarPago(lancamento.id)}>
+                      <button type="button" className="badge whitespace-nowrap bg-secondary-light text-brand" onClick={() => marcarPago(lancamento.id)}>
                         Marcar como pago
                       </button>
                     )}
                   </td>
-                  <td className="px-4 py-2 text-right">
+                  <td data-label="Ações" className="whitespace-nowrap px-4 py-2 text-right">
                     {/* `?? []` — se a migração 009 (coluna `anexos`) ainda não
                         rodou nesse banco, o campo vem `undefined` da API, não
                         um array vazio; sem essa guarda, `.length` quebrava a
                         tela inteira ("Cannot read properties of undefined"). */}
                     {(lancamento.anexos ?? []).length > 0 && (
                       <span className="mr-2 text-xs text-gray-500" title={`${(lancamento.anexos ?? []).length} anexo(s)`}>
-                        📎 {(lancamento.anexos ?? []).length}
+                        <Paperclip className="icone" aria-hidden /> {(lancamento.anexos ?? []).length}
                       </span>
                     )}
-                    <button type="button" className="mr-2 hover:opacity-70" title="Editar" onClick={() => setEditando(lancamento)}>
-                      ✏️
+                    <button type="button" className="mr-2 hover:opacity-70" title="Editar" aria-label="Editar" onClick={() => setEditando(lancamento)}>
+                      <Pencil className="icone" aria-hidden />
                     </button>
-                    <button type="button" className="hover:opacity-70" title="Excluir" onClick={() => excluir(lancamento)}>
-                      🗑️
+                    <button type="button" className="hover:opacity-70" title="Excluir" aria-label="Excluir" onClick={() => excluir(lancamento)}>
+                      <Trash2 className="icone" aria-hidden />
                     </button>
                   </td>
                 </tr>

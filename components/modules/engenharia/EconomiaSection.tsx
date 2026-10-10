@@ -6,6 +6,7 @@ import { formatarMoeda, formatarNumero } from "@/lib/format";
 import { COMBUSTIVEIS } from "@/lib/calculadora-termica";
 import type { CombustivelTipo } from "@/lib/types";
 import type { ResultadoEconomia } from "@/lib/usecases/engenharia";
+import { CircleDollarSign } from "lucide-react";
 
 export interface EconomiaFormState {
   combustivel: CombustivelTipo;
@@ -156,7 +157,7 @@ export default function EconomiaSection({ ativo, onToggle, form, onChange, resul
 
       {ativo && resultado && (
         <div className="mt-4 space-y-2 rounded-card border-l-4 border-l-accent bg-accent-light/50 p-4">
-          <h3 className="font-montserrat text-sm font-bold uppercase text-brand">💰 Economia Anual</h3>
+          <h3 className="font-montserrat text-sm font-bold uppercase text-brand"><CircleDollarSign className="icone" aria-hidden /> Economia Anual</h3>
           <p>• Economia de energia: {formatarNumero(resultado.economia_anual_kwh, 0)} kWh/ano</p>
           <p>• Economia financeira: {formatarMoeda(resultado.economia_financeira_anual)}/ano</p>
           {resultado.roi_meses !== null && <p>• ROI estimado: {formatarNumero(resultado.roi_meses, 0)} meses</p>}

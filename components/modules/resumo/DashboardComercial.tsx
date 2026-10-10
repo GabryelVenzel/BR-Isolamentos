@@ -10,6 +10,7 @@ import { gerarPdfDeElemento, baixarArquivo } from "@/lib/pdf-generator";
 import { formatarEtapa, formatarMoeda, formatarNumero } from "@/lib/format";
 import type { FiltrosResumo } from "@/lib/types/resumo";
 import type { RelatorioComercial } from "@/lib/usecases/comercial";
+import { Gift } from "lucide-react";
 
 const FILTROS_INICIAIS: FiltrosResumo = { periodo: "mes_atual" };
 
@@ -130,7 +131,7 @@ export default function DashboardComercial() {
               não usa a funcionalidade. */}
           {relatorio.comissoes.totalQuantidade > 0 && (
             <div className="space-y-4">
-              <h2 className="font-montserrat text-sm font-bold uppercase text-brand">🎁 Comissões (Indicações)</h2>
+              <h2 className="font-montserrat text-sm font-bold uppercase text-brand"><Gift className="icone" aria-hidden /> Comissões (Indicações)</h2>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
                 {relatorio.comissoes.porStatus.map((s) => (
                   <div key={s.status} className="card text-center">

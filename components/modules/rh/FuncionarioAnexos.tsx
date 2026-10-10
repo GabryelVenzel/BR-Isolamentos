@@ -6,6 +6,9 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { urlArquivo } from "@/lib/arquivos";
 import { formatarData } from "@/lib/format";
 import type { FuncionarioAnexo } from "@/lib/types/domain";
+import { confirmar } from "@/components/ui/confirmar";
+import IconeArquivo from "@/components/ui/IconeArquivo";
+import { Download, Eye, Paperclip, Pencil, Trash2 } from "lucide-react";
 
 const BUCKET = "rh-funcionarios-anexos";
 const LIMITE_BYTES = 20 * 1024 * 1024; // 20 MB
@@ -13,18 +16,6 @@ const LIMITE_BYTES = 20 * 1024 * 1024; // 20 MB
 // documentações" — limite bem acima disso, só como salvaguarda (mesmo
 // espírito dos limites de anexo já usados em parceiro/fornecedor/lead).
 const LIMITE_ANEXOS = 40;
-
-const ICONE_POR_TIPO: Record<string, string> = {
-  pdf: "📄",
-  doc: "📝",
-  docx: "📝",
-  xls: "📊",
-  xlsx: "📊",
-  jpg: "🖼️",
-  jpeg: "🖼️",
-  png: "🖼️",
-  gif: "🖼️",
-};
 
 function extensao(nomeArquivo: string): string {
   return nomeArquivo.split(".").pop()?.toLowerCase() ?? "";
@@ -164,7 +155,7 @@ export default function FuncionarioAnexos({ funcionarioId }: Props) {
   }
 
   async function remover(anexo: FuncionarioAnexo) {
-    if (!confirm(`Remover "${anexo.nome}"?`)) return;
+    if (!(await confirmar(`Remover "${anexo.nome}"?`))) return;
     try {
       const supabase = createSupabaseBrowserClient();
       await supabase.storage.from(BUCKET).remove([anexo.storage_path]).catch(() => undefined);
@@ -185,7 +176,7 @@ export default function FuncionarioAnexos({ funcionarioId }: Props) {
   return (
     <div className="rounded-card border border-gray-200 p-4">
       <h3 className="mb-3 font-montserrat text-xs font-bold uppercase text-brand">
-        📎 Documentos do Funcionário ({anexos.length}/{LIMITE_ANEXOS})
+        <Paperclip className="icone" aria-hidden /> Documentos do Funcionário ({anexos.length}/{LIMITE_ANEXOS})
       </h3>
 
       {carregando ? (
@@ -195,7 +186,7 @@ export default function FuncionarioAnexos({ funcionarioId }: Props) {
           {anexos.map((anexo) => (
             <div key={anexo.id} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <div className="flex items-start gap-2">
-                <span className="text-xl">{ICONE_POR_TIPO[anexo.tipo_arquivo] ?? "📎"}</span>
+                <IconeArquivo tipo={anexo.tipo_arquivo} />
                 <div className="min-w-0 flex-1">
                   {editandoId === anexo.id ? (
                     <div className="flex items-center gap-1">
@@ -221,16 +212,16 @@ export default function FuncionarioAnexos({ funcionarioId }: Props) {
               </div>
               <div className="mt-2 flex gap-3 text-xs">
                 <a href={urlArquivo(anexo.url)} target="_blank" rel="noreferrer" className="text-brand hover:underline">
-                  👁️ Ver
+                  <Eye className="icone" aria-hidden /> Ver
                 </a>
                 <a href={urlArquivo(anexo.url, { baixarComo: anexo.nome_arquivo })} className="text-brand hover:underline">
-                  ⬇️ Download
+                  <Download className="icone" aria-hidden /> Download
                 </a>
                 <button type="button" className="text-brand hover:underline" onClick={() => iniciarEdicao(anexo)}>
-                  ✏️ Renomear
+                  <Pencil className="icone" aria-hidden /> Renomear
                 </button>
                 <button type="button" className="text-status-error hover:underline" onClick={() => remover(anexo)}>
-                  🗑️ Remover
+                  <Trash2 className="icone" aria-hidden /> Remover
                 </button>
               </div>
             </div>

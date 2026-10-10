@@ -5,7 +5,9 @@ import LeadCardKanban from "./LeadCardKanban";
 import { formatarEtapa, formatarMoeda } from "@/lib/format";
 import type { EtapaFunil, Lead } from "@/lib/types/domain";
 
-const ETAPAS: EtapaFunil[] = ["prospeccao", "contato", "proposta", "negociacao", "fechado", "perdido"];
+const ETAPAS_ATIVAS: EtapaFunil[] = ["prospeccao", "contato", "proposta", "negociacao", "fechado"];
+const TODAS_ETAPAS: EtapaFunil[] = [...ETAPAS_ATIVAS, "perdido"];
+const OPCOES_MOVER = TODAS_ETAPAS.map((etapa) => ({ valor: etapa, label: formatarEtapa(etapa) }));
 
 function classesColuna(etapa: EtapaFunil, emFoco: boolean): string {
   const base = etapa === "perdido" ? "bg-gray-100" : "bg-brand-light/60";
@@ -16,11 +18,18 @@ interface Props {
   leads: Lead[];
   onAbrirLead: (lead: Lead) => void;
   onMoverLead: (leadId: string, novaEtapa: EtapaFunil) => void;
+  /** E-mail → nome dos responsáveis, pro cartão mostrar o nome. */
+  nomesResponsaveis: Record<string, string>;
+  /** "Perdido" fica fora do quadro por padrão (ver filtro "Mostrar
+   * perdidos") — as 5 etapas ativas ganham o espaço. Pra marcar um lead como
+   * perdido com a coluna oculta, usa-se o "Mover para..." do cartão. */
+  mostrarPerdidos: boolean;
 }
 
-export default function KanbanBoard({ leads, onAbrirLead, onMoverLead }: Props) {
+export default function KanbanBoard({ leads, onAbrirLead, onMoverLead, nomesResponsaveis, mostrarPerdidos }: Props) {
   const [leadArrastando, setLeadArrastando] = useState<string | null>(null);
   const [colunaEmFoco, setColunaEmFoco] = useState<EtapaFunil | null>(null);
+  const etapas = mostrarPerdidos ? TODAS_ETAPAS : ETAPAS_ATIVAS;
 
   // O id do lead solto vem do próprio dataTransfer (fonte confiável, ver
   // LeadCardKanban.tsx#onDragStart), não do estado `leadArrastando` — que
@@ -35,9 +44,13 @@ export default function KanbanBoard({ leads, onAbrirLead, onMoverLead }: Props) 
     setColunaEmFoco(null);
   }
 
+  // Quadro em linha única com rolagem lateral: no celular cada coluna ocupa
+  // quase a tela inteira e "encaixa" ao deslizar; no computador as colunas
+  // dividem a largura. Cada coluna rola sozinha (cabeçalho fixo), em vez de a
+  // página inteira crescer com a etapa mais cheia.
   return (
-    <div className="grid grid-cols-1 gap-4 overflow-x-auto sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
-      {ETAPAS.map((etapa) => {
+    <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:snap-none sm:px-0">
+      {etapas.map((etapa) => {
         const leadsDaEtapa = leads.filter((l) => l.etapa === etapa);
         // Lead de comissão guarda o valor em `valor_comissao` (campo próprio,
         // não é uma venda com orçamento), não em `valor_estimado` — mesma
@@ -49,7 +62,7 @@ export default function KanbanBoard({ leads, onAbrirLead, onMoverLead }: Props) 
         return (
           <div
             key={etapa}
-            className={`rounded-card p-3 transition-shadow ${classesColuna(etapa, colunaEmFoco === etapa)}`}
+            className={`flex max-h-[calc(100vh-14rem)] min-h-[12rem] w-[85vw] shrink-0 snap-center flex-col rounded-card p-3 transition-shadow sm:w-auto sm:min-w-[15rem] sm:flex-1 ${classesColuna(etapa, colunaEmFoco === etapa)}`}
             onDragOver={(e) => {
               e.preventDefault();
               e.dataTransfer.dropEffect = "move";
@@ -58,16 +71,21 @@ export default function KanbanBoard({ leads, onAbrirLead, onMoverLead }: Props) 
             onDragLeave={() => setColunaEmFoco((atual) => (atual === etapa ? null : atual))}
             onDrop={(e) => soltarEm(e, etapa)}
           >
-            <div className="mb-1 flex items-center justify-between">
-              <h2 className="font-montserrat text-sm font-bold text-brand">{formatarEtapa(etapa)}</h2>
-              <span className="badge bg-secondary-light text-brand">{leadsDaEtapa.length}</span>
+            <div className="mb-2 shrink-0">
+              <div className="flex items-center justify-between">
+                <h2 className="font-montserrat text-sm font-bold text-brand">{formatarEtapa(etapa)}</h2>
+                <span className="badge bg-secondary-light text-brand">{leadsDaEtapa.length}</span>
+              </div>
+              <p className="text-xs text-gray-500">{valorEtapa > 0 ? formatarMoeda(valorEtapa) : " "}</p>
             </div>
-            {valorEtapa > 0 && <p className="mb-2 text-xs text-gray-500">{formatarMoeda(valorEtapa)}</p>}
-            <div className="space-y-2">
+            <div className="-mr-1 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
               {leadsDaEtapa.map((lead) => (
                 <LeadCardKanban
                   key={lead.id}
                   lead={lead}
+                  nomeResponsavel={lead.atribuido_a ? nomesResponsaveis[lead.atribuido_a] ?? lead.atribuido_a : null}
+                  opcoesMover={OPCOES_MOVER}
+                  onMover={(destino) => onMoverLead(lead.id, destino)}
                   onAbrir={onAbrirLead}
                   onIniciarArraste={setLeadArrastando}
                   onTerminarArraste={() => setLeadArrastando(null)}

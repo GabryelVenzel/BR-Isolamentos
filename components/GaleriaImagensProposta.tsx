@@ -3,6 +3,7 @@
 import { useEffect, useState, type ChangeEvent } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { urlArquivo } from "@/lib/arquivos";
+import { Camera } from "lucide-react";
 
 type TipoImagem = "quente" | "frio" | "ambos" | null;
 
@@ -129,7 +130,7 @@ export default function GaleriaImagensProposta({ onChange }: Props) {
 
   return (
     <details className="card group">
-      <summary className="cursor-pointer text-lg font-semibold">📷 Gerenciar fotos de referência ({imagens.length})</summary>
+      <summary className="cursor-pointer text-lg font-semibold"><Camera className="icone" aria-hidden /> Gerenciar fotos de referência ({imagens.length})</summary>
 
       <div className="mt-4 space-y-4">
         <p className="text-sm text-gray-500">

@@ -1,10 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import ToastContainer from "@/components/modules/financeiro/ToastContainer";
 import { toast } from "@/components/modules/financeiro/toast";
 import ModalCategoria from "@/components/modules/financeiro/ModalCategoria";
 import type { CategoriaLancamento } from "@/lib/types/domain";
+import { confirmar } from "@/components/ui/confirmar";
+import { Pencil, Trash2 } from "lucide-react";
 
 /** Categorias + Configurações do módulo Financeiro numa aba só — as duas
  * telas eram pequenas o bastante (uma tabela de categorias, um único campo
@@ -62,7 +63,7 @@ export default function CategoriasPage() {
   }
 
   async function excluir(categoria: CategoriaLancamento) {
-    if (!confirm(`Excluir a categoria "${categoria.nome}"?`)) return;
+    if (!(await confirmar(`Excluir a categoria "${categoria.nome}"?`))) return;
     const response = await fetch(`/api/financeiro/categorias/${categoria.id}`, { method: "DELETE" });
     const data = await response.json();
     if (!response.ok || !data.success) {
@@ -89,8 +90,6 @@ export default function CategoriasPage() {
 
   return (
     <div className="space-y-6">
-      <ToastContainer />
-
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Categorias &amp; Configurações</h1>
@@ -105,7 +104,7 @@ export default function CategoriasPage() {
         <p className="text-sm text-gray-500">Carregando...</p>
       ) : (
         <div className="card overflow-x-auto p-0">
-          <table className="w-full text-sm">
+          <table className="tabela-cartoes w-full text-sm">
             <thead>
               <tr className="table-header">
                 <th className="px-4 py-2 text-left">Nome</th>
@@ -118,14 +117,14 @@ export default function CategoriasPage() {
             <tbody className="divide-y divide-gray-100">
               {categorias.map((c) => (
                 <tr key={c.id}>
-                  <td className="px-4 py-2 font-medium text-brand">{c.nome}</td>
-                  <td className="px-4 py-2 text-gray-500">{c.descricao ?? "—"}</td>
-                  <td className="px-4 py-2">
+                  <td data-label="Nome" className="px-4 py-2 font-medium text-brand">{c.nome}</td>
+                  <td data-label="Descrição" className="px-4 py-2 text-gray-500">{c.descricao ?? "—"}</td>
+                  <td data-label="Tipo" className="px-4 py-2">
                     <span className={`badge ${c.tipo === "receita" ? "bg-accent-light text-accent-dark" : "bg-red-100 text-status-error"}`}>
                       {c.tipo === "receita" ? "Receita" : "Despesa"}
                     </span>
                   </td>
-                  <td className="px-4 py-2">
+                  <td data-label="Ativo" className="px-4 py-2">
                     <button
                       type="button"
                       className={`badge ${c.ativo ? "bg-accent-light text-accent-dark" : "bg-gray-100 text-gray-500"}`}
@@ -134,9 +133,9 @@ export default function CategoriasPage() {
                       {c.ativo ? "Ativo" : "Inativo"}
                     </button>
                   </td>
-                  <td className="px-4 py-2 text-right">
-                    <button type="button" className="mr-2 hover:opacity-70" title="Editar" onClick={() => setEditando(c)}>
-                      ✏️
+                  <td data-label="Ações" className="px-4 py-2 text-right">
+                    <button type="button" className="mr-2 hover:opacity-70" title="Editar" aria-label="Editar" onClick={() => setEditando(c)}>
+                      <Pencil className="icone" aria-hidden />
                     </button>
                     <button
                       type="button"
@@ -145,7 +144,7 @@ export default function CategoriasPage() {
                       disabled={c.protegida}
                       onClick={() => excluir(c)}
                     >
-                      🗑️
+                      <Trash2 className="icone" aria-hidden />
                     </button>
                   </td>
                 </tr>

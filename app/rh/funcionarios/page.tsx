@@ -1,10 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import ToastContainer from "@/components/modules/rh/ToastContainer";
 import { toast } from "@/components/modules/rh/toast";
 import ModalFuncionario from "@/components/modules/rh/ModalFuncionario";
+import { formatarData } from "@/lib/format";
 import type { Funcionario } from "@/lib/types/domain";
+import { confirmar } from "@/components/ui/confirmar";
+import { Pencil, Trash2 } from "lucide-react";
 
 const LABEL_STATUS: Record<string, string> = { ativo: "Ativo", inativo: "Inativo", desligado: "Desligado" };
 const CLASSE_STATUS: Record<string, string> = {
@@ -38,7 +40,7 @@ export default function FuncionariosPage() {
   }, [carregar]);
 
   async function excluir(funcionario: Funcionario) {
-    if (!confirm(`Excluir o funcionário "${funcionario.nome}"? Todos os documentos anexados dele também serão removidos.`)) return;
+    if (!(await confirmar(`Excluir o funcionário "${funcionario.nome}"? Todos os documentos anexados dele também serão removidos.`))) return;
     const response = await fetch(`/api/rh/funcionarios/${funcionario.id}`, { method: "DELETE" });
     const data = await response.json();
     if (!response.ok || !data.success) {
@@ -51,8 +53,6 @@ export default function FuncionariosPage() {
 
   return (
     <div className="space-y-6">
-      <ToastContainer />
-
       <div>
         <h1 className="text-2xl font-bold">Funcionários</h1>
         <p className="text-sm text-gray-500">Cadastro de colaboradores e documentação de cada um (ASO, NRs, certificações...).</p>
@@ -69,7 +69,7 @@ export default function FuncionariosPage() {
         <p className="text-sm text-gray-500">Carregando...</p>
       ) : (
         <div className="card overflow-x-auto p-0">
-          <table className="w-full text-sm">
+          <table className="tabela-cartoes w-full text-sm">
             <thead>
               <tr className="table-header">
                 <th className="px-4 py-2 text-left">Código</th>
@@ -84,21 +84,21 @@ export default function FuncionariosPage() {
             <tbody className="divide-y divide-gray-100">
               {funcionarios.map((f) => (
                 <tr key={f.id}>
-                  <td className="px-4 py-2 font-mono text-xs text-gray-500">{f.numero_funcionario ?? "—"}</td>
-                  <td className="px-4 py-2 font-medium text-brand">{f.nome}</td>
-                  <td className="px-4 py-2 text-gray-500">{f.cargo ?? "—"}</td>
-                  <td className="px-4 py-2 text-gray-500">{f.telefone ?? "—"}</td>
-                  <td className="px-4 py-2 text-gray-500">{f.data_admissao ?? "—"}</td>
-                  <td className="px-4 py-2">
+                  <td data-label="Código" className="px-4 py-2 font-mono text-xs text-gray-500">{f.numero_funcionario ?? "—"}</td>
+                  <td data-label="Nome" className="px-4 py-2 font-medium text-brand">{f.nome}</td>
+                  <td data-label="Cargo" className="px-4 py-2 text-gray-500">{f.cargo ?? "—"}</td>
+                  <td data-label="Telefone" className="px-4 py-2 text-gray-500">{f.telefone ?? "—"}</td>
+                  <td data-label="Admissão" className="px-4 py-2 text-gray-500">{f.data_admissao ? formatarData(f.data_admissao) : "—"}</td>
+                  <td data-label="Status" className="px-4 py-2">
                     <span className={`badge ${CLASSE_STATUS[f.status] ?? "bg-gray-100 text-gray-500"}`}>{LABEL_STATUS[f.status] ?? f.status}</span>
                   </td>
-                  <td className="px-4 py-2">
+                  <td data-label="Ações" className="px-4 py-2">
                     <div className="flex items-center justify-end gap-2">
-                      <button type="button" className="p-1 hover:opacity-70" title="Editar" onClick={() => setEditando(f)}>
-                        ✏️
+                      <button type="button" className="p-1 hover:opacity-70" title="Editar" aria-label="Editar" onClick={() => setEditando(f)}>
+                        <Pencil className="icone" aria-hidden />
                       </button>
-                      <button type="button" className="p-1 hover:opacity-70" title="Excluir" onClick={() => excluir(f)}>
-                        🗑️
+                      <button type="button" className="p-1 hover:opacity-70" title="Excluir" aria-label="Excluir" onClick={() => excluir(f)}>
+                        <Trash2 className="icone" aria-hidden />
                       </button>
                     </div>
                   </td>

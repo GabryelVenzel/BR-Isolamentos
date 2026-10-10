@@ -2,6 +2,7 @@
 
 import { formatarTemperatura } from "@/lib/format";
 import { ORIGENS_LEAD, type TemperaturaLead } from "@/lib/types/domain";
+import { Gift } from "lucide-react";
 
 export interface FiltrosKanbanState {
   busca: string;
@@ -29,6 +30,9 @@ interface Props {
   soComissoes: boolean;
   onToggleComissoes: (valor: boolean) => void;
   totalLeadsComissao: number;
+  mostrarPerdidos: boolean;
+  onTogglePerdidos: (valor: boolean) => void;
+  totalLeadsPerdidos: number;
 }
 
 const TEMPERATURAS: TemperaturaLead[] = ["quente", "morno", "frio"];
@@ -46,6 +50,9 @@ export default function FiltrosKanban({
   soComissoes,
   onToggleComissoes,
   totalLeadsComissao,
+  mostrarPerdidos,
+  onTogglePerdidos,
+  totalLeadsPerdidos,
 }: Props) {
   return (
     <div className="card space-y-3">
@@ -125,8 +132,13 @@ export default function FiltrosKanban({
         </label>
         <label className="flex items-center gap-2 text-sm text-gray-700">
           <input type="checkbox" checked={soComissoes} onChange={(e) => onToggleComissoes(e.target.checked)} />
-          🎁 Mostrar só comissões
+          <Gift className="icone" aria-hidden /> Mostrar só comissões
           {totalLeadsComissao > 0 && <span className="badge bg-accent-light text-accent-dark">{totalLeadsComissao}</span>}
+        </label>
+        <label className="flex items-center gap-2 text-sm text-gray-700">
+          <input type="checkbox" checked={mostrarPerdidos} onChange={(e) => onTogglePerdidos(e.target.checked)} />
+          Mostrar perdidos
+          {totalLeadsPerdidos > 0 && <span className="badge bg-gray-100 text-gray-600">{totalLeadsPerdidos}</span>}
         </label>
       </div>
     </div>

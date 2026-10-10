@@ -1,9 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CampoMoeda } from "@/components/ui/CamposDocumento";
 import { toast } from "./toast";
 import AnexosUpload from "./AnexosUpload";
 import type { AnexoLancamento, CategoriaLancamento, LancamentoFinanceiro, TipoLancamentoFinanceiro } from "@/lib/types/domain";
+import FecharComEsc from "@/components/ui/FecharComEsc";
 
 interface Props {
   lancamento: LancamentoFinanceiro | null; // null = criar novo
@@ -96,7 +98,8 @@ export default function ModalLancamento({ lancamento, onFechar, onSalvo }: Props
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4" onClick={onFechar}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
+      <FecharComEsc onFechar={onFechar} />
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-card bg-white p-6 shadow-card-hover" onClick={(e) => e.stopPropagation()}>
         <h2 className="mb-4 font-montserrat text-lg font-bold text-brand">
           {lancamento ? "Editar Lançamento" : "Novo Lançamento"}
@@ -146,7 +149,7 @@ export default function ModalLancamento({ lancamento, onFechar, onSalvo }: Props
               <label className="label-field">
                 Valor (R$)<span className="text-status-error"> *</span>
               </label>
-              <input type="number" step="0.01" className="input-field" value={valor} onChange={(e) => setValor(e.target.value)} />
+              <CampoMoeda value={valor} onChange={setValor} />
             </div>
             <div>
               <label className="label-field">

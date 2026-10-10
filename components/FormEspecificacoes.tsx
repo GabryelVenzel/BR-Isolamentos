@@ -6,6 +6,7 @@ import { somarMetragemEscopo } from "@/lib/usecases/orcamento";
 import { COMBUSTIVEIS as COMBUSTIVEIS_INFO } from "@/lib/calculadora-termica";
 import { formatarMoeda, formatarNumero } from "@/lib/format";
 import type { CombustivelTipo, PrecoConfig } from "@/lib/types";
+import { AlertTriangle } from "lucide-react";
 
 // Mesma lista/ordem de components/modules/engenharia/EconomiaSection.tsx —
 // os rótulos/unidades vêm de lib/calculadora-termica.ts#COMBUSTIVEIS (única
@@ -95,7 +96,7 @@ export default function FormEspecificacoes() {
                   checked={especificacoes.tipo_trabalho === tipo}
                   onChange={() => setEspecificacoes({ tipo_trabalho: tipo })}
                 />
-                {tipo === "quente" ? "🔥 Térmico Quente" : "🧊 Térmico Frio"}
+                {tipo === "quente" ? "Térmico Quente" : "Térmico Frio"}
               </label>
             ))}
           </div>
@@ -121,12 +122,12 @@ export default function FormEspecificacoes() {
                   {p.familia ?? p.descricao}
                 </option>
               ))}
-              <option value="outro">➕ Outro material</option>
+              <option value="outro">+ Outro material</option>
             </select>
             {especificacoes.isolante_customizado_nome != null && (
               <div className="mt-2 space-y-2 rounded-lg border border-dashed border-gray-300 p-3">
                 <p className="text-xs text-amber-600">
-                  ⚠️ Material customizado — sem dado técnico cadastrado. Este trecho não terá cálculo de perda
+                  <AlertTriangle className="icone" aria-hidden /> Material customizado — sem dado técnico cadastrado. Este trecho não terá cálculo de perda
                   térmica/economia, só quantificação e preço.
                 </p>
                 <div>
@@ -172,13 +173,13 @@ export default function FormEspecificacoes() {
                   {p.descricao}
                 </option>
               ))}
-              <option value="outro">➕ Outro material</option>
+              <option value="outro">+ Outro material</option>
             </select>
             {especificacoes.acabamento_customizado_nome != null && (
               <div className="mt-2 space-y-2 rounded-lg border border-dashed border-gray-300 p-3">
                 {isQuente && (
                   <p className="text-xs text-amber-600">
-                    ⚠️ Acabamento customizado — sem emissividade cadastrada. Este trecho não terá cálculo de perda
+                    <AlertTriangle className="icone" aria-hidden /> Acabamento customizado — sem emissividade cadastrada. Este trecho não terá cálculo de perda
                     térmica/economia, só quantificação e preço.
                   </p>
                 )}

@@ -17,6 +17,7 @@ const CLASSES_COLUNA: Record<EtapaServico, string> = {
   execucao: "bg-accent-light/60",
   finalizado: "bg-gray-100",
 };
+const OPCOES_MOVER = ETAPAS.map((etapa) => ({ valor: etapa, label: LABEL_ETAPA[etapa] }));
 
 interface Props {
   servicos: Servico[];
@@ -43,14 +44,14 @@ export default function KanbanServicos({ servicos, onAbrirServico, onMoverServic
   }
 
   return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:snap-none sm:px-0">
       {ETAPAS.map((etapa) => {
         const servicosDaEtapa = servicos.filter((s) => s.etapa === etapa);
 
         return (
           <div
             key={etapa}
-            className={`rounded-card p-3 transition-shadow ${CLASSES_COLUNA[etapa]} ${
+            className={`flex max-h-[calc(100vh-14rem)] min-h-[12rem] w-[85vw] shrink-0 snap-center flex-col rounded-card p-3 transition-shadow sm:w-auto sm:min-w-[16rem] sm:flex-1 ${CLASSES_COLUNA[etapa]} ${
               colunaEmFoco === etapa ? "ring-2 ring-accent" : ""
             }`}
             onDragOver={(e) => {
@@ -61,15 +62,17 @@ export default function KanbanServicos({ servicos, onAbrirServico, onMoverServic
             onDragLeave={() => setColunaEmFoco((atual) => (atual === etapa ? null : atual))}
             onDrop={(e) => soltarEm(e, etapa)}
           >
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex shrink-0 items-center justify-between">
               <h2 className="font-montserrat text-sm font-bold text-brand">{LABEL_ETAPA[etapa]}</h2>
               <span className="badge bg-secondary-light text-brand">{servicosDaEtapa.length}</span>
             </div>
-            <div className="space-y-2">
+            <div className="-mr-1 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1">
               {servicosDaEtapa.map((servico) => (
                 <ServicoCard
                   key={servico.id}
                   servico={servico}
+                  opcoesMover={OPCOES_MOVER}
+                  onMover={(destino) => (destino === "finalizado" ? onSoltarEmFinalizado(servico.id) : onMoverServico(servico.id, destino))}
                   onAbrir={onAbrirServico}
                   onIniciarArraste={setServicoArrastando}
                   onTerminarArraste={() => setServicoArrastando(null)}

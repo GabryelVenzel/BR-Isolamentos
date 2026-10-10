@@ -2,7 +2,9 @@
 
 import { formatarData, formatarMoeda } from "@/lib/format";
 import { TIPOS_TRABALHO_OPCOES } from "./MultiSelectTiposTrabalho";
-import type { Servico } from "@/lib/types/domain";
+import MoverPara from "@/components/ui/MoverPara";
+import type { EtapaServico, Servico } from "@/lib/types/domain";
+import { CheckCircle2, HardHat } from "lucide-react";
 
 // Lista revisada (migração 027) — reaproveita a mesma fonte de sempre, ver
 // MultiSelectTiposTrabalho.tsx.
@@ -10,6 +12,8 @@ const LABEL_TIPO: Record<string, string> = Object.fromEntries(TIPOS_TRABALHO_OPC
 
 interface Props {
   servico: Servico;
+  opcoesMover: Array<{ valor: EtapaServico; label: string }>;
+  onMover: (destino: EtapaServico) => void;
   onAbrir: (servico: Servico) => void;
   onIniciarArraste: (servicoId: string) => void;
   onTerminarArraste: () => void;
@@ -18,7 +22,7 @@ interface Props {
 
 /** Card de um serviço no Kanban — mesmo padrão de drag&drop nativo HTML5 do
  * módulo Comercial (ver components/modules/comercial/LeadCardKanban.tsx). */
-export default function ServicoCard({ servico, onAbrir, onIniciarArraste, onTerminarArraste, arrastando }: Props) {
+export default function ServicoCard({ servico, opcoesMover, onMover, onAbrir, onIniciarArraste, onTerminarArraste, arrastando }: Props) {
   return (
     <div
       draggable
@@ -56,10 +60,14 @@ export default function ServicoCard({ servico, onAbrir, onIniciarArraste, onTerm
       )}
       {(servico.parceiros_execucao ?? []).length > 0 && (
         <p className="truncate text-xs text-gray-500">
-          👷 {servico.parceiros_execucao!.map((e) => e.parceiro?.nome ?? "—").join(", ")}
+          <HardHat className="icone" aria-hidden /> {servico.parceiros_execucao!.map((e) => e.parceiro?.nome ?? "—").join(", ")}
         </p>
       )}
-      {servico.etapa === "finalizado" && <p className="mt-1 text-xs font-semibold text-accent">✅ Concluído</p>}
+      {servico.etapa === "finalizado" ? (
+        <p className="mt-1 text-xs font-semibold text-accent"><CheckCircle2 className="icone" aria-hidden /> Concluído</p>
+      ) : (
+        <MoverPara atual={servico.etapa} opcoes={opcoesMover} onMover={onMover} rotuloItem={servico.numero_servico} />
+      )}
     </div>
   );
 }

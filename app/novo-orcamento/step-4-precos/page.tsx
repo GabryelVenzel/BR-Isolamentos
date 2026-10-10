@@ -6,6 +6,8 @@ import { horasMaoObraTotal, useWizardStore } from "@/lib/store";
 import { comporCamadasIsolante, precificarTrecho, precoAcessorioPorUnidade, somarMetragemEscopo } from "@/lib/usecases/orcamento";
 import { formatarMoeda, formatarNumero } from "@/lib/format";
 import type { CalcularOrcamentoInput, ConfigEmpresa, ImpostoConfig, PrecoConfig } from "@/lib/types";
+import FecharComEsc from "@/components/ui/FecharComEsc";
+import { AlertTriangle, Pencil, Trash2 } from "lucide-react";
 
 /** Preço de um acessório por unidade de quantidade — Rebite/Parafuso vêm do
  * catálogo "por centena" e são convertidos (ver precoAcessorio.ts). */
@@ -498,7 +500,7 @@ export default function Step4PrecosPage() {
 
             {materialCustomizado && (
               <p className="text-amber-600">
-                ⚠️ Material customizado neste trecho — sem saídas técnicas (perda térmica/economia), só quantificação
+                <AlertTriangle className="icone" aria-hidden /> Material customizado neste trecho — sem saídas técnicas (perda térmica/economia), só quantificação
                 e preço.
               </p>
             )}
@@ -733,8 +735,8 @@ export default function Step4PrecosPage() {
                         <td className="py-1.5 pr-4 text-right text-gray-500">{formatarMoeda(it.precoUnitario)}</td>
                         <td className="py-1.5 pr-4 text-right font-medium">{formatarMoeda(it.quantidade * it.precoUnitario)}</td>
                         <td className="py-1.5 pl-4 text-right">
-                          <button type="button" title="Remover" className="hover:opacity-70" onClick={() => removerItemAdicional(it.id)}>
-                            🗑️
+                          <button type="button" title="Remover" aria-label="Remover" className="hover:opacity-70" onClick={() => removerItemAdicional(it.id)}>
+                            <Trash2 className="icone" aria-hidden />
                           </button>
                         </td>
                       </tr>
@@ -959,11 +961,11 @@ function LinhaTabela({
       <td className="py-1.5 pr-4 text-right text-gray-500">{formatarMoeda(precoUnitario)}</td>
       <td className="py-1.5 pr-4 text-right font-medium">{formatarMoeda(quantidade * precoUnitario)}</td>
       <td className="py-1.5 pl-4 text-right space-x-2">
-        <button type="button" title="Editar" className="hover:opacity-70" onClick={onEditar}>
-          ✏️
+        <button type="button" title="Editar" aria-label="Editar" className="hover:opacity-70" onClick={onEditar}>
+          <Pencil className="icone" aria-hidden />
         </button>
-        <button type="button" title="Excluir deste trecho" className="hover:opacity-70" onClick={onExcluir}>
-          🗑️
+        <button type="button" title="Excluir deste trecho" aria-label="Excluir deste trecho" className="hover:opacity-70" onClick={onExcluir}>
+          <Trash2 className="icone" aria-hidden />
         </button>
       </td>
     </tr>
@@ -1010,7 +1012,8 @@ function ModalEditarLinha({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4" onClick={onFechar}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
+      <FecharComEsc onFechar={onFechar} />
       <div className="w-full max-w-sm rounded-card bg-white p-6 shadow-card-hover" onClick={(e) => e.stopPropagation()}>
         <h2 className="mb-4 font-montserrat text-lg font-bold text-brand">Editar {linha.titulo}</h2>
 

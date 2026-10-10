@@ -5,6 +5,8 @@ import { toast } from "./toast";
 import MultiSelectTiposTrabalho, { TIPOS_TRABALHO_OPCOES } from "./MultiSelectTiposTrabalho";
 import { formatarMoeda } from "@/lib/format";
 import type { Lead, TipoTrabalhoOperacional } from "@/lib/types/domain";
+import FecharComEsc from "@/components/ui/FecharComEsc";
+import { Users } from "lucide-react";
 
 interface Props {
   /** Se já vier de um lead específico (fluxo "Lead fechado → Criar
@@ -116,7 +118,8 @@ export default function NovoServicoModal({ leadIdInicial, onFechar, onCriado }: 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4" onClick={onFechar}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
+      <FecharComEsc onFechar={onFechar} />
       <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-card bg-white p-6 shadow-card-hover" onClick={(e) => e.stopPropagation()}>
         <h2 className="mb-4 font-montserrat text-lg font-bold text-brand">Novo Serviço</h2>
 
@@ -188,7 +191,7 @@ export default function NovoServicoModal({ leadIdInicial, onFechar, onCriado }: 
             </div>
           </div>
 
-          <p className="text-xs text-gray-400">👥 Parceiros são adicionados depois de criar o serviço, na aba Parceiros.</p>
+          <p className="text-xs text-gray-400"><Users className="icone" aria-hidden /> Parceiros são adicionados depois de criar o serviço, na aba Parceiros.</p>
 
           <div>
             <label className="label-field">Notas</label>

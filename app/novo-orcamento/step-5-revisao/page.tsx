@@ -6,6 +6,7 @@ import { horasMaoObraTotal, tipoTrabalhoAgregado, useWizardStore, type WizardIte
 import { alocarValorFinalPorTrecho, descreverItemEscopo, geometriaRepresentativa } from "@/lib/usecases/orcamento";
 import { formatarMoeda, formatarNumero } from "@/lib/format";
 import type { CalcularOrcamentoInput, ConfigEmpresa, ImpostoConfig, ItemOrcamento, Orcamento } from "@/lib/types";
+import { confirmar } from "@/components/ui/confirmar";
 
 export default function Step5RevisaoPage() {
   const router = useRouter();
@@ -91,8 +92,8 @@ export default function Step5RevisaoPage() {
     [config, impostosExtras, setResultadoOrcamento]
   );
 
-  function excluirTrecho(index: number) {
-    if (!confirm("Excluir este trecho do orçamento?")) return;
+  async function excluirTrecho(index: number) {
+    if (!(await confirmar("Excluir este trecho do orçamento?"))) return;
     removerItem(index);
     const restantes = useWizardStore.getState().itens;
     if (restantes.length > 0) recalcular(restantes, custosOperacionais);

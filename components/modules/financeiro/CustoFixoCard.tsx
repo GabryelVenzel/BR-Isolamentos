@@ -5,6 +5,7 @@ import { toast } from "./toast";
 import { formatarData, formatarMoeda } from "@/lib/format";
 import { calcularProximoPagamento } from "@/lib/usecases/financeiro/custoFixo";
 import type { CustoFixo, HistoricoCustoFixo } from "@/lib/types/domain";
+import { confirmar } from "@/components/ui/confirmar";
 
 interface Props {
   custoFixo: CustoFixo;
@@ -73,7 +74,7 @@ export default function CustoFixoCard({ custoFixo, onEditar, onMudou }: Props) {
   }
 
   async function excluir() {
-    if (!confirm(`Excluir o custo fixo "${custoFixo.descricao}"?`)) return;
+    if (!(await confirmar(`Excluir o custo fixo "${custoFixo.descricao}"?`))) return;
     const response = await fetch(`/api/financeiro/custos-fixos/${custoFixo.id}`, { method: "DELETE" });
     const data = await response.json();
     if (!response.ok || !data.success) {
@@ -95,7 +96,7 @@ export default function CustoFixoCard({ custoFixo, onEditar, onMudou }: Props) {
           className={`badge shrink-0 ${custoFixo.ativo ? "bg-accent-light text-accent-dark" : "bg-gray-100 text-gray-500"}`}
           onClick={alternarAtivo}
         >
-          {custoFixo.ativo ? "✅ Ativo" : "❌ Inativo"}
+          {custoFixo.ativo ? "Ativo" : "Inativo"}
         </button>
       </div>
 

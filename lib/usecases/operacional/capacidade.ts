@@ -106,6 +106,9 @@ export interface CapacidadeResumoDia {
   totalMobilizado: number;
   totalLivre: number;
   nivel: NivelOcupacao;
+  /** Serviços em andamento no dia (código + cliente) — é o que o calendário
+   * mostra dentro de cada quadrado, além dos números de capacidade. */
+  servicos: Array<{ id: string; numero: string; cliente: string | null }>;
 }
 
 /** Cor do dia no calendário mensal (Agenda) — conforme % mobilizado do dia:
@@ -147,6 +150,7 @@ export function calcularCapacidadeMes(
       totalMobilizado,
       totalLivre,
       nivel: nivelOcupacao(totalDisponivel, totalMobilizado),
+      servicos: servicosAtivosNoDia.map((s) => ({ id: s.id, numero: s.numero_servico, cliente: s.cliente?.nome ?? null })),
     });
   }
 

@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import ToastContainer from "@/components/modules/financeiro/ToastContainer";
 import ModalCustoFixo from "@/components/modules/financeiro/ModalCustoFixo";
 import CustoFixoCard from "@/components/modules/financeiro/CustoFixoCard";
 import { formatarMoeda } from "@/lib/format";
@@ -31,8 +30,6 @@ export default function CustosFixosPage() {
 
   return (
     <div className="space-y-6">
-      <ToastContainer />
-
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Custos Fixos</h1>

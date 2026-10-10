@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import ToastContainer from "@/components/modules/operacional/ToastContainer";
 import { toast } from "@/components/modules/operacional/toast";
 import KanbanServicos from "@/components/modules/operacional/KanbanServicos";
 import ServicoDetailModal from "@/components/modules/operacional/ServicoDetailModal";
@@ -82,8 +81,6 @@ export default function ServicosPage() {
 
   return (
     <div className="space-y-6">
-      <ToastContainer />
-
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Serviços</h1>

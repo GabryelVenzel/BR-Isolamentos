@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { TIPOS_TRABALHO_OPCOES } from "@/components/modules/operacional/MultiSelectTiposTrabalho";
 import { formatarData } from "@/lib/format";
 import type { CapacidadeDia } from "@/lib/usecases/operacional";
+import FecharComEsc from "@/components/ui/FecharComEsc";
 
 // Lista revisada (migração 027) — reaproveita a mesma fonte de sempre, ver
 // MultiSelectTiposTrabalho.tsx.
@@ -48,6 +49,7 @@ export default function ModalCapacidadeDia({ data, onFechar }: Props) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <FecharComEsc onFechar={onFechar} />
       <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-card bg-white p-6 shadow-xl">
         <div className="mb-4 flex items-center justify-between">
           <div>

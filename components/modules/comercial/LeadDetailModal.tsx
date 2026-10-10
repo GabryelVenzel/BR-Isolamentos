@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { CampoMoeda } from "@/components/ui/CamposDocumento";
 import { toast } from "./toast";
 import AnexosLead from "./AnexosLead";
 import NovoServicoModal from "@/components/modules/operacional/NovoServicoModal";
@@ -21,6 +22,9 @@ import type {
   TipoInteracaoLead,
 } from "@/lib/types/domain";
 import type { Orcamento } from "@/lib/types";
+import FecharComEsc from "@/components/ui/FecharComEsc";
+import { confirmar } from "@/components/ui/confirmar";
+import { AlertTriangle, Gift } from "lucide-react";
 
 const ETAPAS: EtapaFunil[] = ["prospeccao", "contato", "proposta", "negociacao", "fechado", "perdido"];
 const TEMPERATURAS: TemperaturaLead[] = ["quente", "morno", "frio"];
@@ -309,7 +313,7 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
   }
 
   async function excluir() {
-    if (!confirm("Excluir este lead? Esta ação não pode ser desfeita.")) return;
+    if (!(await confirmar("Excluir este lead? Esta ação não pode ser desfeita."))) return;
     const response = await fetch(`/api/comercial/leads/${leadId}`, { method: "DELETE" });
     if (response.ok) {
       toast.sucesso("Lead excluído.");
@@ -343,7 +347,8 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex justify-end bg-brand/60" onClick={onFechar}>
+    <div className="fixed inset-0 z-[60] flex justify-end bg-brand/60">
+      <FecharComEsc onFechar={onFechar} />
       <div
         className="flex h-full w-full max-w-xl flex-col overflow-y-auto bg-white shadow-card-hover"
         onClick={(e) => e.stopPropagation()}
@@ -360,7 +365,7 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
                 <div className="mt-1 flex items-center gap-2">
                   <span className="badge bg-brand-light text-brand">{formatarEtapa(lead.etapa)}</span>
                   <span className={`badge ${classesTemperatura(lead.temperatura)}`}>{formatarTemperatura(lead.temperatura)}</span>
-                  {lead.eh_comissao && <span className="badge bg-accent-light text-accent-dark">🎁 Comissão</span>}
+                  {lead.eh_comissao && <span className="badge bg-accent-light text-accent-dark"><Gift className="icone" aria-hidden /> Comissão</span>}
                 </div>
               </div>
               <button type="button" className="btn-danger shrink-0 text-xs" onClick={excluir}>
@@ -403,13 +408,7 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       <div>
                         <label className="label-field">Valor estimado (R$)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          className="input-field"
-                          value={valorEstimado}
-                          onChange={(e) => setValorEstimado(e.target.value)}
-                        />
+                        <CampoMoeda value={valorEstimado} onChange={setValorEstimado} />
                         <p className="mt-1 text-xs text-gray-400">
                           Independente do orçamento vinculado — não muda sozinho ao vincular/trocar um orçamento.
                         </p>
@@ -444,7 +443,7 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
 
                   {lead.eh_comissao ? (
                     <div className="space-y-3 border-t border-gray-100 pt-4">
-                      <h3 className="font-montserrat text-xs font-bold uppercase text-brand">🎁 Dados da Comissão</h3>
+                      <h3 className="font-montserrat text-xs font-bold uppercase text-brand"><Gift className="icone" aria-hidden /> Dados da Comissão</h3>
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div className="sm:col-span-2">
                           <label className="label-field">Parceiro</label>
@@ -459,13 +458,7 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
                         </div>
                         <div>
                           <label className="label-field">Valor indicado (R$)</label>
-                          <input
-                            type="number"
-                            step="0.01"
-                            className="input-field"
-                            value={valorIndicado}
-                            onChange={(e) => setValorIndicado(e.target.value)}
-                          />
+                          <CampoMoeda value={valorIndicado} onChange={setValorIndicado} />
                         </div>
                         <div>
                           <label className="label-field">% Comissão</label>
@@ -550,7 +543,7 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
                     <h3 className="font-montserrat text-xs font-bold uppercase text-brand">Mudar status/etapa</h3>
                     {lead.eh_comissao && totalAnexos === 0 && (
                       <p className="rounded-input bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                        ⚠️ Comissão sem anexo — adicione um comprovante antes de mover pra &quot;Negociação&quot;.
+                        <AlertTriangle className="icone" aria-hidden /> Comissão sem anexo — adicione um comprovante antes de mover pra &quot;Negociação&quot;.
                       </p>
                     )}
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

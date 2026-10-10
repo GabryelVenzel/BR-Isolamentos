@@ -8,6 +8,9 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { urlArquivo } from "@/lib/arquivos";
 import { formatarDataHora, formatarMoeda } from "@/lib/format";
 import type { HistoricoServico, InteracaoServico, Servico, ServicoParceiroExecucao, TipoInteracaoServico } from "@/lib/types/domain";
+import FecharComEsc from "@/components/ui/FecharComEsc";
+import { confirmar } from "@/components/ui/confirmar";
+import { Camera, CheckCircle2, Eye, FileText, Paperclip, Square, Trash2, Upload, Users } from "lucide-react";
 
 const BUCKET = "servicos-anexos";
 const LIMITE_FOTOS = 20;
@@ -152,7 +155,7 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
   }
 
   async function removerParceiro(execucaoId: string) {
-    if (!confirm("Remover este parceiro do serviço?")) return;
+    if (!(await confirmar("Remover este parceiro do serviço?"))) return;
     setRemovendoParceiroId(execucaoId);
     try {
       const response = await fetch(`/api/operacional/servicos/${servicoId}/parceiros/${execucaoId}`, { method: "DELETE" });
@@ -229,7 +232,7 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
   }
 
   async function removerArquivo(campo: "foto_principal_url" | "pdf_relatorio_url" | "fotos_url", url: string) {
-    if (!confirm("Remover este anexo?")) return;
+    if (!(await confirmar("Remover este anexo?"))) return;
     setEnviandoArquivo(campo);
     try {
       const caminho = caminhoStorage(url);
@@ -281,7 +284,7 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
   }
 
   async function excluir() {
-    if (!confirm("Excluir este serviço? Esta ação não pode ser desfeita.")) return;
+    if (!(await confirmar("Excluir este serviço? Esta ação não pode ser desfeita."))) return;
     const response = await fetch(`/api/operacional/servicos/${servicoId}`, { method: "DELETE" });
     if (response.ok) {
       toast.sucesso("Serviço excluído.");
@@ -319,7 +322,8 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
   const podeFinalizar = temFotos && temPdf;
 
   return (
-    <div className="fixed inset-0 z-[60] flex justify-end bg-brand/60" onClick={onFechar}>
+    <div className="fixed inset-0 z-[60] flex justify-end bg-brand/60">
+      <FecharComEsc onFechar={onFechar} />
       <div className="flex h-full w-full max-w-xl flex-col overflow-y-auto bg-white shadow-card-hover" onClick={(e) => e.stopPropagation()}>
         <div className="border-b border-gray-100 p-4">
           <button type="button" className="text-sm text-brand hover:underline" onClick={onFechar}>
@@ -439,7 +443,7 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
 
                   <div className="space-y-3 border-t border-gray-100 pt-4">
                     <div className="flex items-center justify-between">
-                      <h3 className="font-montserrat text-xs font-bold uppercase text-brand">👥 Parceiros</h3>
+                      <h3 className="font-montserrat text-xs font-bold uppercase text-brand"><Users className="icone" aria-hidden /> Parceiros</h3>
                       <button type="button" className="text-xs font-semibold text-brand hover:underline" onClick={() => setMostrarAdicionarParceiro(true)}>
                         + Adicionar Parceiro
                       </button>
@@ -450,7 +454,7 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
                           <div className="flex items-start justify-between gap-2">
                             <div>
                               <p className="text-sm font-medium text-gray-800">
-                                ✅ {execucao.parceiro?.nome ?? "—"}{" "}
+                                <CheckCircle2 className="icone" aria-hidden /> {execucao.parceiro?.nome ?? "—"}{" "}
                                 <span className="font-normal text-gray-400">
                                   ({execucao.pessoas_mobilizadas} {execucao.pessoas_mobilizadas === 1 ? "pessoa" : "pessoas"})
                                 </span>
@@ -464,7 +468,7 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
                               disabled={removendoParceiroId !== null}
                               onClick={() => removerParceiro(execucao.id)}
                             >
-                              🗑️
+                              <Trash2 className="icone" aria-hidden />
                             </button>
                           </div>
                         </div>
@@ -477,11 +481,11 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
 
                   <div className="space-y-4 border-t border-gray-100 pt-4">
                     <h3 className="font-montserrat text-xs font-bold uppercase text-brand">
-                      📎 Anexos {servico.etapa !== "finalizado" && "(obrigatórios para finalizar)"}
+                      <Paperclip className="icone" aria-hidden /> Anexos {servico.etapa !== "finalizado" && "(obrigatórios para finalizar)"}
                     </h3>
 
                     <div className="rounded-card border border-gray-200 p-3">
-                      <p className="mb-2 text-sm font-semibold text-gray-700">📸 Fotos do Projeto ({servico.fotos_url.length}/{LIMITE_FOTOS})</p>
+                      <p className="mb-2 text-sm font-semibold text-gray-700"><Camera className="icone" aria-hidden /> Fotos do Projeto ({servico.fotos_url.length}/{LIMITE_FOTOS})</p>
                       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                         {servico.fotos_url.map((url) => (
                           <div key={url} className="overflow-hidden rounded-lg border border-brand-light bg-brand-light/20">
@@ -489,14 +493,14 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
                             <img src={urlArquivo(url)} alt="Foto do projeto" className="h-20 w-full object-cover" />
                             <div className="flex items-center justify-between gap-1 p-1.5">
                               <span className="truncate text-[11px] text-brand" title={nomeArquivo(url)}>
-                                ✅ {nomeArquivo(url)}
+                                <CheckCircle2 className="icone" aria-hidden /> {nomeArquivo(url)}
                               </span>
                               <div className="flex shrink-0 gap-1.5">
-                                <a href={urlArquivo(url)} target="_blank" rel="noreferrer" title="Visualizar" className="hover:opacity-70">
-                                  👁️
+                                <a href={urlArquivo(url)} target="_blank" rel="noreferrer" title="Visualizar" aria-label="Visualizar" className="hover:opacity-70">
+                                  <Eye className="icone" aria-hidden />
                                 </a>
-                                <button type="button" title="Remover" className="hover:opacity-70" disabled={enviandoArquivo !== null} onClick={() => removerArquivo("fotos_url", url)}>
-                                  🗑️
+                                <button type="button" title="Remover" aria-label="Remover" className="hover:opacity-70" disabled={enviandoArquivo !== null} onClick={() => removerArquivo("fotos_url", url)}>
+                                  <Trash2 className="icone" aria-hidden />
                                 </button>
                               </div>
                             </div>
@@ -507,23 +511,23 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
                       {servico.fotos_url.length < LIMITE_FOTOS && (
                         <label className="mt-2 flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-gray-300 p-2 text-xs text-gray-500 hover:border-brand">
                           <input type="file" accept="image/*" className="hidden" disabled={enviandoArquivo !== null} onChange={(e) => enviarArquivo(e, "fotos_url")} />
-                          📤 {enviandoArquivo === "fotos_url" ? "Enviando..." : "Adicionar fotos"}
+                          <Upload className="icone" aria-hidden /> {enviandoArquivo === "fotos_url" ? "Enviando..." : "Adicionar fotos"}
                         </label>
                       )}
                     </div>
 
                     <div className="rounded-card border border-gray-200 p-3">
-                      <p className="mb-2 text-sm font-semibold text-gray-700">📄 PDF Relatório (Obrigatório)</p>
+                      <p className="mb-2 text-sm font-semibold text-gray-700"><FileText className="icone" aria-hidden /> PDF Relatório (Obrigatório)</p>
                       {servico.pdf_relatorio_url ? (
                         <div className="flex items-center justify-between gap-3 rounded-lg border border-accent-light bg-accent-light/40 p-2">
-                          <span className="truncate text-xs text-accent-dark">✅ {nomeArquivo(servico.pdf_relatorio_url)}</span>
+                          <span className="truncate text-xs text-accent-dark"><CheckCircle2 className="icone" aria-hidden /> {nomeArquivo(servico.pdf_relatorio_url)}</span>
                           <div className="flex shrink-0 gap-2">
-                            <a href={urlArquivo(servico.pdf_relatorio_url)} target="_blank" rel="noreferrer" title="Visualizar" className="hover:opacity-70">
-                              👁️
+                            <a href={urlArquivo(servico.pdf_relatorio_url)} target="_blank" rel="noreferrer" title="Visualizar" aria-label="Visualizar" className="hover:opacity-70">
+                              <Eye className="icone" aria-hidden />
                             </a>
                             <label className="cursor-pointer hover:opacity-70" title="Substituir">
                               <input type="file" accept="application/pdf" className="hidden" disabled={enviandoArquivo !== null} onChange={(e) => enviarArquivo(e, "pdf_relatorio_url")} />
-                              📤
+                              <Upload className="icone" aria-hidden />
                             </label>
                             <button
                               type="button"
@@ -532,14 +536,14 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
                               disabled={enviandoArquivo !== null}
                               onClick={() => removerArquivo("pdf_relatorio_url", servico.pdf_relatorio_url!)}
                             >
-                              🗑️
+                              <Trash2 className="icone" aria-hidden />
                             </button>
                           </div>
                         </div>
                       ) : (
                         <label className="flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-gray-300 p-3 text-sm text-gray-500 hover:border-brand">
                           <input type="file" accept="application/pdf" className="hidden" disabled={enviandoArquivo !== null} onChange={(e) => enviarArquivo(e, "pdf_relatorio_url")} />
-                          📤 {enviandoArquivo === "pdf_relatorio_url" ? "Enviando..." : "Escolher PDF"}
+                          <Upload className="icone" aria-hidden /> {enviandoArquivo === "pdf_relatorio_url" ? "Enviando..." : "Escolher PDF"}
                         </label>
                       )}
                     </div>
@@ -547,12 +551,12 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
 
                   {servico.etapa !== "finalizado" && (
                     <div className="space-y-2 rounded-card border-l-4 border-l-secondary bg-secondary-light/40 p-4">
-                      <h3 className="font-montserrat text-xs font-bold uppercase text-brand">✅ Requisitos para Finalizar</h3>
+                      <h3 className="font-montserrat text-xs font-bold uppercase text-brand"><CheckCircle2 className="icone" aria-hidden /> Requisitos para Finalizar</h3>
                       <p className={`text-xs ${temFotos ? "text-accent-dark" : "text-gray-400"}`}>
-                        {temFotos ? "✅" : "⬜"} Fotos do projeto anexadas (mín. 1)
+                        {temFotos ? <CheckCircle2 className="icone" aria-hidden /> : <Square className="icone" aria-hidden />} Fotos do projeto anexadas (mín. 1)
                       </p>
-                      <p className={`text-xs ${temPdf ? "text-accent-dark" : "text-gray-400"}`}>{temPdf ? "✅" : "⬜"} PDF relatório anexado</p>
-                      {podeFinalizar && <p className="text-xs text-accent-dark">✅ Pronto para confirmar finalização</p>}
+                      <p className={`text-xs ${temPdf ? "text-accent-dark" : "text-gray-400"}`}>{temPdf ? <CheckCircle2 className="icone" aria-hidden /> : <Square className="icone" aria-hidden />} PDF relatório anexado</p>
+                      {podeFinalizar && <p className="text-xs text-accent-dark"><CheckCircle2 className="icone" aria-hidden /> Pronto para confirmar finalização</p>}
                       <button
                         type="button"
                         className="btn-accent"
@@ -560,7 +564,7 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
                         disabled={!podeFinalizar || finalizando}
                         title={!podeFinalizar ? "Anexe fotos do projeto e o PDF relatório" : undefined}
                       >
-                        {finalizando ? "Finalizando..." : "✨ Confirmar finalização"}
+                        {finalizando ? "Finalizando..." : "Confirmar finalização"}
                       </button>
                     </div>
                   )}

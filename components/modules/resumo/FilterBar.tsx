@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { FiltrosResumo, Periodo } from "@/lib/types/resumo";
+import { Download } from "lucide-react";
 
 interface Props {
   filtros: FiltrosResumo;
@@ -103,7 +104,7 @@ export default function FilterBar({ filtros, onChange, onExportPdf, onExportCsv,
       <div className="ml-auto flex items-end gap-2">
         <div className="relative">
           <button type="button" className="btn-secondary" onClick={() => setMostrarExport((v) => !v)}>
-            📥 Exportar ▾
+            <Download className="icone" aria-hidden /> Exportar ▾
           </button>
           {mostrarExport && (
             <div className="absolute right-0 z-10 mt-1 w-40 overflow-hidden rounded-card border border-gray-200 bg-white shadow-card-hover">
@@ -133,7 +134,7 @@ export default function FilterBar({ filtros, onChange, onExportPdf, onExportCsv,
           )}
         </div>
         <button type="button" className="btn-primary" onClick={onRefresh} disabled={atualizando}>
-          {atualizando ? "Atualizando..." : "🔄 Atualizar"}
+          {atualizando ? "Atualizando..." : "Atualizar"}
         </button>
       </div>
     </div>

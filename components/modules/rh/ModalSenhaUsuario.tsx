@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { toast } from "./toast";
 import type { UsuarioComAcesso } from "@/lib/usecases/rh";
+import FecharComEsc from "@/components/ui/FecharComEsc";
 
 interface Props {
   usuario: UsuarioComAcesso;
@@ -46,6 +47,7 @@ export default function ModalSenhaUsuario({ usuario, onFechar, onSalvo }: Props)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
+      <FecharComEsc onFechar={onFechar} />
       <div
         role="dialog"
         aria-modal="true"

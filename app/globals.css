@@ -56,7 +56,9 @@
   }
 
   .card {
-    @apply rounded-card border border-gray-200 bg-white p-6 shadow-card transition-shadow duration-300 hover:shadow-card-hover;
+    /* min-w-0: dentro de um grid, um cartão com gráfico largo encolhe junto
+       com a coluna em vez de empurrar a página para o lado no celular. */
+    @apply min-w-0 rounded-card border border-gray-200 bg-white p-6 shadow-card transition-shadow duration-300 hover:shadow-card-hover;
   }
 
   .input-field {
@@ -83,5 +85,73 @@
      páginas de apresentação e no cabeçalho/rodapé das propostas em PDF. */
   .divider-brand {
     @apply my-4 h-0.5 w-full bg-accent;
+  }
+}
+
+@layer components {
+  /* Ícone de linha (lucide-react) alinhado ao texto ao lado: acompanha o
+     tamanho da fonte do elemento em que está. */
+  .icone {
+    @apply inline-block h-[1.1em] w-[1.1em] shrink-0 align-[-0.15em];
+  }
+}
+
+/* Tabelas de listagem viram cartões no celular: cada linha é um cartão e
+   cada célula mostra o título da própria coluna à esquerda (`data-label`,
+   preenchido em cada <td>). No computador a tabela não muda. */
+@media (max-width: 639px) {
+  .tabela-cartoes,
+  .tabela-cartoes tbody,
+  .tabela-cartoes tr,
+  .tabela-cartoes td {
+    display: block;
+    width: 100%;
+  }
+
+  .tabela-cartoes thead {
+    display: none;
+  }
+
+  .tabela-cartoes tr {
+    padding: 0.75rem 1rem;
+  }
+
+  .tabela-cartoes td {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.25rem 0 !important;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+
+  .tabela-cartoes td[data-label]::before {
+    content: attr(data-label);
+    flex-shrink: 0;
+    font-family: var(--font-montserrat), sans-serif;
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    text-align: left;
+    color: #6b7280;
+    padding-top: 0.15rem;
+  }
+
+  /* A coluna de ações ocupa a linha inteira, sem título. */
+  .tabela-cartoes td[data-label="Ações"] {
+    justify-content: flex-end;
+    padding-top: 0.5rem !important;
+  }
+
+  .tabela-cartoes td[data-label="Ações"]::before {
+    content: none;
+  }
+
+  /* Linha de "nenhum registro" (colSpan) e linhas expandidas: centralizadas. */
+  .tabela-cartoes td:not([data-label]) {
+    display: block;
+    text-align: center;
   }
 }

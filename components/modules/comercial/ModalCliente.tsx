@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { CampoCep, CampoCnpj, CampoCpf, CampoTelefone } from "@/components/ui/CamposDocumento";
 import { toast } from "./toast";
 import type { Cliente } from "@/lib/types";
+import FecharComEsc from "@/components/ui/FecharComEsc";
 
 interface Props {
   cliente: Cliente | null; // null = criar novo
@@ -15,6 +17,7 @@ interface FormCliente {
   razaoSocial: string;
   telefone: string;
   email: string;
+  cep: string;
   endereco: string;
   cidade: string;
   estado: string;
@@ -27,6 +30,7 @@ function paraForm(cliente: Cliente | null): FormCliente {
     razaoSocial: cliente?.razao_social ?? "",
     telefone: cliente?.telefone ?? "",
     email: cliente?.email ?? "",
+    cep: cliente?.cep ?? "",
     endereco: cliente?.endereco ?? "",
     cidade: cliente?.cidade ?? "",
     estado: cliente?.estado ?? "",
@@ -60,6 +64,7 @@ export default function ModalCliente({ cliente, onFechar, onSalvo }: Props) {
       razao_social: form.razaoSocial || null,
       telefone: form.telefone || null,
       email: form.email || null,
+      cep: form.cep || null,
       endereco: form.endereco || null,
       cidade: form.cidade || null,
       estado: form.estado || null,
@@ -93,7 +98,8 @@ export default function ModalCliente({ cliente, onFechar, onSalvo }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4" onClick={onFechar}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
+      <FecharComEsc onFechar={onFechar} />
       <div
         className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-card bg-white p-6 shadow-card-hover"
         onClick={(e) => e.stopPropagation()}
@@ -101,6 +107,28 @@ export default function ModalCliente({ cliente, onFechar, onSalvo }: Props) {
         <h2 className="mb-4 font-montserrat text-lg font-bold text-brand">{cliente ? "Editar Cliente" : "Novo Cliente"}</h2>
 
         <div className="space-y-4">
+          <div>
+            <label className="label-field">CNPJ/CPF</label>
+            <CampoCnpj
+              aceitaCpf
+              value={form.cnpj_cpf}
+              onChange={(v) => set("cnpj_cpf", v)}
+              onDados={(d) =>
+                // Só preenche o que estiver vazio — não sobrescreve o que já foi digitado.
+                setForm((f) => ({
+                  ...f,
+                  nome: f.nome || d.nomeFantasia || d.razaoSocial,
+                  razaoSocial: f.razaoSocial || d.razaoSocial,
+                  telefone: f.telefone || d.telefone,
+                  email: f.email || d.email,
+                  cep: f.cep || d.cep,
+                  endereco: f.endereco || d.endereco,
+                  cidade: f.cidade || d.cidade,
+                  estado: f.estado || d.estado,
+                }))
+              }
+            />
+          </div>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="label-field">
@@ -116,13 +144,21 @@ export default function ModalCliente({ cliente, onFechar, onSalvo }: Props) {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="label-field">Telefone</label>
-              <input className="input-field" value={form.telefone} onChange={(e) => set("telefone", e.target.value)} />
+              <CampoTelefone value={form.telefone} onChange={(v) => set("telefone", v)} />
             </div>
             <div>
               <label className="label-field">Email</label>
               <input className="input-field" value={form.email} onChange={(e) => set("email", e.target.value)} />
             </div>
-            <div className="sm:col-span-2">
+            <div>
+              <label className="label-field">CEP</label>
+              <CampoCep
+                value={form.cep}
+                onChange={(v) => set("cep", v)}
+                onEndereco={(d) => setForm((f) => ({ ...f, endereco: d.endereco, cidade: d.cidade, estado: d.estado }))}
+              />
+            </div>
+            <div>
               <label className="label-field">Endereço</label>
               <input className="input-field" value={form.endereco} onChange={(e) => set("endereco", e.target.value)} />
             </div>
@@ -133,10 +169,6 @@ export default function ModalCliente({ cliente, onFechar, onSalvo }: Props) {
             <div>
               <label className="label-field">Estado</label>
               <input className="input-field" maxLength={2} value={form.estado} onChange={(e) => set("estado", e.target.value.toUpperCase())} />
-            </div>
-            <div className="sm:col-span-2">
-              <label className="label-field">CNPJ/CPF</label>
-              <input className="input-field" value={form.cnpj_cpf} onChange={(e) => set("cnpj_cpf", e.target.value)} />
             </div>
           </div>
 

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { validarCpf } from "../mascaras";
 
 // Mesmo limite de 20 MB já usado nos outros anexos do sistema (parceiro/
 // fornecedor/lead) — ver CreateFornecedorAnexoSchema em lib/validators/fornecedor.ts.
@@ -30,7 +31,12 @@ const StatusFuncionarioSchema = z.enum(["ativo", "inativo", "desligado"]);
 export const CreateFuncionarioSchema = z.object({
   nome: z.string().trim().min(1, "Informe o nome do funcionário."),
   cargo: z.string().trim().nullable().optional(),
-  cpf: z.string().trim().nullable().optional(),
+  cpf: z
+    .string()
+    .trim()
+    .nullable()
+    .optional()
+    .refine((v) => !v || validarCpf(v), "CPF inválido — confira os números."),
   telefone: z.string().trim().nullable().optional(),
   email: z.string().trim().email("E-mail inválido.").nullable().optional().or(z.literal("")),
   data_admissao: z.string().trim().nullable().optional(),

@@ -14,6 +14,7 @@ import { baixarArquivo, gerarPdfDeElemento } from "@/lib/pdf-generator";
 import type { AlertaResumo, DistribuicaoTipoResumo, FiltrosResumo, KpisResumo, ParceiroTopResumo, PontoReceitaDespesa } from "@/lib/types/resumo";
 import type { CustosFixosVsVariaveis } from "@/lib/usecases/financeiro";
 import type { FunilResultado } from "@/lib/usecases/resumo";
+import { AlertTriangle, BarChart3, CheckCircle2, CircleDollarSign, RefreshCw, TrendingDown, Wallet } from "lucide-react";
 
 const CUSTOS_FIXOS_VARIAVEIS_INICIAL: CustosFixosVsVariaveis = { fixos: 0, variaveis: 0, totalDespesa: 0 };
 
@@ -122,7 +123,7 @@ export default function DashboardGeral() {
       ["Período", kpis.periodoLabel],
       ["Receita", kpis.receita.valor.toFixed(2)],
       ["Leads ativos", String(kpis.leadsAtivos.quantidade)],
-      ["Valor em prospecção", kpis.leadsAtivos.valorEmProspeccao.toFixed(2)],
+      ["Valor em aberto (leads ativos)", kpis.leadsAtivos.valorEmAberto.toFixed(2)],
       ["Vendas fechadas", String(kpis.fechados.quantidade)],
       ["Valor fechado", kpis.fechados.valorEstimado.toFixed(2)],
       ["Taxa de conversão (%)", kpis.fechados.taxaConversaoPercentual.toFixed(1)],
@@ -171,21 +172,21 @@ export default function DashboardGeral() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             <KPICard
               titulo={filtros.periodo === "mes_atual" ? "Receita do mês" : "Receita do período"}
-              icone="📊"
+              icone={<BarChart3 className="icone" aria-hidden />}
               valor={formatarMoeda(kpis.receita.valor)}
               cor={corTendenciaReceita}
               tendencia={kpis.receita.tendencia}
               href="/financeiro"
             />
 
-            <KPICard titulo="Leads Ativos" icone="🔄" valor={String(kpis.leadsAtivos.quantidade)} cor="azul" href="/comercial">
-              <p>{formatarMoeda(kpis.leadsAtivos.valorEmProspeccao)} em prospecção</p>
+            <KPICard titulo="Leads Ativos" icone={<RefreshCw className="icone" aria-hidden />} valor={String(kpis.leadsAtivos.quantidade)} cor="azul" href="/comercial">
+              <p>{formatarMoeda(kpis.leadsAtivos.valorEmAberto)} em aberto</p>
               <p>{kpis.leadsAtivos.novosNoPeriodo} novo(s) no período</p>
             </KPICard>
 
             <KPICard
               titulo="Vendas Fechadas"
-              icone="✅"
+              icone={<CheckCircle2 className="icone" aria-hidden />}
               valor={String(kpis.fechados.quantidade)}
               cor="verde"
               tendencia={kpis.fechados.tendencia}
@@ -197,7 +198,7 @@ export default function DashboardGeral() {
 
             <KPICard
               titulo="A Receber"
-              icone="💰"
+              icone={<CircleDollarSign className="icone" aria-hidden />}
               valor={formatarMoeda(kpis.aReceber.valor)}
               cor={kpis.aReceber.vencidas.quantidade > 0 ? "vermelho" : "amarelo"}
               href="/financeiro"
@@ -205,14 +206,14 @@ export default function DashboardGeral() {
               <p>{kpis.aReceber.quantidadeFaturas} fatura(s) pendente(s)</p>
               {kpis.aReceber.vencidas.quantidade > 0 && (
                 <p className="font-semibold text-status-error">
-                  ⚠️ {kpis.aReceber.vencidas.quantidade} vencida(s): {formatarMoeda(kpis.aReceber.vencidas.valor)}
+                  <AlertTriangle className="icone" aria-hidden /> {kpis.aReceber.vencidas.quantidade} vencida(s): {formatarMoeda(kpis.aReceber.vencidas.valor)}
                 </p>
               )}
             </KPICard>
 
             <KPICard
               titulo="Despesas"
-              icone="💸"
+              icone={<TrendingDown className="icone" aria-hidden />}
               valor={formatarMoeda(kpis.despesas.valor)}
               cor="vermelho"
               tendencia={kpis.despesas.tendencia}
@@ -223,16 +224,16 @@ export default function DashboardGeral() {
 
             <KPICard
               titulo="Saldo / Período"
-              icone="💵"
+              icone={<Wallet className="icone" aria-hidden />}
               valor={formatarMoeda(kpis.saldo.valor)}
               cor={kpis.saldo.status === "saudavel" ? "verde" : kpis.saldo.status === "atencao" ? "amarelo" : "vermelho"}
               href="/financeiro"
             >
               <p>Margem: {kpis.saldo.margemPercentual !== null ? `${kpis.saldo.margemPercentual.toFixed(1)}%` : "—"}</p>
               <p>
-                {kpis.saldo.status === "saudavel" && "✅ Saudável"}
-                {kpis.saldo.status === "atencao" && "⚠️ Atenção"}
-                {kpis.saldo.status === "critico" && "❌ Crítico"}
+                {kpis.saldo.status === "saudavel" && "Saudável"}
+                {kpis.saldo.status === "atencao" && "Atenção"}
+                {kpis.saldo.status === "critico" && "Crítico"}
               </p>
             </KPICard>
           </div>

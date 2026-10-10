@@ -154,7 +154,7 @@ export default function RegistroAlteracoes() {
       {erro && <p className="text-sm text-status-error">{erro}</p>}
 
       <div className="card overflow-x-auto p-0">
-        <table className="w-full text-sm">
+        <table className="tabela-cartoes w-full text-sm">
           <thead>
             <tr className="table-header">
               <th className="px-4 py-2 text-left">Quando</th>
@@ -169,14 +169,14 @@ export default function RegistroAlteracoes() {
             {registros.map((r) => (
               <Fragment key={r.id}>
                 <tr>
-                  <td className="whitespace-nowrap px-4 py-2 text-gray-500">{formatarDataHora(r.data)}</td>
-                  <td className="px-4 py-2">{r.usuario_email ?? "Sistema"}</td>
-                  <td className="px-4 py-2">
+                  <td data-label="Quando" className="whitespace-nowrap px-4 py-2 text-gray-500">{formatarDataHora(r.data)}</td>
+                  <td data-label="Quem" className="px-4 py-2">{r.usuario_email ?? "Sistema"}</td>
+                  <td data-label="Ação" className="px-4 py-2">
                     <span className={`badge ${CLASSE_ACAO[r.acao]}`}>{LABEL_ACAO[r.acao]}</span>
                   </td>
-                  <td className="px-4 py-2 text-gray-500">{LABEL_TABELA[r.tabela] ?? r.tabela}</td>
-                  <td className="px-4 py-2">{r.registro_rotulo ?? r.registro_id ?? "—"}</td>
-                  <td className="px-4 py-2 text-right">
+                  <td data-label="Onde" className="px-4 py-2 text-gray-500">{LABEL_TABELA[r.tabela] ?? r.tabela}</td>
+                  <td data-label="Registro" className="px-4 py-2">{r.registro_rotulo ?? r.registro_id ?? "—"}</td>
+                  <td data-label="Detalhes" className="px-4 py-2 text-right">
                     <button
                       type="button"
                       className="text-xs font-semibold text-brand hover:underline"

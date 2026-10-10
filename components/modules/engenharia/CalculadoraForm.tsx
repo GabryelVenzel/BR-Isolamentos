@@ -50,7 +50,7 @@ export default function CalculadoraForm({ form, onChange, materiais, acabamentos
                 checked={form.tipoTrabalho === tipo}
                 onChange={() => onChange({ tipoTrabalho: tipo })}
               />
-              {tipo === "quente" ? "🔥 Quente" : "🧊 Frio (condensação)"}
+              {tipo === "quente" ? "Quente" : "Frio (condensação)"}
             </label>
           ))}
         </div>

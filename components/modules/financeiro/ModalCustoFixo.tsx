@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { CampoMoeda } from "@/components/ui/CamposDocumento";
 import { toast } from "./toast";
 import type { CustoFixo } from "@/lib/types/domain";
+import FecharComEsc from "@/components/ui/FecharComEsc";
 
 interface Props {
   custoFixo: CustoFixo | null; // null = criar novo
@@ -81,7 +83,8 @@ export default function ModalCustoFixo({ custoFixo, onFechar, onSalvo }: Props) 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4" onClick={onFechar}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
+      <FecharComEsc onFechar={onFechar} />
       <div className="w-full max-w-md rounded-card bg-white p-6 shadow-card-hover" onClick={(e) => e.stopPropagation()}>
         <h2 className="mb-4 font-montserrat text-lg font-bold text-brand">
           {custoFixo ? "Editar Custo Fixo" : "Novo Custo Fixo"}
@@ -111,7 +114,7 @@ export default function ModalCustoFixo({ custoFixo, onFechar, onSalvo }: Props) 
               <label className="label-field">
                 Valor mensal (R$)<span className="text-status-error"> *</span>
               </label>
-              <input type="number" step="0.01" className="input-field" value={valorMensal} onChange={(e) => setValorMensal(e.target.value)} />
+              <CampoMoeda value={valorMensal} onChange={setValorMensal} />
             </div>
             <div>
               <label className="label-field">

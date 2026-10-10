@@ -7,6 +7,7 @@ import ResultadoCard from "@/components/modules/engenharia/ResultadoCard";
 import { formatarNumero } from "@/lib/format";
 import type { Acabamento, MaterialIsolante } from "@/lib/types";
 import type { ResultadoEconomia, ResultadoFrio, ResultadoQuente } from "@/lib/usecases/engenharia";
+import { AlertTriangle } from "lucide-react";
 
 const FORM_INICIAL: EngenhariaFormState = {
   tipoTrabalho: "quente",
@@ -211,7 +212,7 @@ export default function EngenhariaPage() {
 
       {erro && (
         <div className="flex items-start gap-2 rounded-card border-l-4 border-l-status-error bg-red-50 p-4 text-sm text-status-error">
-          <span aria-hidden>⚠️</span>
+          <span aria-hidden><AlertTriangle className="icone" aria-hidden /></span>
           <p>{erro}</p>
         </div>
       )}

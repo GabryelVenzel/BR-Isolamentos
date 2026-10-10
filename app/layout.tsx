@@ -2,6 +2,9 @@ import type { Metadata } from "next";
 import { Montserrat } from "next/font/google";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import Conteudo from "@/components/Conteudo";
+import ConfirmarHost from "@/components/ui/confirmar";
+import ToastContainer from "@/components/ui/ToastContainer";
 import "./globals.css";
 
 // Fonte de título/UI do Brand Book — self-hosted pelo next/font (sem
@@ -15,8 +18,8 @@ const montserrat = Montserrat({
 });
 
 export const metadata: Metadata = {
-  title: "BR Isolamentos | Calculadora de Orçamentos",
-  description: "Calculadora de orçamentos para isolamento térmico fixo — BR Isolamentos.",
+  title: "BR Isolamentos | Gestão",
+  description: "Sistema de gestão da BR Isolamentos — orçamentos, comercial, operação, financeiro e RH.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -24,8 +27,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="pt-BR" className={montserrat.variable}>
       <body className="flex min-h-screen flex-col">
         <Navbar />
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-8">{children}</main>
+        <Conteudo>{children}</Conteudo>
         <Footer />
+        <ToastContainer />
+        <ConfirmarHost />
       </body>
     </html>
   );

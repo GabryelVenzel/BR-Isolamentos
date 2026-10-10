@@ -25,7 +25,7 @@ export default function TableOrcamentos({ orcamentos, onExcluir }: Props) {
 
   return (
     <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white">
-      <table className="min-w-full divide-y divide-gray-200 text-sm">
+      <table className="tabela-cartoes min-w-full divide-y divide-gray-200 text-sm">
         <thead className="table-header">
           <tr>
             <th className="px-4 py-3">Número</th>
@@ -39,7 +39,7 @@ export default function TableOrcamentos({ orcamentos, onExcluir }: Props) {
         <tbody className="divide-y divide-gray-100">
           {orcamentos.map((orcamento) => (
             <tr key={orcamento.id} className="hover:bg-gray-50">
-              <td className="px-4 py-3 font-medium text-brand">
+              <td data-label="Número" className="px-4 py-3 font-medium text-brand">
                 <Link href={`/orcamento/${orcamento.id}`}>{orcamento.numero}</Link>
                 {/* Código interno (O00038) — é o que aparece em Comercial
                     (vincular ao lead) e em Operacional (serviços); mostrar
@@ -48,15 +48,15 @@ export default function TableOrcamentos({ orcamentos, onExcluir }: Props) {
                   <span className="block text-xs font-normal text-gray-400">{orcamento.numero_orcamento}</span>
                 )}
               </td>
-              <td className="px-4 py-3">{orcamento.cliente?.nome ?? "—"}</td>
-              <td className="px-4 py-3">{formatarData(orcamento.data_criacao)}</td>
-              <td className="px-4 py-3">
+              <td data-label="Cliente" className="px-4 py-3">{orcamento.cliente?.nome ?? "—"}</td>
+              <td data-label="Data" className="px-4 py-3">{formatarData(orcamento.data_criacao)}</td>
+              <td data-label="Status" className="px-4 py-3">
                 <span className={`badge ${classesStatus(orcamento.status)}`}>
                   {formatarStatus(orcamento.status)}
                 </span>
               </td>
-              <td className="px-4 py-3 text-right font-medium">{formatarMoeda(orcamento.valor_final)}</td>
-              <td className="px-4 py-3">
+              <td data-label="Valor Final" className="px-4 py-3 text-right font-medium">{formatarMoeda(orcamento.valor_final)}</td>
+              <td data-label="Ações" className="px-4 py-3">
                 <div className="flex justify-end gap-3 text-xs">
                   <Link href={`/orcamento/${orcamento.id}/editar`} className="text-brand hover:underline">
                     Editar

@@ -44,6 +44,10 @@ export async function calcularKpis(filtros: FiltrosResumo, repos: ReposKpis): Pr
   const valorEmProspeccao = leadsAtivos
     .filter((l) => l.etapa === "prospeccao")
     .reduce((acc, l) => acc + l.valor_estimado, 0);
+  // Tudo que ainda está em jogo (qualquer etapa antes de Fechado/Perdido) —
+  // mesmo critério do total mostrado no topo do Kanban: lead de comissão
+  // conta pelo valor da comissão, não pelo valor estimado.
+  const valorEmAberto = leadsAtivos.reduce((acc, l) => acc + (l.eh_comissao ? l.valor_comissao ?? 0 : l.valor_estimado), 0);
 
   // --- 3. Fechados no período ---
   const [fechadosAtual, fechadosAnterior, leadsCriadosNoPeriodo] = await Promise.all([
@@ -89,6 +93,7 @@ export async function calcularKpis(filtros: FiltrosResumo, repos: ReposKpis): Pr
     leadsAtivos: {
       quantidade: leadsAtivos.length,
       valorEmProspeccao,
+      valorEmAberto,
       novosNoPeriodo,
     },
     fechados: {

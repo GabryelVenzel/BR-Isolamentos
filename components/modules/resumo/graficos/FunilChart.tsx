@@ -18,10 +18,13 @@ export default function FunilChart({ funil }: Props) {
   return (
     <div className="card">
       <h3 className="mb-1 font-montserrat text-sm font-bold uppercase text-brand">Funil de Conversão</h3>
-      {funil.gargalo && (
+      <p className="mb-1 text-xs text-gray-500">Leads do período que chegaram até cada etapa (ou passaram dela).</p>
+      {funil.gargalo && funil.gargalo.quedaPercentual > 0 ? (
         <p className="mb-3 text-xs text-status-error">
-          Maior queda: {funil.gargalo.deEtapa} → {funil.gargalo.paraEtapa} (−{funil.gargalo.quedaPercentual.toFixed(0)}%)
+          Maior perda: {funil.gargalo.deEtapa} → {funil.gargalo.paraEtapa} (−{funil.gargalo.quedaPercentual.toFixed(0)}%)
         </p>
+      ) : (
+        <p className="mb-3 text-xs text-gray-500">Sem perda entre etapas no período.</p>
       )}
       <div className="h-64">
         <ResponsiveContainer width="100%" height="100%">

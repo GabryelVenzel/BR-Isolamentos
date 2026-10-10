@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { calcularMetragemItem } from "@/lib/usecases/orcamento";
 import { formatarNumero } from "@/lib/format";
 import type { ItemEscopo, TipoItemEscopo } from "@/lib/types";
+import FecharComEsc from "@/components/ui/FecharComEsc";
 
 interface Props {
   itemInicial: ItemEscopo | null;
@@ -59,6 +60,7 @@ export default function ModalItemEscopo({ itemInicial, onFechar, onSalvar }: Pro
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <FecharComEsc onFechar={onFechar} />
       <div className="w-full max-w-lg space-y-4 rounded-card bg-white p-6 shadow-xl">
         <h2 className="font-montserrat text-lg font-bold text-brand">{itemInicial ? "Editar Item" : "Novo Item"}</h2>
 

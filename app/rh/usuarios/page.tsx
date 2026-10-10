@@ -2,7 +2,6 @@
 
 import { useCallback, useEffect, useState } from "react";
 import TabsNavigation from "@/components/TabsNavigation";
-import ToastContainer from "@/components/modules/rh/ToastContainer";
 import { toast } from "@/components/modules/rh/toast";
 import ModalUsuario from "@/components/modules/rh/ModalUsuario";
 import ModalSenhaUsuario from "@/components/modules/rh/ModalSenhaUsuario";
@@ -96,8 +95,6 @@ export default function UsuariosPage() {
 
   return (
     <div className="space-y-6">
-      <ToastContainer />
-
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Usuários e acessos</h1>
@@ -128,7 +125,7 @@ export default function UsuariosPage() {
           ) : (
             !erro && (
               <div className="card overflow-x-auto p-0">
-                <table className="w-full text-sm">
+                <table className="tabela-cartoes w-full text-sm">
                   <thead>
                     <tr className="table-header">
                       <th className="px-4 py-2 text-left">Nome</th>
@@ -142,16 +139,16 @@ export default function UsuariosPage() {
                   <tbody className="divide-y divide-gray-100">
                     {usuarios.map((u) => (
                       <tr key={u.id} className={u.ativo ? "" : "opacity-60"}>
-                        <td className="px-4 py-2 font-medium text-brand">{u.nome}</td>
-                        <td className="px-4 py-2 text-gray-500">{u.email}</td>
-                        <td className="px-4 py-2">{descricaoAcesso(u)}</td>
-                        <td className="px-4 py-2">{descricaoLogin(u)}</td>
-                        <td className="px-4 py-2">
+                        <td data-label="Nome" className="px-4 py-2 font-medium text-brand">{u.nome}</td>
+                        <td data-label="E-mail" className="px-4 py-2 text-gray-500">{u.email}</td>
+                        <td data-label="Acesso" className="px-4 py-2">{descricaoAcesso(u)}</td>
+                        <td data-label="Login" className="px-4 py-2">{descricaoLogin(u)}</td>
+                        <td data-label="Situação" className="px-4 py-2">
                           <span className={`badge ${u.ativo ? "bg-accent-light text-accent-dark" : "bg-gray-100 text-gray-500"}`}>
                             {u.ativo ? "Ativo" : "Inativo"}
                           </span>
                         </td>
-                        <td className="px-4 py-2">
+                        <td data-label="Ações" className="px-4 py-2">
                           <div className="flex items-center justify-end gap-3 text-xs font-semibold">
                             <button type="button" className="text-brand hover:underline" onClick={() => setEditando(u)}>
                               Editar

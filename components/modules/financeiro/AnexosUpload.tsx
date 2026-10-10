@@ -4,6 +4,7 @@ import { useState, type ChangeEvent } from "react";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { urlArquivo } from "@/lib/arquivos";
 import type { AnexoLancamento } from "@/lib/types/domain";
+import { Download, Eye, FileText, Paperclip, Trash2, Upload } from "lucide-react";
 
 const BUCKET = "lancamentos-anexos";
 const TAMANHO_MAXIMO_BYTES = 10 * 1024 * 1024; // 10MB
@@ -94,7 +95,7 @@ export default function AnexosUpload({ anexos, onChange }: Props) {
   return (
     <div className="rounded-card border border-gray-200 p-4">
       <h3 className="mb-3 font-montserrat text-xs font-bold uppercase text-brand">
-        📎 Anexos (opcional) — {anexos.length}/{MAXIMO_ARQUIVOS}
+        <Paperclip className="icone" aria-hidden /> Anexos (opcional) — {anexos.length}/{MAXIMO_ARQUIVOS}
       </h3>
 
       {anexos.length > 0 && (
@@ -102,7 +103,7 @@ export default function AnexosUpload({ anexos, onChange }: Props) {
           {anexos.map((anexo) => (
             <div key={anexo.url} className="rounded-lg border border-gray-200 bg-gray-50 p-3">
               <div className="flex items-start gap-2">
-                <span className="text-xl">📄</span>
+                <span className="text-xl"><FileText className="icone" aria-hidden /></span>
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-gray-800" title={anexo.nome}>
                     {anexo.nome}
@@ -112,13 +113,13 @@ export default function AnexosUpload({ anexos, onChange }: Props) {
               </div>
               <div className="mt-2 flex gap-3 text-xs">
                 <a href={urlArquivo(anexo.url)} target="_blank" rel="noreferrer" className="text-brand hover:underline">
-                  👁️ Ver
+                  <Eye className="icone" aria-hidden /> Ver
                 </a>
                 <a href={urlArquivo(anexo.url, { baixarComo: anexo.nome })} className="text-brand hover:underline">
-                  ⬇️ Download
+                  <Download className="icone" aria-hidden /> Download
                 </a>
                 <button type="button" className="text-status-error hover:underline" onClick={() => remover(anexo.url)}>
-                  🗑️ Remover
+                  <Trash2 className="icone" aria-hidden /> Remover
                 </button>
               </div>
             </div>
@@ -130,7 +131,7 @@ export default function AnexosUpload({ anexos, onChange }: Props) {
       {anexos.length < MAXIMO_ARQUIVOS && (
         <label className="flex cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-gray-300 p-3 text-sm text-gray-500 hover:border-brand">
           <input type="file" accept="application/pdf" multiple disabled={enviando} className="hidden" onChange={selecionarArquivos} />
-          📤 {enviando ? "Enviando..." : "Adicionar Anexo"}
+          <Upload className="icone" aria-hidden /> {enviando ? "Enviando..." : "Adicionar Anexo"}
         </label>
       )}
 

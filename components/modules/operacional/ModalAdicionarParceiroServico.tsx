@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "./toast";
 import MultiSelectTiposTrabalho, { TIPOS_TRABALHO_OPCOES } from "./MultiSelectTiposTrabalho";
 import type { Parceiro, ServicoParceiroExecucao, TipoTrabalhoOperacional } from "@/lib/types/domain";
+import FecharComEsc from "@/components/ui/FecharComEsc";
 
 interface Props {
   servicoId: string;
@@ -71,7 +72,8 @@ export default function ModalAdicionarParceiroServico({ servicoId, onFechar, onA
   }
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-brand/60 p-4" onClick={onFechar}>
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-brand/60 p-4">
+      <FecharComEsc onFechar={onFechar} />
       <div className="w-full max-w-md rounded-card bg-white p-6 shadow-card-hover" onClick={(e) => e.stopPropagation()}>
         <h2 className="mb-4 font-montserrat text-lg font-bold text-brand">Adicionar Parceiro ao Serviço</h2>
 

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { validarCnpj } from "../mascaras";
 
 // Categorias de fornecimento (ver CategoriaFornecimento em
 // lib/types/domain.ts) — substitui `tipo_fornecimento` (dropdown único) e a
@@ -13,7 +14,13 @@ export const CreateFornecedorSchema = z.object({
   razao_social: z.string().trim().nullable().optional(),
   email: z.string().trim().email("E-mail inválido.").nullable().optional(),
   telefone: z.string().trim().nullable().optional(),
-  cnpj: z.string().trim().nullable().optional(),
+  cnpj: z
+    .string()
+    .trim()
+    .nullable()
+    .optional()
+    .refine((v) => !v || validarCnpj(v), "CNPJ inválido — confira os números."),
+  cep: z.string().trim().nullable().optional(),
   endereco: z.string().trim().nullable().optional(),
   cidade: z.string().trim().nullable().optional(),
   // Sigla vem de um dropdown fixo agora (ModalFornecedor.tsx) — a validação

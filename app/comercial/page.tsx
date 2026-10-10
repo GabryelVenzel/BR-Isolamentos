@@ -3,7 +3,6 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import TabsNavigation from "@/components/TabsNavigation";
-import ToastContainer from "@/components/modules/comercial/ToastContainer";
 import { toast } from "@/components/modules/comercial/toast";
 import KanbanBoard from "@/components/modules/comercial/KanbanBoard";
 import FiltrosKanban, { type FiltrosKanbanState } from "@/components/modules/comercial/FiltrosKanban";
@@ -14,6 +13,7 @@ import ConfiguracoesTab from "@/components/modules/comercial/ConfiguracoesTab";
 import NovoLeadModal from "@/components/comercial/NovoLeadModal";
 import { formatarEtapa, formatarMoeda } from "@/lib/format";
 import type { AgendamentoLeadFrio, EtapaFunil, Lead } from "@/lib/types/domain";
+import { confirmar } from "@/components/ui/confirmar";
 
 // A aba "Relatórios" que existia aqui foi removida — os relatórios
 // comerciais (funil, origem, performance por responsável etc.) agora vivem
@@ -53,6 +53,7 @@ function ComercialPageConteudo() {
 
   const [soAtrasados, setSoAtrasados] = useState(false);
   const [soComissoes, setSoComissoes] = useState(false);
+  const [mostrarPerdidos, setMostrarPerdidos] = useState(false);
 
   const [leadSelecionadoId, setLeadSelecionadoId] = useState<string | null>(null);
   const [mostrarNovoLead, setMostrarNovoLead] = useState(false);
@@ -169,7 +170,7 @@ function ComercialPageConteudo() {
   }
 
   async function cancelarFrio(agendamentoId: string) {
-    if (!confirm("Cancelar este agendamento de reativação? O lead continua Frio, só sem retorno automático.")) return;
+    if (!(await confirmar("Cancelar este agendamento de reativação? O lead continua Frio, só sem retorno automático."))) return;
     const response = await fetch(`/api/comercial/leads-frios/${agendamentoId}/cancelar`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -193,6 +194,8 @@ function ComercialPageConteudo() {
 
   const totalLeadsAtrasados = leads.filter((l) => l.etapa_atrasada).length;
   const totalLeadsComissao = leads.filter((l) => l.eh_comissao).length;
+  const totalLeadsPerdidos = leads.filter((l) => l.etapa === "perdido").length;
+  const nomesResponsaveis = Object.fromEntries(usuarios.map((u) => [u.email, u.nome]));
   const buscaNormalizada = filtros.busca.trim().toLowerCase();
   const leadsBuscados = buscaNormalizada
     ? leads.filter(
@@ -215,8 +218,6 @@ function ComercialPageConteudo() {
 
   return (
     <div className="space-y-6">
-      <ToastContainer />
-
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Comercial</h1>
@@ -258,6 +259,9 @@ function ComercialPageConteudo() {
             soComissoes={soComissoes}
             onToggleComissoes={setSoComissoes}
             totalLeadsComissao={totalLeadsComissao}
+            mostrarPerdidos={mostrarPerdidos}
+            onTogglePerdidos={setMostrarPerdidos}
+            totalLeadsPerdidos={totalLeadsPerdidos}
           />
 
           {mostrarFrios ? (
@@ -270,7 +274,13 @@ function ComercialPageConteudo() {
           ) : carregandoLeads ? (
             <p className="text-sm text-gray-500">Carregando...</p>
           ) : (
-            <KanbanBoard leads={leadsExibidos} onAbrirLead={(lead) => setLeadSelecionadoId(lead.id)} onMoverLead={moverLead} />
+            <KanbanBoard
+              leads={leadsExibidos}
+              onAbrirLead={(lead) => setLeadSelecionadoId(lead.id)}
+              onMoverLead={moverLead}
+              nomesResponsaveis={nomesResponsaveis}
+              mostrarPerdidos={mostrarPerdidos}
+            />
           )}
         </div>
       )}

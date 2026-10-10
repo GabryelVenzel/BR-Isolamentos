@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import TableOrcamentos from "@/components/TableOrcamentos";
 import type { Orcamento, StatusOrcamento } from "@/lib/types";
+import { confirmar } from "@/components/ui/confirmar";
 
 const STATUS_OPCOES: Array<{ value: StatusOrcamento | ""; label: string }> = [
   { value: "", label: "Todos os status" },
@@ -50,7 +51,7 @@ export default function HistoricoPage() {
   }, [carregar]);
 
   async function excluir(id: number) {
-    if (!confirm("Excluir este orçamento? Esta ação não pode ser desfeita.")) return;
+    if (!(await confirmar("Excluir este orçamento? Esta ação não pode ser desfeita."))) return;
     const response = await fetch(`/api/orcamentos/${id}`, { method: "DELETE" });
     if (response.ok) {
       setOrcamentos((prev) => prev.filter((o) => o.id !== id));

@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { CampoCep, CampoCnpj, CampoCpf, CampoTelefone } from "@/components/ui/CamposDocumento";
 import { toast } from "./toast";
 import ParceiroAnexos from "./ParceiroAnexos";
 import { TIPOS_TRABALHO_OPCOES } from "./MultiSelectTiposTrabalho";
 import { ESTADOS_BRASIL } from "@/lib/estados-brasil";
 import type { CategoriaParceiro, Parceiro, TipoTrabalhoOperacional } from "@/lib/types/domain";
+import FecharComEsc from "@/components/ui/FecharComEsc";
 
 interface Props {
   parceiro: Parceiro | null; // null = criar novo
@@ -44,6 +46,7 @@ interface Form {
   telefone: string;
   cnpj: string;
   email: string;
+  cep: string;
   endereco: string;
   cidade: string;
   estado: string;
@@ -60,6 +63,7 @@ function paraForm(p: Parceiro | null): Form {
     telefone: p?.telefone ?? "",
     cnpj: p?.cnpj ?? "",
     email: p?.email ?? "",
+    cep: p?.cep ?? "",
     endereco: p?.endereco ?? "",
     cidade: p?.cidade ?? "",
     estado: p?.estado ?? "",
@@ -115,6 +119,7 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo }: Props) {
       telefone: form.telefone || null,
       cnpj: form.cnpj || null,
       email: form.email || null,
+      cep: form.cep || null,
       endereco: form.endereco || null,
       cidade: form.cidade || null,
       estado: form.estado || null,
@@ -151,7 +156,8 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4" onClick={onFechar}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
+      <FecharComEsc onFechar={onFechar} />
       <div
         className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-card bg-white p-6 shadow-card-hover"
         onClick={(e) => e.stopPropagation()}
@@ -178,11 +184,27 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo }: Props) {
             </div>
             <div>
               <label className="label-field">Telefone</label>
-              <input className="input-field" value={form.telefone} onChange={(e) => setForm((f) => ({ ...f, telefone: e.target.value }))} />
+              <CampoTelefone value={form.telefone} onChange={(v) => setForm((f) => ({ ...f, telefone: v }))} />
             </div>
             <div>
               <label className="label-field">CNPJ</label>
-              <input className="input-field" value={form.cnpj} onChange={(e) => setForm((f) => ({ ...f, cnpj: e.target.value }))} />
+              <CampoCnpj
+                value={form.cnpj}
+                onChange={(v) => setForm((f) => ({ ...f, cnpj: v }))}
+                onDados={(d) =>
+                  setForm((f) => ({
+                    ...f,
+                    nome: f.nome || d.nomeFantasia || d.razaoSocial,
+                    razaoSocial: f.razaoSocial || d.razaoSocial,
+                    telefone: f.telefone || d.telefone,
+                    email: f.email || d.email,
+                    cep: f.cep || d.cep,
+                    endereco: f.endereco || d.endereco,
+                    cidade: f.cidade || d.cidade,
+                    estado: f.estado || d.estado,
+                  }))
+                }
+              />
             </div>
             <div>
               <label className="label-field">Email</label>
@@ -202,6 +224,14 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo }: Props) {
                   </option>
                 ))}
               </select>
+            </div>
+            <div>
+              <label className="label-field">CEP</label>
+              <CampoCep
+                value={form.cep}
+                onChange={(v) => setForm((f) => ({ ...f, cep: v }))}
+                onEndereco={(d) => setForm((f) => ({ ...f, endereco: d.endereco, cidade: d.cidade, estado: d.estado }))}
+              />
             </div>
             <div className="sm:col-span-2">
               <label className="label-field">Endereço</label>

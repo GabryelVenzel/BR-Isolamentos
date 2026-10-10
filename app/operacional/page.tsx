@@ -85,7 +85,7 @@ export default function AgendaPage() {
         </div>
         <div className="flex gap-2">
           <button type="button" className="btn-secondary" onClick={carregar} disabled={carregando}>
-            {carregando ? "Atualizando..." : "🔄 Atualizar"}
+            {carregando ? "Atualizando..." : "Atualizar"}
           </button>
         </div>
       </div>

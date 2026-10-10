@@ -1,12 +1,13 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import ToastContainer from "@/components/modules/operacional/ToastContainer";
 import { toast } from "@/components/modules/operacional/toast";
 import ModalParceiro from "@/components/modules/operacional/ModalParceiro";
 import { TIPOS_TRABALHO_OPCOES } from "@/components/modules/operacional/MultiSelectTiposTrabalho";
 import { formatarNumero } from "@/lib/format";
 import type { CategoriaParceiro, Parceiro, TipoTrabalhoOperacional } from "@/lib/types/domain";
+import { confirmar } from "@/components/ui/confirmar";
+import { Pencil, Trash2 } from "lucide-react";
 
 // Lista revisada (migração 027) — 2 chaves antigas (`isolamentos_removiveis`/
 // `isolamentos_fixos`) continuam no mapa só pra parceiros já cadastrados não
@@ -61,7 +62,7 @@ export default function ParceirosPage() {
   }, [carregar]);
 
   async function excluir(parceiro: Parceiro) {
-    if (!confirm(`Excluir o parceiro "${parceiro.nome}"?`)) return;
+    if (!(await confirmar(`Excluir o parceiro "${parceiro.nome}"?`))) return;
     const response = await fetch(`/api/operacional/parceiros/${parceiro.id}`, { method: "DELETE" });
     const data = await response.json();
     if (!response.ok || !data.success) {
@@ -88,8 +89,6 @@ export default function ParceirosPage() {
 
   return (
     <div className="space-y-6">
-      <ToastContainer />
-
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">Parceiros</h1>
@@ -149,7 +148,7 @@ export default function ParceirosPage() {
         <p className="text-sm text-gray-500">Carregando...</p>
       ) : (
         <div className="card overflow-x-auto p-0">
-          <table className="w-full text-sm">
+          <table className="tabela-cartoes w-full text-sm">
             <thead>
               <tr className="table-header">
                 <th className="px-4 py-2 text-left">Código</th>
@@ -167,32 +166,32 @@ export default function ParceirosPage() {
             <tbody className="divide-y divide-gray-100">
               {parceirosFiltrados.map((p) => (
                 <tr key={p.id}>
-                  <td className="px-4 py-2 font-mono text-xs text-gray-500">{p.numero_parceiro ?? "—"}</td>
-                  <td className="px-4 py-2 font-medium text-brand">{p.nome}</td>
-                  <td className="px-4 py-2">
+                  <td data-label="Código" className="px-4 py-2 font-mono text-xs text-gray-500">{p.numero_parceiro ?? "—"}</td>
+                  <td data-label="Nome" className="px-4 py-2 font-medium text-brand">{p.nome}</td>
+                  <td data-label="Categoria" className="px-4 py-2">
                     <span className={`badge ${CLASSES_CATEGORIA[p.categoria_parceiro]}`}>{LABEL_CATEGORIA[p.categoria_parceiro]}</span>
                   </td>
-                  <td className="px-4 py-2 text-gray-500">{p.telefone ?? "—"}</td>
-                  <td className="px-4 py-2 text-gray-500">{p.cnpj ?? "—"}</td>
-                  <td className="px-4 py-2 text-gray-500">{p.estado ?? "—"}</td>
-                  <td className="px-4 py-2 text-gray-500">
+                  <td data-label="Telefone" className="px-4 py-2 text-gray-500">{p.telefone ?? "—"}</td>
+                  <td data-label="CNPJ" className="px-4 py-2 text-gray-500">{p.cnpj ?? "—"}</td>
+                  <td data-label="Estado" className="px-4 py-2 text-gray-500">{p.estado ?? "—"}</td>
+                  <td data-label="Trabalhos" className="px-4 py-2 text-gray-500">
                     {(p.tipos_trabalho ?? []).length > 0 ? p.tipos_trabalho.map((t) => LABEL_TIPO[t] ?? t).join(", ") : "—"}
                   </td>
-                  <td className="px-4 py-2 text-right text-gray-500">
+                  <td data-label="Capacidade" className="px-4 py-2 text-right text-gray-500">
                     {p.total_pessoas != null ? `${formatarNumero(p.total_pessoas, 0)} pessoas` : "—"}
                   </td>
-                  <td className="px-4 py-2">
+                  <td data-label="Status" className="px-4 py-2">
                     <span className={`badge ${p.ativo ? "bg-accent-light text-accent-dark" : "bg-gray-100 text-gray-500"}`}>
                       {p.ativo ? "Ativo" : "Inativo"}
                     </span>
                   </td>
-                  <td className="px-4 py-2">
+                  <td data-label="Ações" className="px-4 py-2">
                     <div className="flex items-center justify-end gap-2">
-                      <button type="button" className="p-1 hover:opacity-70" title="Editar" onClick={() => setEditando(p)}>
-                        ✏️
+                      <button type="button" className="p-1 hover:opacity-70" title="Editar" aria-label="Editar" onClick={() => setEditando(p)}>
+                        <Pencil className="icone" aria-hidden />
                       </button>
-                      <button type="button" className="p-1 hover:opacity-70" title="Excluir" onClick={() => excluir(p)}>
-                        🗑️
+                      <button type="button" className="p-1 hover:opacity-70" title="Excluir" aria-label="Excluir" onClick={() => excluir(p)}>
+                        <Trash2 className="icone" aria-hidden />
                       </button>
                     </div>
                   </td>

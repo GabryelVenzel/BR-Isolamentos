@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { CampoTelefone } from "@/components/ui/CamposDocumento";
 import { toast } from "./toast";
 import { DOMINIO_EMAIL, LABEL_MODULO, MODULOS, type Modulo } from "@/lib/acesso";
 import type { UsuarioComAcesso } from "@/lib/usecases/rh";
+import FecharComEsc from "@/components/ui/FecharComEsc";
 
 interface Props {
   usuario: UsuarioComAcesso | null; // null = cadastrar novo
@@ -83,6 +85,7 @@ export default function ModalUsuario({ usuario, emailLogado, onFechar, onSalvo }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
+      <FecharComEsc onFechar={onFechar} />
       <div
         role="dialog"
         aria-modal="true"
@@ -121,7 +124,7 @@ export default function ModalUsuario({ usuario, emailLogado, onFechar, onSalvo }
               <label className="label-field" htmlFor="usuario-telefone">
                 Telefone
               </label>
-              <input id="usuario-telefone" className="input-field" value={telefone} onChange={(e) => setTelefone(e.target.value)} />
+              <CampoTelefone id="usuario-telefone" value={telefone} onChange={setTelefone} />
             </div>
           </div>
 

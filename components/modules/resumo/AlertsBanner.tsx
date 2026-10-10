@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { AlertaResumo } from "@/lib/types/resumo";
+import { CheckCircle2 } from "lucide-react";
 
 interface Props {
   alertas: AlertaResumo[];
@@ -14,7 +15,7 @@ export default function AlertsBanner({ alertas }: Props) {
   if (alertas.length === 0) {
     return (
       <div className="flex items-center gap-2 rounded-card border-l-4 border-l-accent bg-accent-light/60 p-4 text-sm text-accent-dark">
-        <span aria-hidden>✅</span>
+        <span aria-hidden><CheckCircle2 className="icone" aria-hidden /></span>
         <span className="font-montserrat font-semibold">Tudo funcionando normalmente — nenhum alerta no momento.</span>
       </div>
     );
@@ -29,7 +30,7 @@ export default function AlertsBanner({ alertas }: Props) {
       }`}
     >
       <p className={`mb-2 font-montserrat text-sm font-bold ${temCritico ? "text-status-error" : "text-brand"}`}>
-        {temCritico ? "🔴 ALERTAS CRÍTICOS" : "🟡 ATENÇÃO"}
+        {temCritico ? "ALERTAS CRÍTICOS" : "ATENÇÃO"}
       </p>
       <ul className="space-y-1.5">
         {alertas.map((alerta) => (

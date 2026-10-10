@@ -7,6 +7,7 @@ import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import Logo from "./Logo";
 import { podeAcessarModulo, type Acesso, type Modulo } from "@/lib/acesso";
 import { useAcesso } from "@/lib/hooks/useAcesso";
+import { classeLargura } from "@/lib/largura";
 
 // Os 7 módulos do ERP (RH adicionado na migração 033). "Orçamento" reúne 3
 // rotas de topo históricas (wizard, histórico, config. de preços — ver
@@ -96,7 +97,7 @@ export default function Navbar() {
 
   return (
     <header className="bg-brand">
-      <div className="mx-auto flex h-[60px] max-w-6xl items-center justify-between px-4">
+      <div className={`mx-auto flex h-[60px] items-center justify-between px-4 ${classeLargura(pathname)}`}>
         <Link href="/" className="flex items-center">
           <Logo variant="white" height={34} />
         </Link>

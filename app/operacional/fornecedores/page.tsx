@@ -1,11 +1,12 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import ToastContainer from "@/components/modules/operacional/ToastContainer";
 import { toast } from "@/components/modules/operacional/toast";
 import ModalFornecedor from "@/components/modules/operacional/ModalFornecedor";
 import FiltroFornecedores from "@/components/modules/operacional/FiltroFornecedores";
 import type { CategoriaFornecimento, Fornecedor } from "@/lib/types/domain";
+import { confirmar } from "@/components/ui/confirmar";
+import { Pencil, Trash2 } from "lucide-react";
 
 const LABEL_TIPOS_FORNECIMENTO: Record<string, string> = {
   isolantes: "Isolantes",
@@ -41,7 +42,7 @@ export default function FornecedoresPage() {
   }, [carregar]);
 
   async function excluir(fornecedor: Fornecedor) {
-    if (!confirm(`Excluir o fornecedor "${fornecedor.nome}"?`)) return;
+    if (!(await confirmar(`Excluir o fornecedor "${fornecedor.nome}"?`))) return;
     const response = await fetch(`/api/operacional/fornecedores/${fornecedor.id}`, { method: "DELETE" });
     const data = await response.json();
     if (!response.ok || !data.success) {
@@ -62,8 +63,6 @@ export default function FornecedoresPage() {
 
   return (
     <div className="space-y-6">
-      <ToastContainer />
-
       <div>
         <h1 className="text-2xl font-bold">Fornecedores</h1>
         <p className="text-sm text-gray-500">Materiais, equipamentos e serviços de apoio à instalação.</p>
@@ -82,7 +81,7 @@ export default function FornecedoresPage() {
         <p className="text-sm text-gray-500">Carregando...</p>
       ) : (
         <div className="card overflow-x-auto p-0">
-          <table className="w-full text-sm">
+          <table className="tabela-cartoes w-full text-sm">
             <thead>
               <tr className="table-header">
                 <th className="px-4 py-2 text-left">Código</th>
@@ -98,24 +97,24 @@ export default function FornecedoresPage() {
             <tbody className="divide-y divide-gray-100">
               {fornecedoresFiltrados.map((f) => (
                 <tr key={f.id}>
-                  <td className="px-4 py-2 font-mono text-xs text-gray-500">{f.numero_fornecedor ?? "—"}</td>
-                  <td className="px-4 py-2 font-medium text-brand">{f.nome}</td>
-                  <td className="px-4 py-2 text-gray-500">{f.telefone ?? "—"}</td>
-                  <td className="px-4 py-2 text-gray-500">{f.cnpj ?? "—"}</td>
-                  <td className="px-4 py-2 text-gray-500">{f.pessoa_contato ?? "—"}</td>
-                  <td className="px-4 py-2 text-gray-500">{f.estado ?? "—"}</td>
-                  <td className="px-4 py-2 text-gray-500">
+                  <td data-label="Código" className="px-4 py-2 font-mono text-xs text-gray-500">{f.numero_fornecedor ?? "—"}</td>
+                  <td data-label="Nome" className="px-4 py-2 font-medium text-brand">{f.nome}</td>
+                  <td data-label="Telefone" className="px-4 py-2 text-gray-500">{f.telefone ?? "—"}</td>
+                  <td data-label="CNPJ" className="px-4 py-2 text-gray-500">{f.cnpj ?? "—"}</td>
+                  <td data-label="Contato" className="px-4 py-2 text-gray-500">{f.pessoa_contato ?? "—"}</td>
+                  <td data-label="Estado" className="px-4 py-2 text-gray-500">{f.estado ?? "—"}</td>
+                  <td data-label="Tipos de fornecimento" className="px-4 py-2 text-gray-500">
                     {(f.tipos_fornecimento ?? []).length > 0
                       ? f.tipos_fornecimento.map((t) => LABEL_TIPOS_FORNECIMENTO[t] ?? t).join(", ")
                       : "—"}
                   </td>
-                  <td className="px-4 py-2">
+                  <td data-label="Ações" className="px-4 py-2">
                     <div className="flex items-center justify-end gap-2">
-                      <button type="button" className="p-1 hover:opacity-70" title="Editar" onClick={() => setEditando(f)}>
-                        ✏️
+                      <button type="button" className="p-1 hover:opacity-70" title="Editar" aria-label="Editar" onClick={() => setEditando(f)}>
+                        <Pencil className="icone" aria-hidden />
                       </button>
-                      <button type="button" className="p-1 hover:opacity-70" title="Excluir" onClick={() => excluir(f)}>
-                        🗑️
+                      <button type="button" className="p-1 hover:opacity-70" title="Excluir" aria-label="Excluir" onClick={() => excluir(f)}>
+                        <Trash2 className="icone" aria-hidden />
                       </button>
                     </div>
                   </td>

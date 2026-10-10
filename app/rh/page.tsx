@@ -1,27 +1,17 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ChangeEvent } from "react";
-import ToastContainer from "@/components/modules/rh/ToastContainer";
 import { toast } from "@/components/modules/rh/toast";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { urlArquivo } from "@/lib/arquivos";
 import { formatarData } from "@/lib/format";
 import type { DocumentoEmpresa } from "@/lib/types/domain";
+import { confirmar } from "@/components/ui/confirmar";
+import IconeArquivo from "@/components/ui/IconeArquivo";
+import { Download, Eye, Pencil, Trash2 } from "lucide-react";
 
 const BUCKET = "rh-empresa-anexos";
 const LIMITE_BYTES = 20 * 1024 * 1024; // 20 MB
-
-const ICONE_POR_TIPO: Record<string, string> = {
-  pdf: "📄",
-  doc: "📝",
-  docx: "📝",
-  xls: "📊",
-  xlsx: "📊",
-  jpg: "🖼️",
-  jpeg: "🖼️",
-  png: "🖼️",
-  gif: "🖼️",
-};
 
 function extensao(nomeArquivo: string): string {
   return nomeArquivo.split(".").pop()?.toLowerCase() ?? "";
@@ -153,7 +143,7 @@ export default function RhEmpresaPage() {
   }
 
   async function remover(documento: DocumentoEmpresa) {
-    if (!confirm(`Excluir o documento "${documento.nome}"?`)) return;
+    if (!(await confirmar(`Excluir o documento "${documento.nome}"?`))) return;
     try {
       const supabase = createSupabaseBrowserClient();
       await supabase.storage.from(BUCKET).remove([documento.storage_path]).catch(() => undefined);
@@ -173,8 +163,6 @@ export default function RhEmpresaPage() {
 
   return (
     <div className="space-y-6">
-      <ToastContainer />
-
       <div>
         <h1 className="text-2xl font-bold">Documentos da Empresa</h1>
         <p className="text-sm text-gray-500">
@@ -208,7 +196,7 @@ export default function RhEmpresaPage() {
         <p className="text-sm text-gray-500">Carregando...</p>
       ) : (
         <div className="card overflow-x-auto p-0">
-          <table className="w-full text-sm">
+          <table className="tabela-cartoes w-full text-sm">
             <thead>
               <tr className="table-header">
                 <th className="px-4 py-2 text-left">Documento</th>
@@ -220,7 +208,7 @@ export default function RhEmpresaPage() {
             <tbody className="divide-y divide-gray-100">
               {documentos.map((documento) => (
                 <tr key={documento.id}>
-                  <td className="px-4 py-2 font-medium text-brand">
+                  <td data-label="Documento" className="px-4 py-2 font-medium text-brand">
                     {editandoId === documento.id ? (
                       <div className="flex items-center gap-2">
                         <input
@@ -240,24 +228,24 @@ export default function RhEmpresaPage() {
                       documento.nome
                     )}
                   </td>
-                  <td className="px-4 py-2 text-gray-500">
-                    <span className="mr-1">{ICONE_POR_TIPO[documento.tipo_arquivo] ?? "📎"}</span>
+                  <td data-label="Arquivo" className="px-4 py-2 text-gray-500">
+                    <IconeArquivo tipo={documento.tipo_arquivo} className="mr-1 inline h-4 w-4 align-[-3px] text-brand" />
                     {documento.nome_arquivo} <span className="text-xs text-gray-400">({formatarTamanho(documento.tamanho_bytes)})</span>
                   </td>
-                  <td className="px-4 py-2 text-gray-500">{formatarData(documento.data_adicao)}</td>
-                  <td className="px-4 py-2">
+                  <td data-label="Adicionado em" className="px-4 py-2 text-gray-500">{formatarData(documento.data_adicao)}</td>
+                  <td data-label="Ações" className="px-4 py-2">
                     <div className="flex items-center justify-end gap-3 text-xs">
                       <a href={urlArquivo(documento.url)} target="_blank" rel="noreferrer" className="text-brand hover:underline">
-                        👁️ Ver
+                        <Eye className="icone" aria-hidden /> Ver
                       </a>
                       <a href={urlArquivo(documento.url, { baixarComo: documento.nome_arquivo })} className="text-brand hover:underline">
-                        ⬇️
+                        <Download className="icone" aria-hidden />
                       </a>
-                      <button type="button" className="hover:opacity-70" title="Editar nome" onClick={() => iniciarEdicao(documento)}>
-                        ✏️
+                      <button type="button" className="hover:opacity-70" title="Editar nome" aria-label="Editar nome" onClick={() => iniciarEdicao(documento)}>
+                        <Pencil className="icone" aria-hidden />
                       </button>
                       <button type="button" className="text-status-error hover:underline" onClick={() => remover(documento)}>
-                        🗑️
+                        <Trash2 className="icone" aria-hidden />
                       </button>
                     </div>
                   </td>

@@ -30,6 +30,8 @@ export interface Cliente {
   razao_social: string | null;
   email: string | null;
   telefone: string | null;
+  /** Migração 040. */
+  cep: string | null;
   endereco: string | null;
   cidade: string | null;
   estado: string | null;

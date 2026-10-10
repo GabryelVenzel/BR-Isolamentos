@@ -2,6 +2,7 @@
 
 import { useState, type FormEvent } from "react";
 import type { AnexoSimplesNacional, ConfigEmpresa, RegimeTributario } from "@/lib/types";
+import { AlertTriangle } from "lucide-react";
 
 interface Props {
   config: ConfigEmpresa;
@@ -223,7 +224,7 @@ export default function FormConfigEmpresa({ config }: Props) {
           </div>
           {valores.regime_tributario === "simples_nacional" && !valores.simples_nacional_rbt12 && (
             <p className="mt-2 text-sm text-amber-600">
-              ⚠️ Sem o RBT12 preenchido, o sistema vai bloquear o cálculo de novos orçamentos.
+              <AlertTriangle className="icone" aria-hidden /> Sem o RBT12 preenchido, o sistema vai bloquear o cálculo de novos orçamentos.
             </p>
           )}
         </div>

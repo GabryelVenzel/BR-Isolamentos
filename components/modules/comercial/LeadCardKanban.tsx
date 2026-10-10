@@ -1,10 +1,16 @@
 "use client";
 
 import { classesTemperatura, formatarData, formatarMoeda, formatarTemperatura } from "@/lib/format";
-import type { Lead } from "@/lib/types/domain";
+import MoverPara from "@/components/ui/MoverPara";
+import type { EtapaFunil, Lead } from "@/lib/types/domain";
+import { AlertTriangle, Calendar, CheckCircle2, Gift, Handshake, MapPin, RefreshCw, Timer, User } from "lucide-react";
 
 interface Props {
   lead: Lead;
+  /** Nome do responsável (não o e-mail) — resolvido pelo quadro. */
+  nomeResponsavel: string | null;
+  opcoesMover: Array<{ valor: EtapaFunil; label: string }>;
+  onMover: (destino: EtapaFunil) => void;
   onAbrir: (lead: Lead) => void;
   onIniciarArraste: (leadId: string) => void;
   onTerminarArraste: () => void;
@@ -14,10 +20,9 @@ interface Props {
 /** Card de um lead dentro de uma coluna do Kanban — arrastável via HTML5
  * Drag and Drop nativo (sem dependência nova: `react-beautiful-dnd` está
  * descontinuada e `@dnd-kit` seria mais peso do que o necessário aqui, um
- * board simples de 6 colunas). O fallback pra quem não usa mouse/touch com
- * precisão é o dropdown de etapa dentro do LeadDetailModal — clicar no card
- * sempre funciona e abre o mesmo controle. */
-export default function LeadCardKanban({ lead, onAbrir, onIniciarArraste, onTerminarArraste, arrastando }: Props) {
+ * board simples). Pra quem não arrasta (celular, teclado) há o seletor
+ * "Mover para..." no pé do cartão e o de etapa dentro do LeadDetailModal. */
+export default function LeadCardKanban({ lead, nomeResponsavel, opcoesMover, onMover, onAbrir, onIniciarArraste, onTerminarArraste, arrastando }: Props) {
   const atrasado = lead.etapa_atrasada === true;
   // "Retorno de agendamento" não é uma coluna nova — é derivado dos campos
   // que reativarLeadFrio.ts já grava (temperatura "morno" vindo de "frio" é
@@ -50,7 +55,7 @@ export default function LeadCardKanban({ lead, onAbrir, onIniciarArraste, onTerm
 
       {retornouDeAgendamento && (
         <span className="badge mb-1 inline-block bg-secondary-light text-brand" title="Voltou de reativação agendada — não é um lead 100% novo.">
-          🔄 Retorno de Agendamento
+          <RefreshCw className="icone" aria-hidden /> Retorno de Agendamento
         </span>
       )}
 
@@ -59,7 +64,7 @@ export default function LeadCardKanban({ lead, onAbrir, onIniciarArraste, onTerm
           className="badge mb-1 inline-flex items-center gap-1 bg-accent-light text-accent-dark"
           title={lead.total_anexos && lead.total_anexos > 0 ? "Tem comprovante anexado." : "Sem comprovante anexado ainda."}
         >
-          🎁 Comissão {lead.total_anexos && lead.total_anexos > 0 ? "✅" : "⚠️"}
+          <Gift className="icone" aria-hidden /> Comissão {lead.total_anexos && lead.total_anexos > 0 ? <CheckCircle2 className="icone" aria-hidden /> : <AlertTriangle className="icone" aria-hidden />}
         </span>
       )}
 
@@ -67,7 +72,7 @@ export default function LeadCardKanban({ lead, onAbrir, onIniciarArraste, onTerm
 
       {lead.eh_comissao ? (
         <>
-          {lead.parceiro?.nome && <p className="truncate text-xs text-gray-500">🤝 {lead.parceiro.nome}</p>}
+          {lead.parceiro?.nome && <p className="truncate text-xs text-gray-500"><Handshake className="icone" aria-hidden /> {lead.parceiro.nome}</p>}
           {(lead.valor_comissao ?? 0) > 0 && (
             <p className="mb-1.5 font-montserrat text-base font-bold text-accent">{formatarMoeda(lead.valor_comissao ?? 0)}</p>
           )}
@@ -79,18 +84,20 @@ export default function LeadCardKanban({ lead, onAbrir, onIniciarArraste, onTerm
       )}
 
       <div className="space-y-0.5 border-t border-gray-100 pt-1.5">
-        {lead.origem && <p className="truncate text-xs text-gray-500">📍 {lead.origem}</p>}
-        {lead.atribuido_a && <p className="truncate text-xs text-gray-500">👤 {lead.atribuido_a}</p>}
-        <div className="flex items-center justify-between gap-2 pt-0.5">
-          <p className="text-xs text-gray-400">📅 {formatarData(lead.created_at)}</p>
+        {lead.origem && <p className="truncate text-xs text-gray-500"><MapPin className="icone" aria-hidden /> {lead.origem}</p>}
+        {nomeResponsavel && <p className="truncate text-xs text-gray-500"><User className="icone" aria-hidden /> {nomeResponsavel}</p>}
+        <div className="flex flex-wrap items-center justify-between gap-x-2 pt-0.5">
+          <p className="whitespace-nowrap text-xs text-gray-400"><Calendar className="icone" aria-hidden /> {formatarData(lead.created_at)}</p>
           {lead.dias_na_etapa_atual !== undefined && (
-            <p className={`text-xs font-medium ${atrasado ? "text-status-error" : "text-gray-400"}`}>
-              {atrasado ? "⚠️ " : "⏱ "}
+            <p className={`whitespace-nowrap text-xs font-medium ${atrasado ? "text-status-error" : "text-gray-400"}`}>
+              {atrasado ? <AlertTriangle className="icone mr-1" aria-hidden /> : <Timer className="icone mr-1" aria-hidden />}
               {Math.floor(lead.dias_na_etapa_atual)}d nesta etapa
             </p>
           )}
         </div>
       </div>
+
+      <MoverPara atual={lead.etapa} opcoes={opcoesMover} onMover={onMover} rotuloItem={lead.numero_lead ?? "lead"} />
     </div>
   );
 }

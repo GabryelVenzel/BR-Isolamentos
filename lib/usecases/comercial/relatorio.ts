@@ -89,22 +89,29 @@ function etapasVisitadasPorLead(leads: Lead[], historico: HistoricoMudancaLead[]
 export function calcularFunil(leads: Lead[], historico: HistoricoMudancaLead[]): FunilComercial {
   const visitadasPorLead = etapasVisitadasPorLead(leads, historico);
 
-  const etapas: EtapaFunilRelatorio[] = ETAPAS_PROGRESSAO.map((etapa, index) => {
-    let quantidade = 0;
-    for (const visitadas of visitadasPorLead.values()) {
-      if (visitadas.has(etapa)) quantidade++;
-    }
+  // Etapa mais avançada que cada lead já alcançou. Um lead conta em TODAS as
+  // etapas até ela — inclusive as que ele pulou (quem entrou direto em
+  // Proposta passou, para efeito de funil, por Prospecção e Contato). Sem
+  // isso o gráfico mostrava absurdos como "Contato: 0, Proposta: 6" e uma
+  // "maior queda de 100%" que era só gente pulando etapa.
+  const maisAvancada: number[] = [];
+  for (const visitadas of visitadasPorLead.values()) {
+    let indice = -1;
+    ETAPAS_PROGRESSAO.forEach((etapa, i) => {
+      if (visitadas.has(etapa)) indice = i;
+    });
+    // Lead que só existiu em "perdido" não entra no funil de progressão.
+    if (indice >= 0) maisAvancada.push(indice);
+  }
+  const alcancaram = (index: number) => maisAvancada.filter((i) => i >= index).length;
 
+  const etapas: EtapaFunilRelatorio[] = ETAPAS_PROGRESSAO.map((etapa, index) => {
+    const quantidade = alcancaram(index);
     let retencaoPercentual: number | null = null;
     if (index > 0) {
-      const etapaAnterior = ETAPAS_PROGRESSAO[index - 1];
-      let anteriorQtd = 0;
-      for (const visitadas of visitadasPorLead.values()) {
-        if (visitadas.has(etapaAnterior)) anteriorQtd++;
-      }
+      const anteriorQtd = alcancaram(index - 1);
       retencaoPercentual = anteriorQtd > 0 ? (quantidade / anteriorQtd) * 100 : 0;
     }
-
     return { etapa, label: LABELS_ETAPA[etapa], quantidade, retencaoPercentual };
   });
 

@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from "react";
+import { CampoCep, CampoCnpj, CampoCpf, CampoTelefone } from "@/components/ui/CamposDocumento";
 import { toast } from "./toast";
 import FornecedorAnexos from "./FornecedorAnexos";
 import { ESTADOS_BRASIL } from "@/lib/estados-brasil";
 import type { CategoriaFornecimento, Fornecedor } from "@/lib/types/domain";
+import FecharComEsc from "@/components/ui/FecharComEsc";
 
 interface Props {
   fornecedor: Fornecedor | null;
@@ -26,6 +28,7 @@ interface Form {
   telefone: string;
   cnpj: string;
   email: string;
+  cep: string;
   endereco: string;
   cidade: string;
   estado: string;
@@ -41,6 +44,7 @@ function paraForm(f: Fornecedor | null): Form {
     telefone: f?.telefone ?? "",
     cnpj: f?.cnpj ?? "",
     email: f?.email ?? "",
+    cep: f?.cep ?? "",
     endereco: f?.endereco ?? "",
     cidade: f?.cidade ?? "",
     estado: f?.estado ?? "",
@@ -82,6 +86,7 @@ export default function ModalFornecedor({ fornecedor, onFechar, onSalvo }: Props
       telefone: form.telefone || null,
       cnpj: form.cnpj || null,
       email: form.email || null,
+      cep: form.cep || null,
       endereco: form.endereco || null,
       cidade: form.cidade || null,
       estado: form.estado || null,
@@ -117,7 +122,8 @@ export default function ModalFornecedor({ fornecedor, onFechar, onSalvo }: Props
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4" onClick={onFechar}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
+      <FecharComEsc onFechar={onFechar} />
       <div
         className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-card bg-white p-6 shadow-card-hover"
         onClick={(e) => e.stopPropagation()}
@@ -146,11 +152,27 @@ export default function ModalFornecedor({ fornecedor, onFechar, onSalvo }: Props
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="label-field">Telefone</label>
-              <input className="input-field" value={form.telefone} onChange={(e) => setForm((f) => ({ ...f, telefone: e.target.value }))} />
+              <CampoTelefone value={form.telefone} onChange={(v) => setForm((f) => ({ ...f, telefone: v }))} />
             </div>
             <div>
               <label className="label-field">CNPJ</label>
-              <input className="input-field" value={form.cnpj} onChange={(e) => setForm((f) => ({ ...f, cnpj: e.target.value }))} />
+              <CampoCnpj
+                value={form.cnpj}
+                onChange={(v) => setForm((f) => ({ ...f, cnpj: v }))}
+                onDados={(d) =>
+                  setForm((f) => ({
+                    ...f,
+                    nome: f.nome || d.nomeFantasia || d.razaoSocial,
+                    razaoSocial: f.razaoSocial || d.razaoSocial,
+                    telefone: f.telefone || d.telefone,
+                    email: f.email || d.email,
+                    cep: f.cep || d.cep,
+                    endereco: f.endereco || d.endereco,
+                    cidade: f.cidade || d.cidade,
+                    estado: f.estado || d.estado,
+                  }))
+                }
+              />
             </div>
             <div>
               <label className="label-field">Email</label>
@@ -159,6 +181,16 @@ export default function ModalFornecedor({ fornecedor, onFechar, onSalvo }: Props
             <div>
               <label className="label-field">Pessoa de contato</label>
               <input className="input-field" value={form.pessoaContato} onChange={(e) => setForm((f) => ({ ...f, pessoaContato: e.target.value }))} />
+            </div>
+            <div className="sm:col-span-2">
+              <label className="label-field">CEP</label>
+              <div className="sm:max-w-[12rem]">
+                <CampoCep
+                  value={form.cep}
+                  onChange={(v) => setForm((f) => ({ ...f, cep: v }))}
+                  onEndereco={(d) => setForm((f) => ({ ...f, endereco: d.endereco, cidade: d.cidade, estado: d.estado }))}
+                />
+              </div>
             </div>
             <div className="sm:col-span-2">
               <label className="label-field">Endereço</label>

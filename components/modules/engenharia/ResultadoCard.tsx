@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { formatarNumero } from "@/lib/format";
 import type { ResultadoFrio, ResultadoQuente } from "@/lib/usecases/engenharia";
+import { BarChart3, CheckCircle2, Droplets, Lightbulb, Thermometer } from "lucide-react";
 
 interface Props {
   resultadoQuente: ResultadoQuente | null;
@@ -34,32 +35,32 @@ export default function ResultadoCard({ resultadoQuente, resultadoFrio, onCopiar
       {resultadoQuente && (
         <>
           <p>
-            ✅ Espessura necessária: <strong>{formatarNumero(resultadoQuente.espessura_mm, 1)} mm</strong>
+            <CheckCircle2 className="icone" aria-hidden /> Espessura necessária: <strong>{formatarNumero(resultadoQuente.espessura_mm, 1)} mm</strong>
           </p>
           <p>
-            🌡️ Temperatura de face fria:{" "}
+            <Thermometer className="icone" aria-hidden /> Temperatura de face fria:{" "}
             <strong>{formatarNumero(resultadoQuente.temperatura_face_fria, 1)} °C</strong>
           </p>
-          <p>📊 Perda térmica com isolante: {formatarNumero(resultadoQuente.perda_com_isolante_kw_m2, 3)} kW/m²</p>
-          <p>📊 Perda térmica sem isolante: {formatarNumero(resultadoQuente.perda_sem_isolante_kw_m2, 3)} kW/m²</p>
+          <p><BarChart3 className="icone" aria-hidden /> Perda térmica com isolante: {formatarNumero(resultadoQuente.perda_com_isolante_kw_m2, 3)} kW/m²</p>
+          <p><BarChart3 className="icone" aria-hidden /> Perda térmica sem isolante: {formatarNumero(resultadoQuente.perda_sem_isolante_kw_m2, 3)} kW/m²</p>
         </>
       )}
 
       {resultadoFrio && (
         <>
           <p>
-            ✅ Espessura mínima: <strong>{formatarNumero(resultadoFrio.espessura_minima_mm, 1)} mm</strong>
+            <CheckCircle2 className="icone" aria-hidden /> Espessura mínima: <strong>{formatarNumero(resultadoFrio.espessura_minima_mm, 1)} mm</strong>
           </p>
           <p className="text-xs text-gray-500">Calculada para evitar condensação.</p>
-          <p>💧 Temperatura de orvalho: {formatarNumero(resultadoFrio.temperatura_orvalho, 1)} °C</p>
+          <p><Droplets className="icone" aria-hidden /> Temperatura de orvalho: {formatarNumero(resultadoFrio.temperatura_orvalho, 1)} °C</p>
           <p>
-            🌡️ Temperatura de face fria alcançada:{" "}
+            <Thermometer className="icone" aria-hidden /> Temperatura de face fria alcançada:{" "}
             <strong>{formatarNumero(resultadoFrio.temperatura_face_fria, 1)} °C</strong>
           </p>
-          <p>📊 Perda térmica com isolante: {formatarNumero(resultadoFrio.perda_com_isolante_kw_m2, 3)} kW/m²</p>
-          <p>📊 Perda térmica sem isolante: {formatarNumero(resultadoFrio.perda_sem_isolante_kw_m2, 3)} kW/m²</p>
+          <p><BarChart3 className="icone" aria-hidden /> Perda térmica com isolante: {formatarNumero(resultadoFrio.perda_com_isolante_kw_m2, 3)} kW/m²</p>
+          <p><BarChart3 className="icone" aria-hidden /> Perda térmica sem isolante: {formatarNumero(resultadoFrio.perda_sem_isolante_kw_m2, 3)} kW/m²</p>
           <p className="mt-2 rounded-input bg-brand-light px-3 py-2 text-xs text-brand">
-            💡 Futuro: análise de economia de energia para o modo frio.
+            <Lightbulb className="icone" aria-hidden /> Futuro: análise de economia de energia para o modo frio.
           </p>
         </>
       )}

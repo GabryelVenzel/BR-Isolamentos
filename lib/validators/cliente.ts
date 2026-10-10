@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { validarCpfCnpj } from "../mascaras";
 
 /** Validação de entrada para criar/atualizar cliente. Espelha as colunas
  * NOT NULL/nullable de `clientes` em `sql-schema.sql`. */
@@ -9,10 +10,16 @@ export const CreateClienteSchema = z.object({
   razao_social: z.string().trim().nullable().optional(),
   email: z.string().trim().email("E-mail inválido.").nullable().optional(),
   telefone: z.string().trim().nullable().optional(),
+  cep: z.string().trim().nullable().optional(),
   endereco: z.string().trim().nullable().optional(),
   cidade: z.string().trim().nullable().optional(),
   estado: z.string().trim().max(2, "Use a sigla do estado (ex.: PR).").nullable().optional(),
-  cnpj_cpf: z.string().trim().nullable().optional(),
+  cnpj_cpf: z
+    .string()
+    .trim()
+    .nullable()
+    .optional()
+    .refine((v) => !v || validarCpfCnpj(v), "CNPJ/CPF inválido — confira os números."),
 });
 
 export const UpdateClienteSchema = CreateClienteSchema.partial();

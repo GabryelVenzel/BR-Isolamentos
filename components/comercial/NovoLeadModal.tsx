@@ -1,10 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CampoMoeda } from "@/components/ui/CamposDocumento";
 import FormCliente from "@/components/FormCliente";
 import { formatarMoeda } from "@/lib/format";
 import type { Cliente } from "@/lib/types";
 import { ORIGENS_LEAD, type OrigemLead, type Parceiro, type TemperaturaLead } from "@/lib/types/domain";
+import FecharComEsc from "@/components/ui/FecharComEsc";
+import { Gift } from "lucide-react";
 
 interface Props {
   /** `leadId` só vem preenchido quando o lead criado é de comissão (migração
@@ -102,7 +105,8 @@ export default function NovoLeadModal({ onCriado, onFechar }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4" onClick={onFechar}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
+      <FecharComEsc onFechar={onFechar} />
       <div
         className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-card bg-white p-6 shadow-card-hover"
         onClick={(e) => e.stopPropagation()}
@@ -127,13 +131,7 @@ export default function NovoLeadModal({ onCriado, onFechar }: Props) {
             </div>
             <div>
               <label className="label-field">Valor estimado (R$)</label>
-              <input
-                type="number"
-                step="0.01"
-                className="input-field"
-                value={valorEstimado}
-                onChange={(e) => setValorEstimado(e.target.value)}
-              />
+              <CampoMoeda value={valorEstimado} onChange={setValorEstimado} />
             </div>
             <div className="sm:col-span-2">
               <label className="label-field">Origem</label>
@@ -156,7 +154,7 @@ export default function NovoLeadModal({ onCriado, onFechar }: Props) {
           <div className="rounded-lg border border-dashed border-gray-300 p-3">
             <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
               <input type="checkbox" checked={ehComissao} onChange={(e) => setEhComissao(e.target.checked)} />
-              🎁 É Comissão/Indicação?
+              <Gift className="icone" aria-hidden /> É Comissão/Indicação?
             </label>
             <p className="mt-1 text-xs text-gray-400">
               Indicação pra um parceiro executar — sem orçamento vinculado, só o comprovante da indicação (anexo,
@@ -178,13 +176,7 @@ export default function NovoLeadModal({ onCriado, onFechar }: Props) {
                 </div>
                 <div>
                   <label className="label-field">Valor indicado (R$)*</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    className="input-field"
-                    value={valorIndicado}
-                    onChange={(e) => setValorIndicado(e.target.value)}
-                  />
+                  <CampoMoeda value={valorIndicado} onChange={setValorIndicado} />
                 </div>
                 <div>
                   <label className="label-field">% Comissão*</label>

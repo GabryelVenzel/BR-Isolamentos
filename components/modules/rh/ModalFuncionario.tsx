@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { CampoCpf, CampoTelefone } from "@/components/ui/CamposDocumento";
 import { toast } from "./toast";
 import FuncionarioAnexos from "./FuncionarioAnexos";
 import type { Funcionario, StatusFuncionario } from "@/lib/types/domain";
+import FecharComEsc from "@/components/ui/FecharComEsc";
 
 interface Props {
   funcionario: Funcionario | null;
@@ -96,7 +98,8 @@ export default function ModalFuncionario({ funcionario, onFechar, onSalvo }: Pro
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4" onClick={onFechar}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
+      <FecharComEsc onFechar={onFechar} />
       <div
         className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-card bg-white p-6 shadow-card-hover"
         onClick={(e) => e.stopPropagation()}
@@ -121,11 +124,11 @@ export default function ModalFuncionario({ funcionario, onFechar, onSalvo }: Pro
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="label-field">CPF</label>
-              <input className="input-field" value={form.cpf} onChange={(e) => setForm((f) => ({ ...f, cpf: e.target.value }))} />
+              <CampoCpf value={form.cpf} onChange={(v) => setForm((f) => ({ ...f, cpf: v }))} />
             </div>
             <div>
               <label className="label-field">Telefone</label>
-              <input className="input-field" value={form.telefone} onChange={(e) => setForm((f) => ({ ...f, telefone: e.target.value }))} />
+              <CampoTelefone value={form.telefone} onChange={(v) => setForm((f) => ({ ...f, telefone: v }))} />
             </div>
             <div>
               <label className="label-field">Email</label>

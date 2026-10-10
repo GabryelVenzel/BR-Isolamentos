@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import type { ReactNode } from "react";
 import type { CorTendencia } from "@/lib/types/resumo";
+import { RefreshCw, TrendingDown, Wallet } from "lucide-react";
 
 export type CorCard = "verde" | "amarelo" | "vermelho" | "azul" | "neutro";
 
@@ -36,7 +37,7 @@ const SETA_TENDENCIA: Record<CorTendencia, string> = {
 
 interface Props {
   titulo: string;
-  icone: string;
+  icone: React.ReactNode;
   valor: string;
   cor: CorCard;
   tendencia?: { percentual: number | null; cor: CorTendencia; label?: string };
@@ -62,7 +63,7 @@ export default function KPICard({ titulo, icone, valor, cor, tendencia, href, ch
       <div className="flex items-start justify-between">
         <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{titulo}</p>
         {/* pdf-ocultar: html2canvas (motor do export de PDF) renderiza alguns
-            emojis (glifos multi-codepoint como 🔄/💸/💵) de forma corrompida
+            emojis (glifos multi-codepoint como <RefreshCw className="icone" aria-hidden />/<TrendingDown className="icone" aria-hidden />/<Wallet className="icone" aria-hidden />) de forma corrompida
             — ver lib/pdf-generator.ts. Como é puramente decorativo
             (aria-hidden, o título ao lado já diz tudo), é ocultado só
             durante a captura em vez de arriscar aparecer quebrado no PDF. */}
