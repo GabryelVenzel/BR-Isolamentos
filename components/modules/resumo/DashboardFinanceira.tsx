@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from "react";
 import CashFlowChart from "./CashFlowChart";
 import FilterBar from "./FilterBar";
+import { DreTabela, ResultadoObrasTabela } from "./RelatoriosResultado";
 import ReceitaDespesaChart from "@/components/modules/financeiro/graficos/ReceitaDespesaChart";
 import DistribuicaoCategoriaChart from "@/components/modules/financeiro/graficos/DistribuicaoCategoriaChart";
 import { gerarPdfDeElemento, baixarArquivo } from "@/lib/pdf-generator";
@@ -137,6 +138,9 @@ export default function DashboardFinanceira() {
           </div>
 
           {projecao && <CashFlowChart projecao={projecao} />}
+
+          <DreTabela filtros={filtros} />
+          <ResultadoObrasTabela />
 
           {relatorio.alertas.length > 0 && (
             <div className="card">

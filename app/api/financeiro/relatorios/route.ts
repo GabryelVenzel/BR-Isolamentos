@@ -35,6 +35,7 @@ export async function GET(request: Request) {
         tipo: searchParams.get("tipo") ?? undefined,
         dataInicio: intervalo.dataInicio,
         dataFim: intervalo.dataFim,
+        porCompetencia: true,
       }),
       ctx.custoFixoRepo.totalMensalAtivo(),
     ]);

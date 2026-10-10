@@ -573,11 +573,27 @@ export interface AnexoLancamento {
   notasValidacao: string | null;
 }
 
+export type FormaPagamento = "pix" | "boleto" | "transferencia" | "cartao" | "dinheiro" | "outro";
+
 export interface LancamentoFinanceiro {
   id: string;
   tipo: TipoLancamentoFinanceiro;
   categoria: string;
+  /** VENCIMENTO (YYYY-MM-DD) — quando paga/recebe. O nome da coluna é
+   * histórico: até a migração 041 era a única data do lançamento. */
   data: string;
+  /** Migração 041 — a que mês o valor pertence (base dos relatórios de
+   * resultado). Preenchida pelo banco com a própria `data` quando omitida. */
+  data_competencia: string;
+  forma_pagamento: FormaPagamento | null;
+  fornecedor_id: string | null;
+  parceiro_id: string | null;
+  /** Liga os lançamentos gerados juntos por "parcelado em N" ou "repetir
+   * por N meses" (`grupo_tipo`); `parcela_numero`/`parcela_total` = "2/6". */
+  grupo_id: string | null;
+  grupo_tipo: "parcelado" | "recorrente" | null;
+  parcela_numero: number | null;
+  parcela_total: number | null;
   descricao: string;
   valor: number;
   pago: boolean;
@@ -592,8 +608,11 @@ export interface LancamentoFinanceiro {
   lead_id: string | null;
   created_at: string;
   updated_at: string;
-  // Preenchido via join, opcional (ver LancamentoFinanceiroRepository.select).
+  // Preenchidos via join, opcionais (ver LancamentoFinanceiroRepository.select).
   orcamento?: Orcamento;
+  servico?: { id: string; numero_servico: string; cliente?: { nome: string } | null } | null;
+  fornecedor?: { id: string; nome: string } | null;
+  parceiro?: { id: string; nome: string } | null;
 }
 
 export type StatusHistoricoCustoFixo = "pendente" | "pago" | "atrasado";

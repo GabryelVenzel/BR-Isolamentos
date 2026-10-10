@@ -20,9 +20,19 @@ export interface OpcoesConfirmar {
   perigo?: boolean;
 }
 
+/** Uma alternativa de `escolher()` — vira um botão do diálogo. */
+export interface OpcaoEscolha<T extends string> {
+  valor: T;
+  label: string;
+  perigo?: boolean;
+}
+
 interface Pedido extends OpcoesConfirmar {
   mensagem: string;
-  resolver: (confirmado: boolean) => void;
+  /** Presente só em `escolher()`: botões no lugar do "Confirmar" único. */
+  alternativas?: Array<OpcaoEscolha<string>>;
+  /** `null` = cancelou; em `confirmar()` o valor de confirmação é "sim". */
+  resolver: (escolha: string | null) => void;
 }
 
 let abrir: ((pedido: Pedido) => void) | null = null;
@@ -37,7 +47,24 @@ export function confirmar(mensagem: string, opcoes: OpcoesConfirmar = {}): Promi
       resolver(window.confirm(mensagem));
       return;
     }
-    abrir({ mensagem, resolver, ...opcoes });
+    abrir({ mensagem, resolver: (escolha) => resolver(escolha === "sim"), ...opcoes });
+  });
+}
+
+/** Como `confirmar`, mas com mais de um caminho além de cancelar — ex.:
+ * "Só esta parcela" / "Esta e as próximas". Devolve o `valor` do botão
+ * escolhido, ou `null` se a pessoa cancelou (botão Cancelar ou Esc). */
+export function escolher<T extends string>(
+  mensagem: string,
+  alternativas: Array<OpcaoEscolha<T>>,
+  opcoes: Pick<OpcoesConfirmar, "titulo" | "cancelarLabel"> = {}
+): Promise<T | null> {
+  return new Promise((resolver) => {
+    if (!abrir) {
+      resolver(null);
+      return;
+    }
+    abrir({ mensagem, alternativas, resolver: (escolha) => resolver(escolha as T | null), ...opcoes });
   });
 }
 
@@ -49,7 +76,7 @@ export default function ConfirmarHost() {
     abrir = (novo) =>
       setPedido((atual) => {
         // Um pedido novo enquanto outro está aberto cancela o anterior.
-        atual?.resolver(false);
+        atual?.resolver(null);
         return novo;
       });
     return () => {
@@ -61,13 +88,13 @@ export default function ConfirmarHost() {
     if (!pedido) return;
     // Foco no "Cancelar": Enter por reflexo não confirma uma exclusão.
     botaoCancelar.current?.focus();
-    return empilharModal(() => responder(false));
+    return empilharModal(() => responder(null));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pedido]);
 
-  function responder(confirmado: boolean) {
+  function responder(escolha: string | null) {
     setPedido((atual) => {
-      atual?.resolver(confirmado);
+      atual?.resolver(escolha);
       return null;
     });
   }
@@ -87,7 +114,7 @@ export default function ConfirmarHost() {
         aria-modal="true"
         aria-labelledby="confirmar-titulo"
         aria-describedby="confirmar-mensagem"
-        className="w-full max-w-sm rounded-card bg-white p-6 shadow-card-hover"
+        className={`w-full rounded-card bg-white p-6 shadow-card-hover ${pedido.alternativas ? "max-w-md" : "max-w-sm"}`}
       >
         <h2 id="confirmar-titulo" className="mb-2 font-montserrat text-lg font-bold text-brand">
           {pedido.titulo ?? "Confirmar"}
@@ -95,13 +122,26 @@ export default function ConfirmarHost() {
         <p id="confirmar-mensagem" className="text-sm text-gray-700">
           {pedido.mensagem}
         </p>
-        <div className="mt-6 flex justify-end gap-3">
-          <button ref={botaoCancelar} type="button" className="btn-secondary" onClick={() => responder(false)}>
-            {cancelarLabel}
+        <div className="mt-6 flex flex-wrap justify-end gap-3">
+          <button ref={botaoCancelar} type="button" className="btn-secondary" onClick={() => responder(null)}>
+            {pedido.alternativas ? pedido.cancelarLabel ?? "Cancelar" : cancelarLabel}
           </button>
-          <button type="button" className={perigo ? "btn-danger" : "btn-primary"} onClick={() => responder(true)}>
-            {confirmarLabel}
-          </button>
+          {pedido.alternativas ? (
+            pedido.alternativas.map((alternativa) => (
+              <button
+                key={alternativa.valor}
+                type="button"
+                className={alternativa.perigo ? "btn-danger" : "btn-primary"}
+                onClick={() => responder(alternativa.valor)}
+              >
+                {alternativa.label}
+              </button>
+            ))
+          ) : (
+            <button type="button" className={perigo ? "btn-danger" : "btn-primary"} onClick={() => responder("sim")}>
+              {confirmarLabel}
+            </button>
+          )}
         </div>
       </div>
     </div>

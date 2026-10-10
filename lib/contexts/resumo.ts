@@ -80,7 +80,7 @@ export function createResumoContext(supabase: SupabaseClient) {
     // /api/financeiro/relatorios; aqui tira o lançamento do período direto).
     async chartCustosFixosVsVariaveis(filtros: FiltrosResumo) {
       const intervalo = resolverPeriodo(filtros.periodo, filtros.dataInicioCustom, filtros.dataFimCustom);
-      const lancamentos = await lancamentoRepo.listar({ dataInicio: intervalo.dataInicio, dataFim: intervalo.dataFim });
+      const lancamentos = await lancamentoRepo.listar({ dataInicio: intervalo.dataInicio, dataFim: intervalo.dataFim, porCompetencia: true });
       return calcularCustosFixosVsVariaveis(lancamentos);
     },
   };

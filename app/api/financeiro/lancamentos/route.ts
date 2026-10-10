@@ -17,6 +17,10 @@ export async function GET(request: Request) {
       pago: pagoParam === null ? undefined : pagoParam === "true",
       dataInicio: searchParams.get("data_inicio") ?? undefined,
       dataFim: searchParams.get("data_fim") ?? undefined,
+      formaPagamento: searchParams.get("forma_pagamento") ?? undefined,
+      servicoId: searchParams.get("servico_id") ?? undefined,
+      fornecedorId: searchParams.get("fornecedor_id") ?? undefined,
+      parceiroId: searchParams.get("parceiro_id") ?? undefined,
     });
     return NextResponse.json(apiSuccess(lancamentos, { total: lancamentos.length }));
   } catch (error) {

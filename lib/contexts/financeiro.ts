@@ -80,6 +80,13 @@ export function createFinanceiroContext(supabase: SupabaseClient) {
       return lancamentoRepo.delete(id);
     },
 
+    /** Exclui a parcela e as seguintes ainda em aberto do mesmo
+     * parcelamento/recorrência — devolve quantas foram excluídas. */
+    async removerLancamentoEmDiante(id: string): Promise<number> {
+      const lancamento = await lancamentoRepo.findByIdOrThrow(id);
+      return lancamentoRepo.excluirDestaEmDiante(lancamento);
+    },
+
     async resumoMesAtual(): Promise<ResumoMesAtual & { custosFixosMensal: number }> {
       const [resumo, custosFixosMensal] = await Promise.all([
         lancamentoRepo.resumoMesAtual(),

@@ -14,10 +14,20 @@ const AnexoLancamentoSchema = z.object({
   notasValidacao: z.string().trim().nullable().optional(),
 });
 
-export const CreateLancamentoSchema = z.object({
+const FormaPagamentoSchema = z.enum(["pix", "boleto", "transferencia", "cartao", "dinheiro", "outro"]);
+const DataISO = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida.");
+
+// Campos gravados em `lancamentos_financeiros`.
+const CamposLancamento = {
   tipo: z.enum(["receita", "despesa"]),
   categoria: z.string().trim().min(1, "Informe a categoria."),
-  data: z.string().min(1, "Informe a data."),
+  /** Vencimento. */
+  data: DataISO,
+  /** Competência (migração 041) — se omitida, o banco usa a do vencimento. */
+  data_competencia: DataISO.optional(),
+  forma_pagamento: FormaPagamentoSchema.nullable().optional(),
+  fornecedor_id: z.string().uuid().nullable().optional(),
+  parceiro_id: z.string().uuid().nullable().optional(),
   descricao: z.string().trim().min(1, "Descreva o lançamento."),
   valor: z.number().positive("O valor precisa ser maior que zero."),
   pago: z.boolean().optional(),
@@ -27,9 +37,20 @@ export const CreateLancamentoSchema = z.object({
   lead_id: z.string().trim().nullable().optional(),
   arquivo_url: z.string().trim().nullable().optional(),
   anexos: z.array(AnexoLancamentoSchema).max(5, "Máximo de 5 anexos por lançamento.").optional(),
-});
+};
 
-export const UpdateLancamentoSchema = CreateLancamentoSchema.partial();
+/** Criação: além dos campos do lançamento, aceita gerar vários de uma vez —
+ * `parcelas` (divide o valor em N vencimentos mensais) OU `repetir_meses`
+ * (repete o valor cheio por N meses). Ver lib/financeiro.ts. */
+export const CreateLancamentoSchema = z
+  .object({
+    ...CamposLancamento,
+    parcelas: z.number().int().min(2, "Parcelamento precisa de pelo menos 2 parcelas.").max(60, "Máximo de 60 parcelas.").optional(),
+    repetir_meses: z.number().int().min(2, "A repetição precisa de pelo menos 2 meses.").max(60, "Máximo de 60 meses.").optional(),
+  })
+  .refine((d) => !(d.parcelas && d.repetir_meses), "Escolha parcelar OU repetir, não os dois.");
+
+export const UpdateLancamentoSchema = z.object(CamposLancamento).partial();
 
 export const CreateCustoFixoSchema = z.object({
   categoria: z.string().trim().min(1, "Informe a categoria."),

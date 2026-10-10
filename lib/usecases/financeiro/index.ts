@@ -21,3 +21,8 @@ export type {
   KpisFinanceiro,
   ReceitaDespesaMes,
 } from "./relatorio";
+
+export { calcularResultadoObra, calcularResultadoPorObra } from "./resultadoPorObra";
+export type { ResultadoObra } from "./resultadoPorObra";
+export { calcularDre, mesesDoIntervalo } from "./dre";
+export type { Dre, LinhaDre } from "./dre";

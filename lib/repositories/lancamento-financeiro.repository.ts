@@ -8,6 +8,13 @@ export interface FiltrosLancamento {
   pago?: boolean;
   dataInicio?: string;
   dataFim?: string;
+  /** `dataInicio`/`dataFim` filtram pela COMPETÊNCIA em vez do vencimento —
+   * usado pelos relatórios de resultado (migração 041). */
+  porCompetencia?: boolean;
+  formaPagamento?: string;
+  servicoId?: string;
+  fornecedorId?: string;
+  parceiroId?: string;
 }
 
 export interface ResumoMesAtual {
@@ -19,7 +26,10 @@ export interface ResumoMesAtual {
 }
 
 export class LancamentoFinanceiroRepository extends BaseRepository<LancamentoFinanceiro> {
-  protected select = "*, orcamento:orcamentos(*, cliente:clientes(*))";
+  // Além do orçamento, traz o nome do que está ligado ao lançamento
+  // (migração 041): obra, fornecedor e parceiro.
+  protected select =
+    "*, orcamento:orcamentos(*, cliente:clientes(*)), servico:servicos(id, numero_servico, cliente:clientes(nome)), fornecedor:fornecedores(id, nome), parceiro:parceiros(id, nome)";
 
   constructor(supabase: SupabaseClient) {
     super(supabase, "lancamentos_financeiros");
@@ -31,12 +41,52 @@ export class LancamentoFinanceiroRepository extends BaseRepository<LancamentoFin
     if (filtros.tipo) query = query.eq("tipo", filtros.tipo);
     if (filtros.categoria) query = query.eq("categoria", filtros.categoria);
     if (filtros.pago !== undefined) query = query.eq("pago", filtros.pago);
-    if (filtros.dataInicio) query = query.gte("data", filtros.dataInicio);
-    if (filtros.dataFim) query = query.lte("data", filtros.dataFim);
+    const colunaData = filtros.porCompetencia ? "data_competencia" : "data";
+    if (filtros.dataInicio) query = query.gte(colunaData, filtros.dataInicio);
+    if (filtros.dataFim) query = query.lte(colunaData, filtros.dataFim);
+    if (filtros.formaPagamento) query = query.eq("forma_pagamento", filtros.formaPagamento);
+    if (filtros.servicoId) query = query.eq("servico_id", filtros.servicoId);
+    if (filtros.fornecedorId) query = query.eq("fornecedor_id", filtros.fornecedorId);
+    if (filtros.parceiroId) query = query.eq("parceiro_id", filtros.parceiroId);
 
     const { data, error } = await query;
     if (error) throw error;
     return (data ?? []) as unknown as LancamentoFinanceiro[];
+  }
+
+  /** Cria vários lançamentos de uma vez (parcelas/recorrência — ver
+   * lib/usecases/financeiro/criarLancamento.ts). Um único insert: ou entram
+   * todos, ou nenhum. */
+  async createMany(linhas: Array<Partial<LancamentoFinanceiro>>): Promise<LancamentoFinanceiro[]> {
+    const { data, error } = await this.queryBuilder().insert(linhas).select(this.select).order("parcela_numero");
+    if (error) throw error;
+    return (data ?? []) as unknown as LancamentoFinanceiro[];
+  }
+
+  /** Exclui o lançamento informado e as parcelas SEGUINTES do mesmo grupo
+   * que ainda estão em aberto — as que já foram pagas ficam (apagar um
+   * pagamento registrado por tabela seria perder histórico). Devolve quantas
+   * linhas foram excluídas no total. */
+  async excluirDestaEmDiante(lancamento: Pick<LancamentoFinanceiro, "id" | "grupo_id" | "parcela_numero">): Promise<number> {
+    await this.delete(lancamento.id);
+    if (!lancamento.grupo_id || lancamento.parcela_numero == null) return 1;
+
+    const { data, error } = await this.queryBuilder()
+      .delete()
+      .eq("grupo_id", lancamento.grupo_id)
+      .gt("parcela_numero", lancamento.parcela_numero)
+      .eq("pago", false)
+      .select("id");
+    if (error) throw error;
+    return 1 + (data ?? []).length;
+  }
+
+  /** Só os campos que o resultado por obra precisa, de todos os lançamentos
+   * ligados a alguma obra. */
+  async listarLigadosAObras(): Promise<Array<Pick<LancamentoFinanceiro, "servico_id" | "tipo" | "valor" | "pago">>> {
+    const { data, error } = await this.queryBuilder().select("servico_id, tipo, valor, pago").not("servico_id", "is", null);
+    if (error) throw error;
+    return (data ?? []) as Array<Pick<LancamentoFinanceiro, "servico_id" | "tipo" | "valor" | "pago">>;
   }
 
   /** Lê a view `v_financeiro_mes_atual` (ver sql-migration-004-6modulos-completo.sql). */
@@ -76,7 +126,8 @@ export class LancamentoFinanceiroRepository extends BaseRepository<LancamentoFin
 
   /** Soma `valor` de lançamentos de um `tipo` ('receita'/'despesa') num
    * intervalo de datas, com os filtros cruzados opcionais de tipo de
-   * trabalho/responsável (ver nota acima). */
+   * trabalho/responsável (ver nota acima). O intervalo é pela COMPETÊNCIA
+   * (a que mês o valor pertence), não pelo vencimento. */
   async somarPorTipo(
     tipo: TipoLancamentoFinanceiro,
     dataInicio: string,
@@ -86,8 +137,8 @@ export class LancamentoFinanceiroRepository extends BaseRepository<LancamentoFin
     let query = this.queryBuilder()
       .select(this.selectParaFiltro(opts))
       .eq("tipo", tipo)
-      .gte("data", dataInicio)
-      .lte("data", dataFim);
+      .gte("data_competencia", dataInicio)
+      .lte("data_competencia", dataFim);
     query = this.aplicarFiltroCruzado(query, opts);
 
     const { data, error } = await query;
@@ -106,10 +157,16 @@ export class LancamentoFinanceiroRepository extends BaseRepository<LancamentoFin
     opts: FiltroCruzado = {}
   ): Promise<Array<{ data: string; valor: number }>> {
     let query = this.queryBuilder()
-      .select(opts.tipoTrabalho || opts.responsavel ? "data, valor, orcamento:orcamentos!inner(tipo_trabalho, atribuido_a)" : "data, valor")
+      // `data:data_competencia` — quem agrupa por mês continua lendo `data`,
+      // que aqui é a competência (migração 041).
+      .select(
+        opts.tipoTrabalho || opts.responsavel
+          ? "data:data_competencia, valor, orcamento:orcamentos!inner(tipo_trabalho, atribuido_a)"
+          : "data:data_competencia, valor"
+      )
       .eq("tipo", tipo)
-      .gte("data", dataInicio)
-      .lte("data", dataFim);
+      .gte("data_competencia", dataInicio)
+      .lte("data_competencia", dataFim);
     query = this.aplicarFiltroCruzado(query, opts);
 
     const { data, error } = await query;

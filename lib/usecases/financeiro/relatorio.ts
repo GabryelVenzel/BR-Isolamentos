@@ -88,7 +88,8 @@ export function calcularReceitaVsDespesaPorMes(lancamentos: LancamentoFinanceiro
   const porMes = new Map<string, { receita: number; despesa: number }>();
 
   for (const l of lancamentos) {
-    const mes = l.data.slice(0, 7);
+    // Mês de competência (migração 041) — a que mês o valor pertence.
+    const mes = (l.data_competencia ?? l.data).slice(0, 7);
     const atual = porMes.get(mes) ?? { receita: 0, despesa: 0 };
     if (l.tipo === "receita") atual.receita += l.valor;
     else atual.despesa += l.valor;
