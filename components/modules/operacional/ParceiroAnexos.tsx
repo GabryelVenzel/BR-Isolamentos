@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState, type ChangeEvent } from "react";
 import { toast } from "./toast";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { urlArquivo } from "@/lib/arquivos";
+import SeloValidade from "@/components/ui/SeloValidade";
 import { formatarData } from "@/lib/format";
 import type { ParceiroAnexo } from "@/lib/types/domain";
 import { confirmar } from "@/components/ui/confirmar";
@@ -133,6 +134,25 @@ export default function ParceiroAnexos({ parceiroId }: Props) {
     }
   }
 
+  // Validade do documento (migração 044): salva ao escolher a data. Vazio = não vence.
+  async function definirValidade(anexo: ParceiroAnexo, validade: string) {
+    const anterior = anexo.validade;
+    setAnexos((prev) => prev.map((a) => (a.id === anexo.id ? { ...a, validade: validade || null } : a)));
+    try {
+      const response = await fetch(`/api/operacional/parceiros/${parceiroId}/anexos/${anexo.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ validade: validade || null }),
+      });
+      const payload = await response.json();
+      if (!response.ok || !payload.success) throw new Error(payload.error);
+      toast.sucesso(validade ? "Validade salva." : "Validade removida.");
+    } catch (error) {
+      setAnexos((prev) => prev.map((a) => (a.id === anexo.id ? { ...a, validade: anterior } : a)));
+      toast.erro(error instanceof Error && error.message ? error.message : "Não foi possível salvar a validade.");
+    }
+  }
+
   return (
     <div className="rounded-card border border-gray-200 p-4">
       <h3 className="mb-3 font-montserrat text-xs font-bold uppercase text-brand">
@@ -155,6 +175,17 @@ export default function ParceiroAnexos({ parceiroId }: Props) {
                   <p className="text-xs text-gray-400">
                     {formatarTamanho(anexo.tamanho_bytes)} · Adicionado em {formatarData(anexo.data_adicao)}
                   </p>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-gray-600">
+                    <label htmlFor={`validade-${anexo.id}`}>Validade</label>
+                    <input
+                      id={`validade-${anexo.id}`}
+                      type="date"
+                      className="rounded-input border border-gray-300 px-2 py-0.5 text-xs"
+                      value={anexo.validade ?? ""}
+                      onChange={(e) => definirValidade(anexo, e.target.value)}
+                    />
+                    {anexo.validade && <SeloValidade validade={anexo.validade} />}
+                  </div>
                 </div>
               </div>
               <div className="mt-2 flex gap-3 text-xs">
@@ -180,7 +211,10 @@ export default function ParceiroAnexos({ parceiroId }: Props) {
           {enviando ? "Enviando..." : "+ Adicionar Anexo"}
         </label>
       )}
-      <p className="mt-1 text-xs text-gray-400">PDF, Word, Excel ou imagem — até 20 MB por arquivo, até {LIMITE_ANEXOS} anexos.</p>
+      <p className="mt-1 text-xs text-gray-400">
+        PDF, Word, Excel ou imagem — até 20 MB por arquivo, até {LIMITE_ANEXOS} anexos. Preencha a validade de ASO, NRs e apólices: o sistema avisa
+        antes de vencer e ao alocar o parceiro numa obra.
+      </p>
     </div>
   );
 }

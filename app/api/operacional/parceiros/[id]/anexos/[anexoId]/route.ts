@@ -4,6 +4,8 @@ import { createOperacionalContext } from "@/lib/contexts/operacional";
 import { apiError, apiSuccess } from "@/lib/types/common";
 import { toHttpError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
+import { corpo, responder } from "@/lib/api";
+import { createComprasContext } from "@/lib/contexts/compras";
 
 interface Params {
   params: { id: string; anexoId: string };
@@ -23,4 +25,15 @@ export async function DELETE(_request: Request, { params }: Params) {
     const { message, statusCode } = toHttpError(error);
     return NextResponse.json(apiError(message), { status: statusCode });
   }
+}
+
+/** PATCH { validade }: define (ou limpa) a validade do documento do parceiro
+ * (migração 044). */
+export async function PATCH(request: Request, { params }: Params) {
+  const supabase = createSupabaseServerClient();
+  const dados = await corpo(request);
+  return responder("definir a validade do documento do parceiro", async () => {
+    await createComprasContext(supabase).definirValidadeDoAnexo(params.id, params.anexoId, dados);
+    return { id: params.anexoId };
+  });
 }

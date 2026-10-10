@@ -4,7 +4,8 @@ import { useState } from "react";
 import { CampoCpf, CampoTelefone } from "@/components/ui/CamposDocumento";
 import { toast } from "./toast";
 import FuncionarioAnexos from "./FuncionarioAnexos";
-import type { Funcionario, StatusFuncionario } from "@/lib/types/domain";
+import type { Funcionario, StatusFuncionario, TipoTrabalhoOperacional } from "@/lib/types/domain";
+import MultiSelectTiposTrabalho, { TIPOS_TRABALHO_OPCOES } from "@/components/modules/operacional/MultiSelectTiposTrabalho";
 import FecharComEsc from "@/components/ui/FecharComEsc";
 
 interface Props {
@@ -28,6 +29,7 @@ interface Form {
   dataAdmissao: string;
   status: StatusFuncionario;
   notas: string;
+  tiposTrabalho: TipoTrabalhoOperacional[];
 }
 
 function paraForm(f: Funcionario | null): Form {
@@ -40,6 +42,7 @@ function paraForm(f: Funcionario | null): Form {
     dataAdmissao: f?.data_admissao ?? "",
     status: f?.status ?? "ativo",
     notas: f?.notas ?? "",
+    tiposTrabalho: f?.tipos_trabalho ?? [],
   };
 }
 
@@ -69,6 +72,7 @@ export default function ModalFuncionario({ funcionario, onFechar, onSalvo }: Pro
       data_admissao: form.dataAdmissao || null,
       status: form.status,
       notas: form.notas || null,
+      tipos_trabalho: form.tiposTrabalho,
     };
 
     try {
@@ -157,6 +161,16 @@ export default function ModalFuncionario({ funcionario, onFechar, onSalvo }: Pro
                 ))}
               </select>
             </div>
+          </div>
+
+          <div>
+            <p className="label-field">Funções</p>
+            <MultiSelectTiposTrabalho
+              value={form.tiposTrabalho}
+              onChange={(tiposTrabalho) => setForm((f) => ({ ...f, tiposTrabalho }))}
+              options={TIPOS_TRABALHO_OPCOES}
+            />
+            <p className="mt-1 text-xs text-gray-500">Usadas ao alocar o funcionário numa obra, em Operacional → Serviços.</p>
           </div>
 
           <div>

@@ -1,4 +1,7 @@
-import type { Parceiro, Servico } from "../../types/domain";
+import type { Funcionario, Parceiro, Servico } from "../../types/domain";
+
+/** Identificador da linha "Equipe própria" na capacidade (não é um parceiro). */
+export const ID_EQUIPE_PROPRIA = "equipe-propria";
 
 // Cálculo de capacidade (mobilizado/disponível) por dia — função pura, sem
 // I/O, fácil de testar sem mockar Supabase (mesmo espírito de
@@ -50,7 +53,12 @@ export interface CapacidadeDia {
  * `parceiros_execucao` (ver nota de módulo acima) — um serviço sem nenhum
  * parceiro vinculado ainda (`parceiros_execucao` vazio/undefined) não
  * mobiliza ninguém. */
-export function calcularCapacidadeDia(data: string, parceiros: Parceiro[], servicosAtivos: Servico[]): CapacidadeDia {
+export function calcularCapacidadeDia(
+  data: string,
+  parceiros: Parceiro[],
+  servicosAtivos: Servico[],
+  funcionarios: Array<Pick<Funcionario, "id" | "status" | "tipos_trabalho">> = []
+): CapacidadeDia {
   const porParceiro: CapacidadeParceiroDia[] = parceiros
     // Migração 027 — só parceiros que fornecem mão de obra (prestador/ambos)
     // entram na Agenda/Capacidade; "parceria" pura é só canal de indicação
@@ -85,6 +93,41 @@ export function calcularCapacidadeDia(data: string, parceiros: Parceiro[], servi
         })),
       };
     });
+
+  // Equipe própria (migração 044): cada funcionário ATIVO é uma pessoa de
+  // capacidade; está mobilizado no dia se estiver alocado em algum serviço
+  // ativo (a mesma pessoa em duas obras no mesmo dia conta uma vez só).
+  const ativos = funcionarios.filter((f) => f.status === "ativo");
+  if (ativos.length > 0) {
+    const idsAtivos = new Set(ativos.map((f) => f.id));
+    const alocacoes = servicosAtivos.flatMap((s) =>
+      (s.funcionarios_execucao ?? []).filter((e) => idsAtivos.has(e.funcionario_id)).map((e) => ({ servico: s, execucao: e }))
+    );
+    const mobilizados = new Set(alocacoes.map((a) => a.execucao.funcionario_id)).size;
+    const porServico = new Map<string, { servico: Servico; pessoas: number; tipo: string | null }>();
+    for (const { servico, execucao } of alocacoes) {
+      const atual = porServico.get(servico.id) ?? { servico, pessoas: 0, tipo: execucao.tipos_trabalho[0] ?? servico.tipo_trabalho };
+      atual.pessoas++;
+      porServico.set(servico.id, atual);
+    }
+    porParceiro.push({
+      parceiroId: ID_EQUIPE_PROPRIA,
+      nome: "Equipe própria (funcionários)",
+      totalPessoas: ativos.length,
+      pessoasMobilizadas: mobilizados,
+      pessoasDisponiveis: Math.max(0, ativos.length - mobilizados),
+      tiposTrabalho: [...new Set(ativos.flatMap((f) => f.tipos_trabalho ?? []))],
+      servicos: [...porServico.values()].map(({ servico: s, pessoas, tipo }) => ({
+        servicoId: s.id,
+        numeroServico: s.numero_servico,
+        pessoas,
+        tipoTrabalho: tipo,
+        dataInicio: s.data_inicio,
+        dataFimPrevista: s.data_fim_prevista,
+        etapa: s.etapa,
+      })),
+    });
+  }
 
   const totalDisponivel = porParceiro.reduce((soma, p) => soma + p.totalPessoas, 0);
   const totalMobilizado = porParceiro.reduce((soma, p) => soma + p.pessoasMobilizadas, 0);
@@ -133,7 +176,8 @@ export function calcularCapacidadeMes(
   ano: number,
   mes: number,
   parceiros: Parceiro[],
-  servicosDoMes: Servico[]
+  servicosDoMes: Servico[],
+  funcionarios: Array<Pick<Funcionario, "id" | "status" | "tipos_trabalho">> = []
 ): CapacidadeResumoDia[] {
   const ultimoDia = new Date(ano, mes, 0).getDate();
   const resultado: CapacidadeResumoDia[] = [];
@@ -143,7 +187,7 @@ export function calcularCapacidadeMes(
     const servicosAtivosNoDia = servicosDoMes.filter(
       (s) => s.data_inicio && s.data_inicio <= dataIso && (!s.data_fim_prevista || s.data_fim_prevista >= dataIso)
     );
-    const { totalDisponivel, totalMobilizado, totalLivre } = calcularCapacidadeDia(dataIso, parceiros, servicosAtivosNoDia);
+    const { totalDisponivel, totalMobilizado, totalLivre } = calcularCapacidadeDia(dataIso, parceiros, servicosAtivosNoDia, funcionarios);
     resultado.push({
       data: dataIso,
       totalDisponivel,

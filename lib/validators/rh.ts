@@ -39,6 +39,10 @@ const StatusFuncionarioSchema = z.enum(["ativo", "inativo", "desligado"]);
 
 export const CreateFuncionarioSchema = z.object({
   nome: z.string().trim().min(1, "Informe o nome do funcionário."),
+  // Funções que exerce (migração 044) — mesma lista de parceiros e obras.
+  tipos_trabalho: z
+    .array(z.enum(["bancada", "isolador", "funileiro_tracador", "caldeiraria", "caldeiraria_montagem", "removivel_montagem", "removivel_fabricacao", "ajudante"]))
+    .optional(),
   cargo: z.string().trim().nullable().optional(),
   cpf: z
     .string()

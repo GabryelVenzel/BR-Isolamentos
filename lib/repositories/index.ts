@@ -38,3 +38,18 @@ export type { FiltrosCategoriaLancamento } from "./categoria-lancamento.reposito
 export { ConfigFinanceiroRepository } from "./config-financeiro.repository";
 export { AuditoriaRepository } from "./auditoria.repository";
 export type { FiltrosAuditoria, RegistroAuditoria } from "./auditoria.repository";
+export {
+  CotacaoRepository,
+  DiariaRepository,
+  PedidoCompraRepository,
+  alocarFuncionarioNoServico,
+  atualizarPrecoDoCatalogo,
+  buscarConfigEmpresa,
+  definirValidadeAnexoParceiro,
+  listarDocumentosDeParceirosComValidade,
+  listarDocumentosVencidosDeFuncionarios,
+  listarPrecosDoCatalogo,
+  listarTrechosDoOrcamento,
+  removerFuncionarioDoServico,
+} from "./compras.repository";
+export type { FiltrosPedidoCompra } from "./compras.repository";

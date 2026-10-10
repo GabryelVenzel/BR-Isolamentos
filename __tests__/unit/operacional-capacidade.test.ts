@@ -41,6 +41,7 @@ function parceiro(overrides: Partial<Parceiro> = {}): Parceiro {
     notas_caldeiraria_montagem: null,
     notas_removivel_montagem: null,
     notas_removivel_fabricacao: null,
+    notas_ajudante: null,
     notas_isolamentos_removiveis: null,
     notas_isolamentos_fixos: null,
     total_pessoas: 15,
@@ -205,5 +206,49 @@ describe("calcularCapacidadeMes", () => {
   it("respeita o número de dias de fevereiro (mês menor)", () => {
     const resultado = calcularCapacidadeMes(2026, 2, [parceiro()], []);
     expect(resultado).toHaveLength(28); // 2026 não é bissexto
+  });
+});
+
+describe("calcularCapacidadeDia — equipe própria (migração 044)", () => {
+  const funcionarios = [
+    { id: "f1", status: "ativo" as const, tipos_trabalho: ["isolador" as const] },
+    { id: "f2", status: "ativo" as const, tipos_trabalho: ["ajudante" as const] },
+    { id: "f3", status: "desligado" as const, tipos_trabalho: [] },
+  ];
+  const alocado = (id: string, funcionarioId: string) => ({ id, servico_id: "s", funcionario_id: funcionarioId, tipos_trabalho: ["ajudante" as const], data_adicao: "" });
+
+  it("cada funcionário ativo é uma pessoa de capacidade; alocado conta como mobilizado", () => {
+    const r = calcularCapacidadeDia(
+      "2026-10-10",
+      [],
+      [servico({ id: "s1", funcionarios_execucao: [alocado("e1", "f1")] })],
+      funcionarios
+    );
+    const equipe = r.porParceiro.find((p) => p.parceiroId === "equipe-propria");
+    expect(equipe).toMatchObject({ totalPessoas: 2, pessoasMobilizadas: 1, pessoasDisponiveis: 1 });
+    expect(equipe?.tiposTrabalho.sort()).toEqual(["ajudante", "isolador"]);
+    expect(equipe?.servicos).toHaveLength(1);
+    expect(r.totalDisponivel).toBe(2);
+    expect(r.totalMobilizado).toBe(1);
+  });
+
+  it("a mesma pessoa em duas obras no dia conta uma vez; desligado não entra", () => {
+    const r = calcularCapacidadeDia(
+      "2026-10-10",
+      [],
+      [
+        servico({ id: "s1", funcionarios_execucao: [alocado("e1", "f1"), alocado("e2", "f3")] }),
+        servico({ id: "s2", funcionarios_execucao: [alocado("e3", "f1")] }),
+      ],
+      funcionarios
+    );
+    const equipe = r.porParceiro.find((p) => p.parceiroId === "equipe-propria");
+    expect(equipe?.pessoasMobilizadas).toBe(1);
+    expect(equipe?.servicos.map((s) => s.pessoas)).toEqual([1, 1]);
+  });
+
+  it("sem funcionários ativos, a linha da equipe própria não aparece", () => {
+    const r = calcularCapacidadeDia("2026-10-10", [], [], [{ id: "f3", status: "desligado", tipos_trabalho: [] }]);
+    expect(r.porParceiro).toHaveLength(0);
   });
 });

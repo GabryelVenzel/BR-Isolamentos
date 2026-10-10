@@ -12,6 +12,7 @@ const TipoTrabalhoOperacionalSchema = z.enum([
   "caldeiraria_montagem",
   "removivel_montagem",
   "removivel_fabricacao",
+  "ajudante",
 ]);
 
 const EtapaServicoSchema = z.enum(["planejamento", "execucao", "finalizado"]);

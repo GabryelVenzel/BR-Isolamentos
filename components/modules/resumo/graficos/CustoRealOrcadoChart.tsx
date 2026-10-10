@@ -16,6 +16,7 @@ const LABEL_TIPO: Record<string, string> = {
   funileiro_tracador: "Funileiro",
   caldeiraria: "Cald. Fabricação",
   caldeiraria_montagem: "Cald. Montagem",
+  ajudante: "Ajudante",
   removivel_montagem: "Remov. Montagem",
   removivel_fabricacao: "Remov. Fabricação",
   "Não informado": "Não informado",

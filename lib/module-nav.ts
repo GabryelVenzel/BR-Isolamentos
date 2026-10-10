@@ -22,6 +22,8 @@ export const OPERACIONAL_SUBNAV: ModuleSubNavItem[] = [
   { href: "/operacional", label: "Agenda" },
   { href: "/operacional/parceiros", label: "Parceiros" },
   { href: "/operacional/fornecedores", label: "Fornecedores" },
+  // Pedidos de compra, cotações e histórico de preços (migração 044).
+  { href: "/operacional/compras", label: "Compras" },
 ];
 
 // "Dashboard" foi removido (duplicava Resumo → Financeira) e "Categorias" +

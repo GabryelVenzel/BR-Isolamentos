@@ -12,6 +12,7 @@ const TipoTrabalhoOperacionalSchema = z.enum([
   "caldeiraria_montagem",
   "removivel_montagem",
   "removivel_fabricacao",
+  "ajudante",
 ]);
 
 const CategoriaParceiroSchema = z.enum(["prestador", "parceria", "ambos"]);
@@ -65,6 +66,7 @@ export const CreateParceiroSchema = z.object({
   notas_caldeiraria_montagem: z.string().trim().nullable().optional(),
   notas_removivel_montagem: z.string().trim().nullable().optional(),
   notas_removivel_fabricacao: z.string().trim().nullable().optional(),
+  notas_ajudante: z.string().trim().nullable().optional(),
   notas_isolamentos_removiveis: z.string().trim().nullable().optional(),
   notas_isolamentos_fixos: z.string().trim().nullable().optional(),
   total_pessoas: z.number().int().positive("Total de pessoas deve ser maior que zero.").nullable().optional(),

@@ -7,6 +7,8 @@ import { TIPOS_TRABALHO_OPCOES } from "./MultiSelectTiposTrabalho";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { urlArquivo } from "@/lib/arquivos";
 import FinanceiroObra from "./FinanceiroObra";
+import DiariasObra from "./DiariasObra";
+import EquipePropriaObra from "./EquipePropriaObra";
 import { formatarDataHora, formatarMoeda } from "@/lib/format";
 import type { HistoricoServico, InteracaoServico, Servico, ServicoParceiroExecucao, TipoInteracaoServico } from "@/lib/types/domain";
 import FecharComEsc from "@/components/ui/FecharComEsc";
@@ -29,7 +31,7 @@ const LABEL_TIPO_INTERACAO: Record<TipoInteracaoServico, string> = {
   reuniao: "Reunião",
 };
 
-type AbaInterna = "dados" | "financeiro" | "timeline" | "interacoes";
+type AbaInterna = "dados" | "financeiro" | "diarias" | "timeline" | "interacoes";
 
 interface Props {
   servicoId: string;
@@ -364,6 +366,7 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
                 [
                   ["dados", "Dados"],
                   ["financeiro", "Financeiro"],
+                  ["diarias", "Diárias"],
                   ["timeline", "Timeline"],
                   ["interacoes", `Interações (${interacoes.length})`],
                 ] as [AbaInterna, string][]
@@ -481,6 +484,8 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
                     </div>
                   </div>
 
+                  <EquipePropriaObra servicoId={servicoId} execucoes={servico.funcionarios_execucao ?? []} onMudou={carregar} />
+
                   <div className="space-y-4 border-t border-gray-100 pt-4">
                     <h3 className="font-montserrat text-xs font-bold uppercase text-brand">
                       <Paperclip className="icone" aria-hidden /> Anexos {servico.etapa !== "finalizado" && "(obrigatórios para finalizar)"}
@@ -582,6 +587,8 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
               )}
 
               {aba === "financeiro" && <FinanceiroObra servicoId={servicoId} />}
+
+              {aba === "diarias" && <DiariasObra servicoId={servicoId} />}
 
               {aba === "timeline" && (
                 <ol className="relative space-y-4 border-l-2 border-brand pl-4">

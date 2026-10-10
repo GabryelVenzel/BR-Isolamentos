@@ -279,7 +279,9 @@ export type TipoTrabalhoOperacional =
   | "caldeiraria"
   | "caldeiraria_montagem"
   | "removivel_montagem"
-  | "removivel_fabricacao";
+  | "removivel_fabricacao"
+  // Migração 044 — função de apoio, vale para parceiros e funcionários.
+  | "ajudante";
 
 /** Migração 027 — o que um parceiro realmente FORNECE: "prestador" mobiliza
  * gente de verdade (aparece na Agenda/Capacidade, pode ser vinculado a um
@@ -341,6 +343,8 @@ export interface Parceiro {
   notas_caldeiraria_montagem: string | null;
   notas_removivel_montagem: string | null;
   notas_removivel_fabricacao: string | null;
+  /** Migração 044. */
+  notas_ajudante: string | null;
   /** @deprecated Tipo de trabalho correspondente removido da lista (migração
    * 027, sem substituto 1:1) — mantido no schema só por compatibilidade com
    * parceiros já cadastrados; a UI não escreve mais aqui. */
@@ -364,6 +368,8 @@ export interface Parceiro {
 export interface ParceiroAnexo {
   id: string;
   parceiro_id: string;
+  /** Migração 044 — validade do documento (YYYY-MM-DD); `null` = não vence. */
+  validade: string | null;
   nome_arquivo: string;
   tipo_arquivo: string;
   tamanho_bytes: number;
@@ -379,6 +385,18 @@ export interface ParceiroAnexo {
  * parceiro_principal_id`/`pessoas_alocadas`/`parceiros_alocados`, mantidos
  * no schema só por compatibilidade com serviços já criados). Um serviço pode
  * ter N linhas destas. */
+/** Um funcionário da equipe própria alocado num serviço, com as funções que
+ * exerce nele (migração 044) — o equivalente de `ServicoParceiroExecucao`
+ * para funcionários. Conta como 1 pessoa mobilizada na capacidade. */
+export interface ServicoFuncionarioExecucao {
+  id: string;
+  servico_id: string;
+  funcionario_id: string;
+  tipos_trabalho: TipoTrabalhoOperacional[];
+  data_adicao: string;
+  funcionario?: { id: string; nome: string; cargo: string | null; status: string } | null;
+}
+
 export interface ServicoParceiroExecucao {
   id: string;
   servico_id: string;
@@ -523,6 +541,8 @@ export interface Servico {
   /** Parceiros vinculados ao serviço, cada um com seu headcount/tipos de
    * trabalho — ver `ServicoParceiroExecucao`. */
   parceiros_execucao?: ServicoParceiroExecucao[];
+  /** Funcionários da equipe própria alocados (migração 044). */
+  funcionarios_execucao?: ServicoFuncionarioExecucao[];
 }
 
 export type TipoEventoServico = "criacao" | "mudanca_etapa" | "anexo_adicionado" | "finalizacao";
@@ -731,6 +751,8 @@ export interface Funcionario {
   numero_funcionario: string | null;
   nome: string;
   cargo: string | null;
+  /** Migração 044 — funções que exerce (mesma lista de parceiros e obras). */
+  tipos_trabalho: TipoTrabalhoOperacional[];
   cpf: string | null;
   telefone: string | null;
   email: string | null;
@@ -758,4 +780,104 @@ export interface FuncionarioAnexo {
   url: string;
   data_adicao: string;
   adicionado_por: string | null;
+}
+
+// ---------------------------------------------------------------------------
+// Compras e diárias (migração 044) — módulo Operacional.
+// ---------------------------------------------------------------------------
+
+export type StatusPedidoCompra = "rascunho" | "enviado" | "recebido" | "cancelado";
+
+export interface PedidoCompraItem {
+  id: string;
+  pedido_id: string;
+  descricao: string;
+  unidade: string;
+  quantidade: number;
+  preco_unitario: number;
+  /** Item correspondente no catálogo de preços do orçamento (opcional). */
+  preco_config_id: number | null;
+  ordem: number;
+}
+
+export interface PedidoCompra {
+  id: string;
+  /** PC00001, gerado pelo banco. */
+  numero: string;
+  fornecedor_id: string;
+  servico_id: string | null;
+  cotacao_id: string | null;
+  status: StatusPedidoCompra;
+  data_pedido: string;
+  previsao_entrega: string | null;
+  data_recebimento: string | null;
+  observacoes: string | null;
+  valor_total: number;
+  /** Conta a pagar gerada ao receber. */
+  lancamento_id: string | null;
+  criado_por: string | null;
+  created_at: string;
+  updated_at: string;
+  // Joins (ver PedidoCompraRepository.select).
+  itens?: PedidoCompraItem[];
+  fornecedor?: { id: string; nome: string } | null;
+  servico?: { id: string; numero_servico: string; cliente?: { nome: string } | null } | null;
+}
+
+export interface CotacaoItem {
+  id: string;
+  descricao: string;
+  unidade: string;
+  quantidade: number;
+}
+
+export interface CotacaoProposta {
+  id: string;
+  cotacao_id: string;
+  fornecedor_id: string;
+  /** Preço unitário por id de item da cotação. */
+  precos: Record<string, number>;
+  prazo_entrega_dias: number | null;
+  condicao_pagamento: string | null;
+  observacoes: string | null;
+  created_at: string;
+  fornecedor?: { id: string; nome: string } | null;
+}
+
+export interface Cotacao {
+  id: string;
+  /** CT00001, gerado pelo banco. */
+  numero: string;
+  titulo: string;
+  servico_id: string | null;
+  status: "aberta" | "concluida" | "cancelada";
+  itens: CotacaoItem[];
+  observacoes: string | null;
+  criado_por: string | null;
+  created_at: string;
+  updated_at: string;
+  propostas?: CotacaoProposta[];
+  servico?: { id: string; numero_servico: string; cliente?: { nome: string } | null } | null;
+}
+
+export type PeriodoDiaria = "manha" | "tarde" | "noite" | "integral";
+
+/** Apontamento de mão de obra numa obra, num dia. */
+export interface Diaria {
+  id: string;
+  servico_id: string;
+  /** Quem trabalhou: um parceiro OU um funcionário (exatamente um dos dois). */
+  parceiro_id: string | null;
+  funcionario_id: string | null;
+  data: string;
+  periodo: PeriodoDiaria;
+  pessoas: number;
+  funcao: string | null;
+  /** Valor total do apontamento (todas as pessoas, no período). */
+  valor: number;
+  observacoes: string | null;
+  criado_por: string | null;
+  created_at: string;
+  parceiro?: { id: string; nome: string } | null;
+  funcionario?: { id: string; nome: string } | null;
 }

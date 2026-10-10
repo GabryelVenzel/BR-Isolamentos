@@ -63,6 +63,11 @@ export default function ServicoCard({ servico, opcoesMover, onMover, onAbrir, on
           <HardHat className="icone" aria-hidden /> {servico.parceiros_execucao!.map((e) => e.parceiro?.nome ?? "—").join(", ")}
         </p>
       )}
+      {(servico.funcionarios_execucao ?? []).length > 0 && (
+        <p className="truncate text-xs text-gray-500">
+          <HardHat className="icone" aria-hidden /> Equipe: {servico.funcionarios_execucao!.map((e) => e.funcionario?.nome ?? "—").join(", ")}
+        </p>
+      )}
       {servico.etapa === "finalizado" ? (
         <p className="mt-1 text-xs font-semibold text-accent"><CheckCircle2 className="icone" aria-hidden /> Concluído</p>
       ) : (

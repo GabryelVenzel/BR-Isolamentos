@@ -8,6 +8,7 @@ import { podeAcessarModulo, type Acesso } from "../acesso";
 import {
   CONFIG_ALERTAS_PADRAO,
   alertasDocumentos,
+  alertasDocumentosDeParceiros,
   alertasFinanceiros,
   alertasObras,
   ordenarAlertas,
@@ -16,7 +17,13 @@ import {
 } from "../alertas";
 import { hojeBrasilia } from "../financeiro";
 import { logger } from "../logger";
-import { DocumentoEmpresaRepository, FuncionarioAnexoRepository, LancamentoFinanceiroRepository, ServicoRepository } from "../repositories";
+import {
+  DocumentoEmpresaRepository,
+  FuncionarioAnexoRepository,
+  LancamentoFinanceiroRepository,
+  ServicoRepository,
+  listarDocumentosDeParceirosComValidade,
+} from "../repositories";
 import { calcularResultadoPorObra } from "../usecases/financeiro";
 import { ValidationError } from "../errors";
 
@@ -72,7 +79,7 @@ export function createAlertasContext(supabase: SupabaseClient) {
       const cfg = await config();
       const hoje = hojeBrasilia();
 
-      const [financeiro, rh, obras] = await Promise.all([
+      const [financeiro, rh, obras, parceiros] = await Promise.all([
         podeAcessarModulo(acesso, "financeiro")
           ? tentar("financeiro", async () => alertasFinanceiros(await lancamentoRepo.listar({ pago: false }), hoje, cfg.dias_contas_a_vencer))
           : [],
@@ -107,9 +114,15 @@ export function createAlertasContext(supabase: SupabaseClient) {
               );
             })
           : [],
+
+        podeAcessarModulo(acesso, "operacional")
+          ? tentar("documentos de parceiros", async () =>
+              alertasDocumentosDeParceiros(await listarDocumentosDeParceirosComValidade(supabase), hoje, cfg.dias_documentos_a_vencer)
+            )
+          : [],
       ]);
 
-      return { alertas: ordenarAlertas([...financeiro, ...rh, ...obras]), config: cfg };
+      return { alertas: ordenarAlertas([...financeiro, ...rh, ...obras, ...parceiros]), config: cfg };
     },
   };
 }

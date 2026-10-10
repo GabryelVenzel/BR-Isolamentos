@@ -9,6 +9,7 @@ import {
   AgendamentoRepository,
   FornecedorAnexoRepository,
   FornecedorRepository,
+  FuncionarioRepository,
   HistoricoServicoRepository,
   InteracaoServicoRepository,
   LeadRepository,
@@ -74,6 +75,11 @@ export function createOperacionalContext(supabase: SupabaseClient) {
 
   const reposServico = { servicoRepo, historicoRepo: historicoServicoRepo };
   const reposCriarServico = { servicoRepo, historicoRepo: historicoServicoRepo, leadRepo, orcamentoRepo };
+
+  // Equipe própria na capacidade (migração 044). Quem não enxerga o cadastro
+  // de funcionários (sem RH nem Operacional) simplesmente não os vê na conta.
+  const funcionarioRepo = new FuncionarioRepository(supabase);
+  const funcionariosAtivos = () => funcionarioRepo.listar({ status: "ativo" }).catch(() => []);
 
   return {
     parceiroRepo,
@@ -248,11 +254,12 @@ export function createOperacionalContext(supabase: SupabaseClient) {
     // --- Capacidade ---
 
     async obterCapacidadeDia(data: string): Promise<CapacidadeDia> {
-      const [parceiros, servicosAtivos] = await Promise.all([
+      const [parceiros, servicosAtivos, funcionarios] = await Promise.all([
         parceiroRepo.listar({ ativo: true }),
         servicoRepo.listarAtivosNoDia(data),
+        funcionariosAtivos(),
       ]);
-      return calcularCapacidadeDia(data, parceiros, servicosAtivos);
+      return calcularCapacidadeDia(data, parceiros, servicosAtivos, funcionarios);
     },
 
     /** Resumo dia-a-dia do mês inteiro (grid de cor do calendário da Agenda) —
@@ -262,11 +269,12 @@ export function createOperacionalContext(supabase: SupabaseClient) {
       const dataInicio = `${ano}-${String(mes).padStart(2, "0")}-01`;
       const dataFim = `${ano}-${String(mes).padStart(2, "0")}-${String(ultimoDia).padStart(2, "0")}`;
 
-      const [parceiros, servicosDoMes] = await Promise.all([
+      const [parceiros, servicosDoMes, funcionarios] = await Promise.all([
         parceiroRepo.listar({ ativo: true }),
         servicoRepo.listarAtivosNoIntervalo(dataInicio, dataFim),
+        funcionariosAtivos(),
       ]);
-      return calcularCapacidadeMes(ano, mes, parceiros, servicosDoMes);
+      return calcularCapacidadeMes(ano, mes, parceiros, servicosDoMes, funcionarios);
     },
 
     // --- Relatórios ---

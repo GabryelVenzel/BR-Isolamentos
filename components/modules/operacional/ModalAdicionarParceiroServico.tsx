@@ -5,6 +5,9 @@ import { toast } from "./toast";
 import MultiSelectTiposTrabalho, { TIPOS_TRABALHO_OPCOES } from "./MultiSelectTiposTrabalho";
 import type { Parceiro, ServicoParceiroExecucao, TipoTrabalhoOperacional } from "@/lib/types/domain";
 import FecharComEsc from "@/components/ui/FecharComEsc";
+import { confirmar } from "@/components/ui/confirmar";
+import type { DocumentoVencidoDeParceiro } from "@/lib/contexts/compras";
+import { formatarData } from "@/lib/format";
 
 interface Props {
   servicoId: string;
@@ -23,6 +26,15 @@ export default function ModalAdicionarParceiroServico({ servicoId, onFechar, onA
   const [tiposTrabalho, setTiposTrabalho] = useState<TipoTrabalhoOperacional[]>([]);
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const [vencidos, setVencidos] = useState<DocumentoVencidoDeParceiro[]>([]);
+
+  useEffect(() => {
+    fetch("/api/operacional/parceiros/documentos-vencidos")
+      .then((r) => r.json())
+      .then((p) => p.success && setVencidos(p.data))
+      .catch(() => undefined);
+  }, []);
+  const vencidosDoParceiro = vencidos.filter((d) => d.parceiroId === parceiroId);
 
   useEffect(() => {
     // capacidade=mao_de_obra (migração 027) — só parceiros que fornecem mão
@@ -46,6 +58,19 @@ export default function ModalAdicionarParceiroServico({ servicoId, onFechar, onA
       return;
     }
     setErro(null);
+
+    // Documentação vencida (migração 044): avisa e pede confirmação — não
+    // bloqueia, porque quem decide se o parceiro pode entrar na obra é a operação.
+    if (vencidosDoParceiro.length > 0) {
+      const seguir = await confirmar(
+        `Este parceiro tem ${vencidosDoParceiro.length === 1 ? "documento vencido" : "documentos vencidos"}: ${vencidosDoParceiro
+          .map((d) => `${d.nome} (${formatarData(d.validade)})`)
+          .join(", ")}. Adicionar à obra mesmo assim?`,
+        { titulo: "Documentação vencida", confirmarLabel: "Adicionar mesmo assim", perigo: false }
+      );
+      if (!seguir) return;
+    }
+
     setSalvando(true);
 
     try {
@@ -90,6 +115,11 @@ export default function ModalAdicionarParceiroServico({ servicoId, onFechar, onA
                 </option>
               ))}
             </select>
+            {vencidosDoParceiro.length > 0 && (
+              <p role="alert" className="mt-2 rounded-input bg-red-50 px-3 py-2 text-xs text-status-error">
+                Documentação vencida: {vencidosDoParceiro.map((d) => `${d.nome} (${formatarData(d.validade)})`).join(", ")}.
+              </p>
+            )}
           </div>
 
           <div>

@@ -16,7 +16,7 @@ export class ServicoRepository extends BaseRepository<Servico> {
   // atual, ver sql-migration-013) resolvidos via join — o Kanban e o modal de
   // detalhes sempre precisam do nome, não só do id.
   protected select =
-    "*, cliente:clientes(*), parceiro_principal:parceiros(*), parceiros_execucao:servico_parceiros_execucao(*, parceiro:parceiros(*))";
+    "*, cliente:clientes(*), parceiro_principal:parceiros(*), parceiros_execucao:servico_parceiros_execucao(*, parceiro:parceiros(*)), funcionarios_execucao:servico_funcionarios_execucao(*, funcionario:funcionarios(id, nome, cargo, status))";
 
   constructor(supabase: SupabaseClient) {
     super(supabase, "servicos");

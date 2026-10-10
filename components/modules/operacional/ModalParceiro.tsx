@@ -38,6 +38,7 @@ const CAMPO_NOTAS: Record<TipoTrabalhoOperacional, keyof Parceiro> = {
   caldeiraria_montagem: "notas_caldeiraria_montagem",
   removivel_montagem: "notas_removivel_montagem",
   removivel_fabricacao: "notas_removivel_fabricacao",
+  ajudante: "notas_ajudante",
 };
 
 interface Form {

@@ -228,6 +228,44 @@ export function alertasObras(obras: ObraParaAlerta[], hoje: string): Alerta[] {
   return alertas;
 }
 
+// --- Operacional: documentação de parceiros ------------------------------------
+
+export function alertasDocumentosDeParceiros(
+  documentos: Array<{ parceiro: string; nome: string; validade: string }>,
+  hoje: string,
+  diasAviso: number
+): Alerta[] {
+  const alertas: Alerta[] = [];
+  const rotulo = (d: { parceiro: string; nome: string }) => `${d.nome} (${d.parceiro})`;
+  const href = "/operacional/parceiros";
+
+  const vencidos = documentos.filter((d) => situacaoValidade(d.validade, hoje, diasAviso) === "vencido");
+  if (vencidos.length > 0) {
+    alertas.push({
+      id: "documentos-parceiro-vencidos",
+      modulo: "operacional",
+      severidade: "critico",
+      titulo: `${plural(vencidos.length, "documento", "documentos")} de parceiros ${vencidos.length === 1 ? "vencido" : "vencidos"}`,
+      detalhe: `${resumirNomes(vencidos.map(rotulo))}.`,
+      href,
+    });
+  }
+
+  const vencendo = documentos.filter((d) => situacaoValidade(d.validade, hoje, diasAviso) === "vencendo");
+  if (vencendo.length > 0) {
+    alertas.push({
+      id: "documentos-parceiro-vencendo",
+      modulo: "operacional",
+      severidade: "atencao",
+      titulo: `${plural(vencendo.length, "documento", "documentos")} de parceiros ${vencendo.length === 1 ? "vence" : "vencem"} em até ${plural(diasAviso, "dia", "dias")}`,
+      detalhe: `${resumirNomes(vencendo.map(rotulo))}.`,
+      href,
+    });
+  }
+
+  return alertas;
+}
+
 /** Críticos primeiro; dentro de cada severidade, na ordem em que chegaram. */
 export function ordenarAlertas(alertas: Alerta[]): Alerta[] {
   return [...alertas].sort((a, b) => Number(b.severidade === "critico") - Number(a.severidade === "critico"));
