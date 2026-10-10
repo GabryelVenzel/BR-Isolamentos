@@ -65,6 +65,11 @@ export interface Lead {
   etapa: EtapaFunil;
   temperatura: TemperaturaLead;
   valor_estimado: number;
+  /** Migração 043 — por quanto a venda foi fechada, informado ao mover o
+   * lead pra "Fechado". Pode diferir do orçamento vinculado (proposta por
+   * metro/unidade, desconto). `null` fora de "Fechado" e em comissão. Ver
+   * `valorDoLead` em lib/leads.ts. */
+  valor_fechado: number | null;
   /** Canal de origem do lead (ex.: "indicação", "site", "feira") — texto livre. */
   origem: string | null;
   proxima_acao: string | null;

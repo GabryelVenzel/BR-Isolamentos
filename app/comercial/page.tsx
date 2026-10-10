@@ -11,6 +11,8 @@ import LeadDetailModal from "@/components/modules/comercial/LeadDetailModal";
 import ClientesTab from "@/components/modules/comercial/ClientesTab";
 import ConfiguracoesTab from "@/components/modules/comercial/ConfiguracoesTab";
 import NovoLeadModal from "@/components/comercial/NovoLeadModal";
+import ValorFechadoHost, { pedirValorFechado } from "@/components/modules/comercial/ValorFechado";
+import { exigeValorFechado, valorDoLead } from "@/lib/leads";
 import { formatarEtapa, formatarMoeda } from "@/lib/format";
 import type { AgendamentoLeadFrio, EtapaFunil, Lead } from "@/lib/types/domain";
 import { confirmar } from "@/components/ui/confirmar";
@@ -134,15 +136,23 @@ function ComercialPageConteudo() {
     const leadAtual = leads.find((l) => l.id === leadId);
     if (!leadAtual || leadAtual.etapa === novaEtapa) return;
 
+    // Fechar uma venda pede o valor fechado antes de mover (migração 043).
+    let valorFechado: number | undefined;
+    if (novaEtapa === "fechado" && exigeValorFechado(leadAtual)) {
+      const informado = await pedirValorFechado(leadAtual);
+      if (informado === null) return;
+      valorFechado = informado;
+    }
+
     // Atualização otimista — o card já pula de coluna antes da resposta do
     // servidor; se falhar, o card volta (refetch) e o erro aparece no toast.
-    setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, etapa: novaEtapa } : l)));
+    setLeads((prev) => prev.map((l) => (l.id === leadId ? { ...l, etapa: novaEtapa, ...(valorFechado !== undefined && { valor_fechado: valorFechado }) } : l)));
 
     try {
       const response = await fetch(`/api/comercial/leads/${leadId}/mover`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ novaEtapa }),
+        body: JSON.stringify({ novaEtapa, valorFechado }),
       });
       const payload = await response.json();
       if (!response.ok || !payload.success) {
@@ -190,7 +200,7 @@ function ComercialPageConteudo() {
   // KanbanBoard.tsx) — sem isso, esses leads ficavam de fora do total.
   const valorTotalAtivo = leads
     .filter((l) => l.etapa !== "fechado" && l.etapa !== "perdido")
-    .reduce((acc, l) => acc + (l.eh_comissao ? l.valor_comissao ?? 0 : l.valor_estimado), 0);
+    .reduce((acc, l) => acc + valorDoLead(l), 0);
 
   const totalLeadsAtrasados = leads.filter((l) => l.etapa_atrasada).length;
   const totalLeadsComissao = leads.filter((l) => l.eh_comissao).length;
@@ -298,6 +308,8 @@ function ComercialPageConteudo() {
           }}
         />
       )}
+
+      <ValorFechadoHost />
 
       {mostrarNovoLead && (
         <NovoLeadModal

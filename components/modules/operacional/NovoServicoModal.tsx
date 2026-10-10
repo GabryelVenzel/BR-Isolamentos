@@ -150,7 +150,9 @@ export default function NovoServicoModal({ leadIdInicial, onFechar, onCriado }: 
               </p>
               {leadSelecionado.orcamento_id ? (
                 <p>
-                  <span className="text-gray-500">Valor orçado:</span> {formatarMoeda(leadSelecionado.valor_estimado)}
+                  <span className="text-gray-500">Valor orçado da obra:</span>{" "}
+                  {formatarMoeda(leadSelecionado.valor_fechado ?? leadSelecionado.orcamento?.valor_final ?? leadSelecionado.valor_estimado)}
+                  {leadSelecionado.valor_fechado != null && <span className="text-xs text-gray-500"> (valor fechado do lead)</span>}
                 </p>
               ) : (
                 <p className="text-status-error">Este lead não tem orçamento vinculado.</p>

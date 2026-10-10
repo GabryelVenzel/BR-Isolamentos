@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import { CampoMoeda } from "@/components/ui/CamposDocumento";
 import { toast } from "./toast";
 import AnexosLead from "./AnexosLead";
+import { pedirValorFechado } from "./ValorFechado";
+import { exigeValorFechado } from "@/lib/leads";
 import NovoServicoModal from "@/components/modules/operacional/NovoServicoModal";
 import {
   classesTemperatura,
@@ -269,10 +271,16 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
     setSalvandoStatus(true);
     try {
       if (etapaSelecionada !== lead.etapa) {
+        let valorFechado: number | undefined;
+        if (etapaSelecionada === "fechado" && exigeValorFechado(lead)) {
+          const informado = await pedirValorFechado(lead);
+          if (informado === null) return;
+          valorFechado = informado;
+        }
         const response = await fetch(`/api/comercial/leads/${leadId}/mover`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ novaEtapa: etapaSelecionada }),
+          body: JSON.stringify({ novaEtapa: etapaSelecionada, valorFechado }),
         });
         const payload = await response.json();
         if (!response.ok || !payload.success) {
@@ -412,6 +420,12 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
                         <p className="mt-1 text-xs text-gray-400">
                           Independente do orçamento vinculado — não muda sozinho ao vincular/trocar um orçamento.
                         </p>
+                        {lead.etapa === "fechado" && lead.valor_fechado != null && (
+                          <p className="mt-2 rounded-input bg-accent-light px-3 py-2 text-xs text-accent-dark">
+                            Valor fechado: <strong>{formatarMoeda(lead.valor_fechado)}</strong> — referência para o valor orçado da obra criada a partir deste lead. Para alterar, mova o lead de
+                            etapa e feche de novo.
+                          </p>
+                        )}
                       </div>
                       <div>
                         <label className="label-field">Origem</label>

@@ -40,7 +40,10 @@ export async function criarServico(
     // filtros/relatórios que ainda agrupam por um tipo só (ver decisão em
     // sql-migration-011-servicos-multiplos-tipos.sql).
     tipo_trabalho: dados.tipos_trabalho[0],
-    valor_orcado: orcamento.valor_final,
+    // O "orçado" da obra é o valor FECHADO com o cliente (migração 043) —
+    // pode diferir do orçamento (proposta por metro/unidade, desconto). Lead
+    // sem valor fechado (fechado antes da 043) cai no valor do orçamento.
+    valor_orcado: lead.valor_fechado ?? orcamento.valor_final,
     data_inicio: dados.data_inicio,
     data_fim_prevista: dados.data_fim_prevista ?? null,
     descricao: dados.descricao ?? null,

@@ -9,6 +9,7 @@ function lead(overrides: Partial<Lead> = {}): Lead {
     etapa: "contato",
     temperatura: "morno",
     valor_estimado: 1000,
+    valor_fechado: null,
     origem: null,
     proxima_acao: null,
     data_proxima_acao: null,

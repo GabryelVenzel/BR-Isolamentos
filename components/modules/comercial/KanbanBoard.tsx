@@ -3,6 +3,7 @@
 import { useState, type DragEvent } from "react";
 import LeadCardKanban from "./LeadCardKanban";
 import { formatarEtapa, formatarMoeda } from "@/lib/format";
+import { valorDoLead } from "@/lib/leads";
 import type { EtapaFunil, Lead } from "@/lib/types/domain";
 
 const ETAPAS_ATIVAS: EtapaFunil[] = ["prospeccao", "contato", "proposta", "negociacao", "fechado"];
@@ -57,7 +58,7 @@ export default function KanbanBoard({ leads, onAbrirLead, onMoverLead, nomesResp
         // distinção que LeadCardKanban.tsx já faz pra decidir o que exibir no
         // card. Sem isso, a soma do topo da coluna ignorava esses leads
         // mesmo eles mostrando um valor certinho no próprio card.
-        const valorEtapa = leadsDaEtapa.reduce((soma, l) => soma + (l.eh_comissao ? l.valor_comissao ?? 0 : l.valor_estimado), 0);
+        const valorEtapa = leadsDaEtapa.reduce((soma, l) => soma + valorDoLead(l), 0);
 
         return (
           <div

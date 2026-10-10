@@ -76,6 +76,9 @@ export const UpdateLeadSchema = CamposBaseLeadSchema.partial().superRefine(exigi
 export const MoverLeadSchema = z.object({
   leadId: z.string().min(1),
   novaEtapa: EtapaFunilSchema,
+  /** Obrigatório ao mover pra "fechado" um lead que não é de comissão
+   * (migração 043) — a regra fica em moverLead.ts, que conhece o lead. */
+  valorFechado: z.number().positive("O valor fechado precisa ser maior que zero.").optional(),
 });
 
 // Vincula um orçamento ao lead — obrigatório antes de mover pra etapa

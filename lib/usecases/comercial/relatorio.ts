@@ -46,7 +46,7 @@ export function calcularKpis(leads: Lead[]): KpisComercial {
   const ativos = leads.filter((l) => l.etapa !== "fechado" && l.etapa !== "perdido");
 
   const valorEmPipeline = ativos.reduce((soma, l) => soma + l.valor_estimado, 0);
-  const valorFechado = fechados.reduce((soma, l) => soma + l.valor_estimado, 0);
+  const valorFechado = fechados.reduce((soma, l) => soma + (l.valor_fechado ?? l.valor_estimado), 0);
 
   return {
     totalLeads,

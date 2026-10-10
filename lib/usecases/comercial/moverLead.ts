@@ -1,4 +1,5 @@
-import { ConflictError, NotFoundError } from "../../errors";
+import { ConflictError, NotFoundError, ValidationError } from "../../errors";
+import { exigeValorFechado } from "../../leads";
 import { logger } from "../../logger";
 import type { AnexoLeadRepository, HistoricoMudancaLeadRepository, LancamentoFinanceiroRepository, LeadRepository, OrcamentoRepository } from "../../repositories";
 import type { EtapaFunil, HistoricoMudancaLead, Lead, LancamentoFinanceiro } from "../../types/domain";
@@ -57,6 +58,9 @@ const STATUS_ORCAMENTO_POR_ETAPA: Partial<Record<EtapaFunil, StatusOrcamento>> =
  * abaixo) — falha ao gerar o lançamento é só logada, nunca impede o
  * fechamento do lead (pedido explícito).
  *
+ * Mover pra "fechado" um lead que não é de comissão exige o VALOR FECHADO
+ * (migração 043) — ver comentário no corpo da função.
+ *
  * Toda mudança de etapa grava uma entrada em `historico_mudancas_leads`
  * (a timeline "Caminho do lead" do LeadDetailModal) e atualiza
  * `leads.etapa_anterior`, para o card/modal saberem "de onde" o lead veio
@@ -72,7 +76,7 @@ export async function moverLead(
   },
   usuarioEmail?: string | null
 ): Promise<Lead> {
-  const { leadId, novaEtapa } = parseOrThrow(MoverLeadSchema, input);
+  const { leadId, novaEtapa, valorFechado } = parseOrThrow(MoverLeadSchema, input);
 
   const lead = await repos.leadRepo.findById(leadId);
   if (!lead) throw new NotFoundError(`Lead ${leadId} não encontrado.`);
@@ -90,9 +94,20 @@ export async function moverLead(
     }
   }
 
+  // Valor fechado (migração 043): fechar uma venda exige dizer por quanto —
+  // é o valor que vira o "orçado" da obra, e pode ser diferente do orçamento
+  // vinculado (proposta por metro/unidade, desconto negociado). Sair de
+  // "Fechado" limpa o valor: o negócio voltou a estar em aberto.
+  const fechando = novaEtapa === "fechado" && exigeValorFechado(lead);
+  if (fechando && !valorFechado) {
+    throw new ValidationError("Informe o valor fechado para fechar a venda.");
+  }
+
   const atualizado = await repos.leadRepo.update(leadId, {
     etapa: novaEtapa,
     etapa_anterior: lead.etapa,
+    ...(fechando && { valor_fechado: valorFechado }),
+    ...(lead.etapa === "fechado" && lead.valor_fechado != null && { valor_fechado: null }),
   } as Partial<Lead>);
 
   // `orcamentoRepo` é opcional só pra não quebrar chamadores/testes antigos

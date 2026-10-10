@@ -116,8 +116,8 @@ export function createComercialContext(supabase: SupabaseClient) {
       return atualizarLead(id, dados, { leadRepo });
     },
 
-    moverLead(leadId: string, novaEtapa: EtapaFunil, usuarioEmail?: string | null): Promise<Lead> {
-      return moverLead({ leadId, novaEtapa }, reposMoverLead, usuarioEmail);
+    moverLead(leadId: string, novaEtapa: EtapaFunil, usuarioEmail?: string | null, valorFechado?: number): Promise<Lead> {
+      return moverLead({ leadId, novaEtapa, valorFechado }, reposMoverLead, usuarioEmail);
     },
 
     mudarTemperatura(

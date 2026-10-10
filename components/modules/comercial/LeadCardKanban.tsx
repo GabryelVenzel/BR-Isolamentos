@@ -2,6 +2,7 @@
 
 import { classesTemperatura, formatarData, formatarMoeda, formatarTemperatura } from "@/lib/format";
 import MoverPara from "@/components/ui/MoverPara";
+import { valorDoLead } from "@/lib/leads";
 import type { EtapaFunil, Lead } from "@/lib/types/domain";
 import { AlertTriangle, Calendar, CheckCircle2, Gift, Handshake, MapPin, RefreshCw, Timer, User } from "lucide-react";
 
@@ -78,8 +79,8 @@ export default function LeadCardKanban({ lead, nomeResponsavel, opcoesMover, onM
           )}
         </>
       ) : (
-        lead.valor_estimado > 0 && (
-          <p className="mb-1.5 font-montserrat text-base font-bold text-accent">{formatarMoeda(lead.valor_estimado)}</p>
+        valorDoLead(lead) > 0 && (
+          <p className="mb-1.5 font-montserrat text-base font-bold text-accent">{formatarMoeda(valorDoLead(lead))}</p>
         )
       )}
 

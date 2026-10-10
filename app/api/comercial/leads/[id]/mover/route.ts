@@ -11,7 +11,8 @@ interface Params {
 
 /** POST: move o lead para qualquer etapa do funil (qualquer transição é
  * permitida — ver `lib/usecases/comercial/moverLead.ts`). Corpo:
- * `{ novaEtapa: EtapaFunil }`. Usado tanto pelo drag&drop do Kanban quanto
+ * `{ novaEtapa: EtapaFunil, valorFechado?: number }` (`valorFechado` é
+ * obrigatório ao fechar um lead que não é de comissão). Usado tanto pelo drag&drop do Kanban quanto
  * pelo dropdown de etapa do LeadDetailModal. */
 export async function POST(request: Request, { params }: Params) {
   const supabase = createSupabaseServerClient();
@@ -25,7 +26,8 @@ export async function POST(request: Request, { params }: Params) {
       data: { user },
     } = await supabase.auth.getUser();
 
-    const lead = await ctx.moverLead(params.id, body.novaEtapa, user?.email ?? null);
+    const valorFechado = typeof body.valorFechado === "number" ? body.valorFechado : undefined;
+    const lead = await ctx.moverLead(params.id, body.novaEtapa, user?.email ?? null, valorFechado);
     logger.info("Lead movido de etapa", { id: params.id, novaEtapa: body.novaEtapa });
     return NextResponse.json(apiSuccess(lead));
   } catch (error) {

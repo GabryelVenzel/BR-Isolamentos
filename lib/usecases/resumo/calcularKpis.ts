@@ -55,7 +55,7 @@ export async function calcularKpis(filtros: FiltrosResumo, repos: ReposKpis): Pr
     leadRepo.listarPorEtapaNoIntervalo("fechado", anterior.dataInicio, anterior.dataFim, filtros.responsavel),
     leadRepo.contarCriadosNoIntervalo(intervalo.dataInicio, intervalo.dataFim, filtros.responsavel),
   ]);
-  const valorFechadosAtual = fechadosAtual.reduce((acc, l) => acc + l.valor_estimado, 0);
+  const valorFechadosAtual = fechadosAtual.reduce((acc, l) => acc + (l.valor_fechado ?? l.valor_estimado), 0);
   // Conversão do período: fechados que entraram nessa janela / leads criados
   // na mesma janela. É uma aproximação (um lead fechado no período pode ter
   // sido criado antes dele) — uma taxa histórica "de verdade" precisaria de

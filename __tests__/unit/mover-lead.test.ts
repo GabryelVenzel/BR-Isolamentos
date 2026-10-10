@@ -10,6 +10,7 @@ function criarLeadFake(overrides: Partial<Lead> = {}): Lead {
     etapa: "prospeccao",
     temperatura: "morno",
     valor_estimado: 1000,
+    valor_fechado: null,
     origem: null,
     proxima_acao: null,
     data_proxima_acao: null,
@@ -57,12 +58,12 @@ describe("moverLead", () => {
     const historicoRepo = criarHistoricoRepoFake();
 
     const resultado = await moverLead(
-      { leadId: "lead-1", novaEtapa: "fechado" },
+      { leadId: "lead-1", novaEtapa: "fechado", valorFechado: 1000 },
       { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never }
     );
 
     expect(resultado.etapa).toBe("fechado");
-    expect(leadRepo.update).toHaveBeenCalledWith("lead-1", { etapa: "fechado", etapa_anterior: "prospeccao" });
+    expect(leadRepo.update).toHaveBeenCalledWith("lead-1", { etapa: "fechado", etapa_anterior: "prospeccao", valor_fechado: 1000 });
   });
 
   it("permite reabrir um lead já em etapa terminal (fechado/perdido)", async () => {
@@ -164,7 +165,7 @@ describe("moverLead", () => {
     const orcamentoRepo = criarOrcamentoRepoFake();
 
     await moverLead(
-      { leadId: "lead-1", novaEtapa: "fechado" },
+      { leadId: "lead-1", novaEtapa: "fechado", valorFechado: 1000 },
       { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never, orcamentoRepo: orcamentoRepo as never }
     );
 
@@ -203,7 +204,7 @@ describe("moverLead", () => {
     const orcamentoRepo = criarOrcamentoRepoFake();
 
     await moverLead(
-      { leadId: "lead-1", novaEtapa: "fechado" },
+      { leadId: "lead-1", novaEtapa: "fechado", valorFechado: 1000 },
       { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never, orcamentoRepo: orcamentoRepo as never }
     );
 
@@ -215,7 +216,7 @@ describe("moverLead", () => {
     const historicoRepo = criarHistoricoRepoFake();
 
     const resultado = await moverLead(
-      { leadId: "lead-1", novaEtapa: "fechado" },
+      { leadId: "lead-1", novaEtapa: "fechado", valorFechado: 1000 },
       { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never }
     );
 
@@ -299,7 +300,7 @@ describe("moverLead", () => {
     const lancamentoRepo = criarLancamentoRepoFake();
 
     await moverLead(
-      { leadId: "lead-1", novaEtapa: "fechado" },
+      { leadId: "lead-1", novaEtapa: "fechado", valorFechado: 1000 },
       { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never, lancamentoRepo: lancamentoRepo as never }
     );
 
@@ -321,7 +322,7 @@ describe("moverLead", () => {
     const lancamentoRepo = criarLancamentoRepoFake();
 
     await moverLead(
-      { leadId: "lead-1", novaEtapa: "fechado" },
+      { leadId: "lead-1", novaEtapa: "fechado", valorFechado: 1000 },
       { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never, lancamentoRepo: lancamentoRepo as never }
     );
 
@@ -334,10 +335,37 @@ describe("moverLead", () => {
     const lancamentoRepo = { create: jest.fn(async () => { throw new Error("categoria removida"); }) };
 
     const resultado = await moverLead(
-      { leadId: "lead-1", novaEtapa: "fechado" },
+      { leadId: "lead-1", novaEtapa: "fechado", valorFechado: 1000 },
       { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never, lancamentoRepo: lancamentoRepo as never }
     );
 
     expect(resultado.etapa).toBe("fechado");
+  });
+});
+
+describe("moverLead — valor fechado (migração 043)", () => {
+  it("fechar uma venda sem informar o valor fechado é recusado", async () => {
+    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "negociacao", orcamento_id: 42 }));
+    const historicoRepo = criarHistoricoRepoFake();
+
+    await expect(moverLead({ leadId: "lead-1", novaEtapa: "fechado" }, { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never })).rejects.toThrow(/valor fechado/i);
+    expect(leadRepo.update).not.toHaveBeenCalled();
+  });
+
+  it("reabrir um lead fechado limpa o valor fechado", async () => {
+    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "fechado", valor_fechado: 29335.97 }));
+    const historicoRepo = criarHistoricoRepoFake();
+
+    await moverLead({ leadId: "lead-1", novaEtapa: "proposta" }, { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never });
+    expect(leadRepo.update).toHaveBeenCalledWith("lead-1", { etapa: "proposta", etapa_anterior: "fechado", valor_fechado: null });
+  });
+
+  it("lead de comissão fecha sem valor fechado", async () => {
+    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "negociacao", eh_comissao: true, valor_comissao: 500 }));
+    const historicoRepo = criarHistoricoRepoFake();
+
+    const resultado = await moverLead({ leadId: "lead-1", novaEtapa: "fechado" }, { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never });
+    expect(resultado.etapa).toBe("fechado");
+    expect(leadRepo.update).toHaveBeenCalledWith("lead-1", { etapa: "fechado", etapa_anterior: "negociacao" });
   });
 });
