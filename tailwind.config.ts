@@ -1,6 +1,6 @@
 import type { Config } from "tailwindcss";
 
-// Tokens de identidade visual — ver "1-IdentidadeVisual/Brand Book - BR
+// Tokens de identidade visual — ver "Arquivos BR Isolamentos/01 - Empresa/Identidade Visual/Brand Book - BR
 // ISOLAMENTOS.pdf" para a referência oficial. `brand` (azul marinho) e
 // `accent` (verde) já eram os nomes usados em todo o app antes desta marca
 // ter cores 100% definidas — mantidos para não precisar tocar em cada uma

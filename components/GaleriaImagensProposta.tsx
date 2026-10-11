@@ -37,7 +37,7 @@ interface Props {
  * gerada. Fica vazio até o usuário subir as primeiras fotos reais da
  * empresa — nenhuma imagem é inventada/baixada da internet.
  *
- * Não lê a pasta local `3-FotosEvideos` diretamente: é uma pasta do disco de
+ * Não lê a pasta local `Arquivos BR Isolamentos/06 - Fotos e Vídeos` diretamente: é uma pasta do disco de
  * quem desenvolve, fora de `public/` e fora do controle de versão — o app
  * publicado na Vercel não tem acesso a ela (serverless não enxerga o disco
  * local de quem desenvolveu). O Supabase Storage é o único jeito de fotos

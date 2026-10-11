@@ -12,17 +12,17 @@
 .env
 .env*.local
 
-# credentials doc (contains GitHub token + Supabase keys in plain text)
-0-DocumentosIniciais/Dados&chaves.md
+# Arquivos da empresa (identidade visual, estudos de clientes, propostas,
+# comprovantes financeiros, fotos, documentos e acessos) — repositório local
+# de trabalho, NUNCA vai para o GitHub.
+/Arquivos BR Isolamentos/
+
+# credentials doc (contains GitHub token + Supabase keys in plain text) —
+# rede de segurança caso o arquivo seja copiado para fora da pasta acima
 **/Dados&chaves.md
 
-# local-only working folders (client studies, photos, reference proposals,
-# institutional site, one-off scripts) — never part of the app
-/0-DocumentosIniciais/0-DocumentosIniciais/
-/0_estudosBR/
-/3-FotosEvideos/
-/5-propostasreferencias/
-/6-PropostasParceiros/
+# local-only working folders (institutional site, one-off scripts) — never
+# part of the app
 /SiteInstitucional/
 /scripts/
 

@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /*
- * Identidade visual BR Isolamentos — ver "1-IdentidadeVisual/Brand Book -
+ * Identidade visual BR Isolamentos — ver "Arquivos BR Isolamentos/01 - Empresa/Identidade Visual/Brand Book -
  * BR ISOLAMENTOS.pdf" e tailwind.config.ts para os tokens de cor/tipografia.
  *
  * Hierarquia de botões (Brand Book):
@@ -81,7 +81,7 @@
     @apply bg-brand-light text-left font-montserrat text-xs font-bold uppercase tracking-wide text-brand;
   }
 
-  /* Linha divisória verde — "1-IdentidadeVisual": usada sob o logo/título em
+  /* Linha divisória verde — Brand Book (Identidade Visual): usada sob o logo/título em
      páginas de apresentação e no cabeçalho/rodapé das propostas em PDF. */
   .divider-brand {
     @apply my-4 h-0.5 w-full bg-accent;
