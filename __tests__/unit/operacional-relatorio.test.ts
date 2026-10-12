@@ -33,6 +33,8 @@ function servico(overrides: Partial<Servico> = {}): Servico {
     fotos_url: [],
     pdf_relatorio_url: null,
     responsavel_email: null,
+    excluido_em: null,
+    excluido_por: null,
     created_at: "2026-01-01T00:00:00Z",
     updated_at: "2026-01-01T00:00:00Z",
     ...overrides,

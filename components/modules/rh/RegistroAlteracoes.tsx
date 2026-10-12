@@ -36,6 +36,16 @@ const LABEL_TABELA: Record<string, string> = {
   config_financeiro: "Configuração financeira",
   config_prazo_etapas: "Prazos por etapa",
   config_reativacao_leads_frios: "Reativação de leads frios",
+  historico_servicos: "Linha do tempo de serviço",
+  interacoes_servico: "Interações de serviço",
+  historico_mudancas_leads: "Linha do tempo de lead",
+  interacoes_lead: "Interações de lead",
+  diarias: "Diárias",
+  pedidos_compra: "Pedidos de compra",
+  cotacoes: "Cotações",
+  cotacao_propostas: "Propostas de cotação",
+  servico_funcionarios_execucao: "Funcionários do serviço",
+  config_alertas: "Prazos dos alertas",
 };
 
 function textoValor(valor: unknown): string {

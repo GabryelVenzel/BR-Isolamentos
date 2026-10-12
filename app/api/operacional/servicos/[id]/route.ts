@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createOperacionalContext } from "@/lib/contexts/operacional";
 import { apiError, apiSuccess } from "@/lib/types/common";
-import { toHttpError } from "@/lib/errors";
+import { ForbiddenError, toHttpError } from "@/lib/errors";
+import { acessoDeMetadata } from "@/lib/acesso";
 import { logger } from "@/lib/logger";
 
 interface Params {
@@ -39,12 +40,22 @@ export async function PATCH(request: Request, { params }: Params) {
   }
 }
 
+/** DELETE: manda o serviço pra LIXEIRA (migração 045) — só administrador.
+ * Ele some das telas, mas fica recuperável por 30 dias em Operacional →
+ * Serviços → Lixeira. */
 export async function DELETE(_request: Request, { params }: Params) {
-  const ctx = createOperacionalContext(createSupabaseServerClient());
+  const supabase = createSupabaseServerClient();
+  const ctx = createOperacionalContext(supabase);
 
   try {
-    await ctx.removerServico(params.id);
-    logger.info("Serviço excluído", { id: params.id });
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!acessoDeMetadata(user?.app_metadata).admin) {
+      throw new ForbiddenError("Só administradores podem excluir um serviço.");
+    }
+    await ctx.removerServico(params.id, user?.email ?? null);
+    logger.info("Serviço enviado para a lixeira", { id: params.id, por: user?.email });
     return NextResponse.json(apiSuccess({ ok: true }));
   } catch (error) {
     logger.error("Falha ao excluir serviço", error, { id: params.id });

@@ -532,6 +532,10 @@ export interface Servico {
   fotos_url: string[];
   pdf_relatorio_url: string | null;
   responsavel_email: string | null;
+  /** Migração 045 — preenchido quando o serviço está na LIXEIRA (excluído
+   * por um administrador, ainda recuperável por 30 dias). `null` = ativo. */
+  excluido_em: string | null;
+  excluido_por: string | null;
   created_at: string;
   updated_at: string;
   // Preenchidos via join, opcionais (ver ServicoRepository.select).

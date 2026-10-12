@@ -5,6 +5,8 @@ import { toast } from "@/components/modules/operacional/toast";
 import KanbanServicos from "@/components/modules/operacional/KanbanServicos";
 import ServicoDetailModal from "@/components/modules/operacional/ServicoDetailModal";
 import NovoServicoModal from "@/components/modules/operacional/NovoServicoModal";
+import LixeiraServicos from "@/components/modules/operacional/LixeiraServicos";
+import { useAcesso } from "@/lib/hooks/useAcesso";
 import { TIPOS_TRABALHO_OPCOES } from "@/components/modules/operacional/MultiSelectTiposTrabalho";
 import type { EtapaServico, Servico } from "@/lib/types/domain";
 
@@ -22,6 +24,8 @@ export default function ServicosPage() {
 
   const [servicoSelecionadoId, setServicoSelecionadoId] = useState<string | null>(null);
   const [mostrarNovo, setMostrarNovo] = useState(false);
+  const [mostrarLixeira, setMostrarLixeira] = useState(false);
+  const { acesso } = useAcesso();
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -86,9 +90,17 @@ export default function ServicosPage() {
           <h1 className="text-2xl font-bold">Serviços</h1>
           <p className="text-sm text-gray-500">{servicos.length} serviço{servicos.length === 1 ? "" : "s"} no funil de obras.</p>
         </div>
-        <button type="button" className="btn-primary" onClick={() => setMostrarNovo(true)}>
-          + Novo Serviço
-        </button>
+        <div className="flex flex-wrap gap-2">
+          {/* Lixeira (migração 045): serviços excluídos, recuperáveis por 30 dias — só administrador. */}
+          {acesso?.admin && (
+            <button type="button" className="btn-secondary" onClick={() => setMostrarLixeira(true)}>
+              Lixeira
+            </button>
+          )}
+          <button type="button" className="btn-primary" onClick={() => setMostrarNovo(true)}>
+            + Novo Serviço
+          </button>
+        </div>
       </div>
 
       <div className="card grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -132,6 +144,8 @@ export default function ServicosPage() {
           onServicoMudou={carregar}
         />
       )}
+
+      {mostrarLixeira && <LixeiraServicos onFechar={() => setMostrarLixeira(false)} onRestaurado={carregar} />}
 
       {mostrarNovo && (
         <NovoServicoModal

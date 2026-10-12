@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createComercialContext } from "@/lib/contexts/comercial";
 import { createFinanceiroContext } from "@/lib/contexts/financeiro";
+import { createOperacionalContext } from "@/lib/contexts/operacional";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { apiError, apiSuccess } from "@/lib/types/common";
 import { logger } from "@/lib/logger";
@@ -12,7 +13,8 @@ export const dynamic = "force-dynamic";
  * acontecia quando alguém abria a tela correspondente —
  *
  *   - reativa leads frios cujo prazo de retorno venceu;
- *   - gera os custos fixos do mês como lançamentos a pagar.
+ *   - gera os custos fixos do mês como lançamentos a pagar;
+ *   - remove de vez os serviços que estão há mais de 30 dias na lixeira.
  *
  * Não há usuário logado: roda com a chave de serviço, e por isso exige o
  * segredo `CRON_SECRET` — a Vercel envia `Authorization: Bearer <segredo>`
@@ -20,8 +22,8 @@ export const dynamic = "force-dynamic";
  * variável configurada a rota se recusa a rodar (nunca fica aberta).
  *
  * Os alertas do sino NÃO dependem desta rotina: são calculados na hora, a
- * cada consulta. As duas etapas são independentes — uma falhar não impede a
- * outra — e as telas continuam rodando as mesmas rotinas ao abrir. */
+ * cada consulta. As etapas são independentes — uma falhar não impede as
+ * outras — e as telas continuam rodando as mesmas rotinas ao abrir. */
 export async function GET(request: Request) {
   const segredo = process.env.CRON_SECRET;
   if (!segredo) {
@@ -47,6 +49,15 @@ export async function GET(request: Request) {
   } catch (error) {
     logger.error("Rotina diária: falha ao gerar custos fixos do mês", error);
     resultado.custosFixosConferidos = "erro";
+  }
+
+  try {
+    const removidos = await createOperacionalContext(admin).esvaziarLixeiraVencida();
+    resultado.servicosRemovidosDaLixeira = removidos.length;
+    if (removidos.length > 0) logger.info("Rotina diária: serviços removidos da lixeira", { codigos: removidos.join(", ") });
+  } catch (error) {
+    logger.error("Rotina diária: falha ao esvaziar a lixeira de serviços", error);
+    resultado.servicosRemovidosDaLixeira = "erro";
   }
 
   logger.info("Rotina diária concluída", resultado);

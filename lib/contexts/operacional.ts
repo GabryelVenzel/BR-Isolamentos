@@ -5,6 +5,7 @@
 // Supabase da requisição atual. Mesmo padrão de `lib/contexts/comercial.ts`.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { NotFoundError } from "../errors";
 import {
   AgendamentoRepository,
   FornecedorAnexoRepository,
@@ -59,6 +60,10 @@ import {
   type CapacidadeResumoDia,
   type RelatorioOperacional,
 } from "../usecases/operacional";
+
+/** Quantos dias um serviço excluído fica na lixeira antes de ser removido
+ * de vez pela rotina diária (migração 045). */
+export const DIAS_NA_LIXEIRA = 30;
 
 export function createOperacionalContext(supabase: SupabaseClient) {
   const parceiroRepo = new ParceiroRepository(supabase);
@@ -217,8 +222,32 @@ export function createOperacionalContext(supabase: SupabaseClient) {
       return removerArquivoServico(servicoId, dados, reposServico, usuarioEmail);
     },
 
-    removerServico(id: string): Promise<void> {
-      return servicoRepo.delete(id);
+    // --- Lixeira de serviços (migração 045) — só administrador chega aqui,
+    // conferido nas rotas (app/api/operacional/servicos/[id] e /lixeira). ---
+
+    /** "Excluir" um serviço = mandar pra lixeira (recuperável por
+     * `DIAS_NA_LIXEIRA` dias). */
+    async removerServico(id: string, usuarioEmail?: string | null): Promise<void> {
+      const movido = await servicoRepo.moverParaLixeira(id, usuarioEmail ?? null);
+      if (!movido) throw new NotFoundError("Serviço não encontrado.");
+    },
+
+    listarLixeiraServicos(): Promise<Servico[]> {
+      return servicoRepo.listarLixeira();
+    },
+
+    async restaurarServico(id: string): Promise<void> {
+      if (!(await servicoRepo.restaurarDaLixeira(id))) throw new NotFoundError("Serviço não encontrado na lixeira.");
+    },
+
+    async excluirServicoDefinitivamente(id: string): Promise<void> {
+      if (!(await servicoRepo.excluirDefinitivamente(id))) throw new NotFoundError("Serviço não encontrado na lixeira.");
+    },
+
+    /** Rotina diária: remove de vez o que passou do prazo na lixeira. */
+    esvaziarLixeiraVencida(agora: Date = new Date()): Promise<string[]> {
+      const limite = new Date(agora.getTime() - DIAS_NA_LIXEIRA * 24 * 60 * 60 * 1000);
+      return servicoRepo.esvaziarLixeiraAnteriorA(limite.toISOString());
     },
 
     // --- Parceiros vinculados a um serviço (aba Parceiros, ver sql-migration-013) ---

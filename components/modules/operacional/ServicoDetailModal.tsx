@@ -9,6 +9,7 @@ import { urlArquivo } from "@/lib/arquivos";
 import FinanceiroObra from "./FinanceiroObra";
 import DiariasObra from "./DiariasObra";
 import EquipePropriaObra from "./EquipePropriaObra";
+import { useAcesso } from "@/lib/hooks/useAcesso";
 import { formatarDataHora, formatarMoeda } from "@/lib/format";
 import type { HistoricoServico, InteracaoServico, Servico, ServicoParceiroExecucao, TipoInteracaoServico } from "@/lib/types/domain";
 import FecharComEsc from "@/components/ui/FecharComEsc";
@@ -55,6 +56,7 @@ function descreverEvento(h: HistoricoServico): string {
 }
 
 export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou }: Props) {
+  const { acesso } = useAcesso();
   const [aba, setAba] = useState<AbaInterna>("dados");
   const [servico, setServico] = useState<Servico | null>(null);
   const [historico, setHistorico] = useState<HistoricoServico[]>([]);
@@ -287,14 +289,20 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
   }
 
   async function excluir() {
-    if (!(await confirmar("Excluir este serviço? Esta ação não pode ser desfeita."))) return;
+    const codigo = servico?.numero_servico ?? "este serviço";
+    const seguir = await confirmar(
+      `Excluir ${codigo}? Ele sai das telas e vai para a lixeira, com parceiros, diárias, linha do tempo e lançamentos preservados. Dá para restaurar por 30 dias em Serviços → Lixeira; depois disso é removido de vez.`,
+      { titulo: "Excluir serviço", confirmarLabel: "Enviar para a lixeira" }
+    );
+    if (!seguir) return;
     const response = await fetch(`/api/operacional/servicos/${servicoId}`, { method: "DELETE" });
+    const payload = await response.json().catch(() => null);
     if (response.ok) {
-      toast.sucesso("Serviço excluído.");
+      toast.sucesso(`${codigo} enviado para a lixeira.`);
       onServicoMudou();
       onFechar();
     } else {
-      toast.erro("Não foi possível excluir o serviço.");
+      toast.erro(payload?.error ?? "Não foi possível excluir o serviço.");
     }
   }
 
@@ -343,9 +351,12 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
                   {servico.numero_orcamento && <span className="text-xs text-gray-400">Orç: {servico.numero_orcamento}</span>}
                 </div>
               </div>
-              <button type="button" className="btn-danger shrink-0 text-xs" onClick={excluir}>
-                Excluir ✕
-              </button>
+              {/* Excluir (enviar pra lixeira) é só de administrador — migração 045. */}
+              {acesso?.admin && (
+                <button type="button" className="btn-danger shrink-0 text-xs" onClick={excluir}>
+                  Excluir ✕
+                </button>
+              )}
             </div>
           )}
         </div>
