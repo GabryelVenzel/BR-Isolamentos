@@ -10,6 +10,7 @@
 //   const orcamentos = await ctx.listar({ status: "aceito" });
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { NotFoundError } from "../errors";
 import { OrcamentoRepository, type FiltrosOrcamento } from "../repositories";
 import type { ItemOrcamento, Orcamento } from "../types";
 import { atualizarOrcamento, calcularOrcamento, criarOrcamento } from "../usecases/orcamento";
@@ -40,8 +41,11 @@ export function createOrcamentoContext(supabase: SupabaseClient) {
       return atualizarOrcamento(id, dados, { orcamentoRepo });
     },
 
-    remover(id: number | string): Promise<void> {
-      return orcamentoRepo.delete(id);
+    /** "Excluir" um orçamento = mandar pra lixeira (migração 047), com os
+     * itens preservados; restaurar ou remover de vez é do administrador
+     * (lib/contexts/lixeira.ts). */
+    async remover(id: number | string, usuarioEmail?: string | null): Promise<void> {
+      if (!(await orcamentoRepo.moverParaLixeira(id, usuarioEmail ?? null))) throw new NotFoundError("Orçamento não encontrado.");
     },
 
     /** Cálculo financeiro puro — não depende do Supabase, não persiste nada. */

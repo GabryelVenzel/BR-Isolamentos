@@ -61,10 +61,6 @@ import {
   type RelatorioOperacional,
 } from "../usecases/operacional";
 
-/** Quantos dias um serviço excluído fica na lixeira antes de ser removido
- * de vez pela rotina diária (migração 045). */
-export const DIAS_NA_LIXEIRA = 30;
-
 export function createOperacionalContext(supabase: SupabaseClient) {
   const parceiroRepo = new ParceiroRepository(supabase);
   const fornecedorRepo = new FornecedorRepository(supabase);
@@ -222,32 +218,12 @@ export function createOperacionalContext(supabase: SupabaseClient) {
       return removerArquivoServico(servicoId, dados, reposServico, usuarioEmail);
     },
 
-    // --- Lixeira de serviços (migração 045) — só administrador chega aqui,
-    // conferido nas rotas (app/api/operacional/servicos/[id] e /lixeira). ---
-
-    /** "Excluir" um serviço = mandar pra lixeira (recuperável por
-     * `DIAS_NA_LIXEIRA` dias). */
+    /** "Excluir" um serviço = mandar pra lixeira (migração 045) — só
+     * administrador chega aqui, conferido na rota. Restaurar ou remover de
+     * vez: lib/contexts/lixeira.ts. */
     async removerServico(id: string, usuarioEmail?: string | null): Promise<void> {
       const movido = await servicoRepo.moverParaLixeira(id, usuarioEmail ?? null);
       if (!movido) throw new NotFoundError("Serviço não encontrado.");
-    },
-
-    listarLixeiraServicos(): Promise<Servico[]> {
-      return servicoRepo.listarLixeira();
-    },
-
-    async restaurarServico(id: string): Promise<void> {
-      if (!(await servicoRepo.restaurarDaLixeira(id))) throw new NotFoundError("Serviço não encontrado na lixeira.");
-    },
-
-    async excluirServicoDefinitivamente(id: string): Promise<void> {
-      if (!(await servicoRepo.excluirDefinitivamente(id))) throw new NotFoundError("Serviço não encontrado na lixeira.");
-    },
-
-    /** Rotina diária: remove de vez o que passou do prazo na lixeira. */
-    esvaziarLixeiraVencida(agora: Date = new Date()): Promise<string[]> {
-      const limite = new Date(agora.getTime() - DIAS_NA_LIXEIRA * 24 * 60 * 60 * 1000);
-      return servicoRepo.esvaziarLixeiraAnteriorA(limite.toISOString());
     },
 
     // --- Parceiros vinculados a um serviço (aba Parceiros, ver sql-migration-013) ---

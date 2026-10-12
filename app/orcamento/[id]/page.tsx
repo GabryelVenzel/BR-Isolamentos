@@ -15,6 +15,8 @@ export default async function OrcamentoDetalhePage({ params }: { params: { id: s
     .from("orcamentos")
     .select("*, cliente:clientes(*), itens:itens_orcamento(*)")
     .eq("id", params.id)
+    // Orçamento na lixeira (migração 047) conta como inexistente.
+    .is("excluido_em", null)
     .maybeSingle();
 
   if (!data) notFound();

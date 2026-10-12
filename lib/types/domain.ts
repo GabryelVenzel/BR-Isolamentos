@@ -57,6 +57,10 @@ export type OrigemLead = (typeof ORIGENS_LEAD)[number];
 
 export interface Lead {
   id: string;
+  /** Migração 047 — preenchido quando o registro está na LIXEIRA (excluído,
+   * ainda recuperável por 30 dias). Ausente/`null` = ativo. */
+  excluido_em?: string | null;
+  excluido_por?: string | null;
   /** Código único auto-gerado (L00001, L00002, ...) — ver
    * sql-migration-008-operacional-servicos.sql. Base da rastreabilidade
    * Lead→Orçamento→Serviço. */
@@ -606,6 +610,10 @@ export type FormaPagamento = "pix" | "boleto" | "transferencia" | "cartao" | "di
 
 export interface LancamentoFinanceiro {
   id: string;
+  /** Migração 047 — preenchido quando o registro está na LIXEIRA (excluído,
+   * ainda recuperável por 30 dias). Ausente/`null` = ativo. */
+  excluido_em?: string | null;
+  excluido_por?: string | null;
   tipo: TipoLancamentoFinanceiro;
   categoria: string;
   /** VENCIMENTO (YYYY-MM-DD) — quando paga/recebe. O nome da coluna é

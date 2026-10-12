@@ -18,6 +18,10 @@ export interface Usuario {
 
 export interface Cliente {
   id: number;
+  /** Migração 047 — preenchido quando o registro está na LIXEIRA (excluído,
+   * ainda recuperável por 30 dias). Ausente/`null` = ativo. */
+  excluido_em?: string | null;
+  excluido_por?: string | null;
   /** Nome fantasia — o nome pelo qual o cliente é chamado no dia a dia, usado
    * em toda a UI (cards, dropdowns, cabeçalho das Propostas). Migração 031:
    * a coluna continua `nome` (não foi renomeada — é lida em dezenas de
@@ -175,6 +179,10 @@ export interface LinhaDetalhamentoMaterial {
 
 export interface Orcamento {
   id: number;
+  /** Migração 047 — preenchido quando o registro está na LIXEIRA (excluído,
+   * ainda recuperável por 30 dias). Ausente/`null` = ativo. */
+  excluido_em?: string | null;
+  excluido_por?: string | null;
   /** Número "oficial" da proposta (ex.: "ORC-2026-0001") — já existia,
    * gerado em lib/repositories/orcamento.repository.ts#proximoNumero e
    * usado em PDFs de proposta emitidos. */

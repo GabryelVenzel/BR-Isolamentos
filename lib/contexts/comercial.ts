@@ -7,6 +7,7 @@
 // padrão de `lib/contexts/orcamento.ts`.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { NotFoundError } from "../errors";
 import {
   AgendamentoLeadFrioRepository,
   AnexoLeadRepository,
@@ -129,8 +130,11 @@ export function createComercialContext(supabase: SupabaseClient) {
       return mudarTemperatura({ leadId, novaTemperatura, intervaloDiasCustom }, reposTemperatura, usuarioEmail);
     },
 
-    removerLead(id: string): Promise<void> {
-      return leadRepo.delete(id);
+    /** "Excluir" um lead = mandar pra lixeira (migração 047): some das
+     * telas, com histórico, interações e anexos preservados; restaurar ou
+     * remover de vez é do administrador (lib/contexts/lixeira.ts). */
+    async removerLead(id: string, usuarioEmail?: string | null): Promise<void> {
+      if (!(await leadRepo.moverParaLixeira(id, usuarioEmail ?? null))) throw new NotFoundError("Lead não encontrado.");
     },
 
     /** Integração Lead→Orçamento→Serviço: vincula um orçamento ao lead,

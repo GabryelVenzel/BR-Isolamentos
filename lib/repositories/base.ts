@@ -35,6 +35,13 @@ export class BaseRepository<T> {
    * (ex.: `"*, cliente:clientes(*)"`). */
   protected select = "*";
 
+  /** `true` nas tabelas com LIXEIRA (colunas `excluido_em`/`excluido_por`,
+   * migrações 045 e 047). "Excluir" nessas tabelas só marca a linha; ela some
+   * de TODAS as leituras normais do repositório — `findAll`, `findById` e
+   * as consultas próprias de cada subclasse, que partem de `ativos()` — e só
+   * os métodos da seção "Lixeira", no fim desta classe, a enxergam. */
+  protected temLixeira = false;
+
   /** Ponto único de acesso ao query builder do Supabase para esta tabela — ver
    * nota de tipagem no topo do arquivo. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -42,8 +49,16 @@ export class BaseRepository<T> {
     return this.supabase.from(this.table);
   }
 
+  /** Ponto de partida de toda LEITURA: `select` já sem o que está na
+   * lixeira. Aceita os mesmos argumentos de `.select()`. */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  protected ativos(colunas: string = this.select, opcoes?: Record<string, unknown>): any {
+    const query = this.queryBuilder().select(colunas, opcoes);
+    return this.temLixeira ? query.is("excluido_em", null) : query;
+  }
+
   async findAll(options: FindAllOptions = {}): Promise<T[]> {
-    let query = this.queryBuilder().select(this.select);
+    let query = this.ativos();
 
     if (options.orderBy) {
       query = query.order(options.orderBy, { ascending: options.ascending ?? true });
@@ -61,7 +76,7 @@ export class BaseRepository<T> {
   }
 
   async findById(id: string | number): Promise<T | null> {
-    const { data, error } = await this.queryBuilder().select(this.select).eq("id", id).maybeSingle();
+    const { data, error } = await this.ativos().eq("id", id).maybeSingle();
 
     if (error) {
       logger.error(`Falha ao buscar ${this.table} por id`, error, { id });
@@ -110,5 +125,44 @@ export class BaseRepository<T> {
       logger.error(`Falha ao excluir ${this.table}`, error, { id });
       throw error;
     }
+  }
+
+  // --- Lixeira (só nas tabelas com `temLixeira`) ---
+
+  /** O que está na lixeira, do excluído mais recentemente para o mais antigo. */
+  async listarLixeira(): Promise<T[]> {
+    const { data, error } = await this.queryBuilder().select(this.select).not("excluido_em", "is", null).order("excluido_em", { ascending: false });
+    if (error) throw error;
+    return (data ?? []) as unknown as T[];
+  }
+
+  /** "Excluir" = mandar pra lixeira. Devolve `false` se o registro não
+   * existe ou já estava lá. */
+  async moverParaLixeira(id: string | number, usuarioEmail: string | null): Promise<boolean> {
+    const { data, error } = await this.queryBuilder()
+      .update({ excluido_em: new Date().toISOString(), excluido_por: usuarioEmail })
+      .eq("id", id)
+      .is("excluido_em", null)
+      .select("id");
+    if (error) throw error;
+    return (data ?? []).length > 0;
+  }
+
+  async restaurarDaLixeira(id: string | number): Promise<boolean> {
+    const { data, error } = await this.queryBuilder()
+      .update({ excluido_em: null, excluido_por: null })
+      .eq("id", id)
+      .not("excluido_em", "is", null)
+      .select("id");
+    if (error) throw error;
+    return (data ?? []).length > 0;
+  }
+
+  /** Remoção DEFINITIVA — só de quem já está na lixeira (o filtro impede
+   * apagar de vez um registro ativo por engano). */
+  async excluirDefinitivamente(id: string | number): Promise<boolean> {
+    const { data, error } = await this.queryBuilder().delete().eq("id", id).not("excluido_em", "is", null).select("id");
+    if (error) throw error;
+    return (data ?? []).length > 0;
   }
 }

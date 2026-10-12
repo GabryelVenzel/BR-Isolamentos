@@ -4,6 +4,10 @@ import type { ClienteResumo } from "../types/domain";
 import { BaseRepository } from "./base";
 
 export class ClienteRepository extends BaseRepository<Cliente> {
+  // LIXEIRA (migração 047) — ver `temLixeira` em ./base.ts. A view
+  // `v_clientes_resumo` também já vem sem os clientes da lixeira.
+  protected temLixeira = true;
+
   constructor(supabase: SupabaseClient) {
     super(supabase, "clientes");
   }
@@ -11,8 +15,7 @@ export class ClienteRepository extends BaseRepository<Cliente> {
   /** Busca por nome (case-insensitive, parcial) — usado no autocomplete do step-1
    * do wizard de orçamento. */
   async buscarPorNome(termo: string): Promise<Cliente[]> {
-    const { data, error } = await this.queryBuilder()
-      .select(this.select)
+    const { data, error } = await this.ativos()
       .ilike("nome", `%${termo}%`)
       .order("nome");
 
@@ -33,7 +36,9 @@ export class ClienteRepository extends BaseRepository<Cliente> {
   }
 
   /** Quantos leads existem para este cliente — usado para bloquear exclusão
-   * (regra do pedido: "não deleta se houver leads associados"). */
+   * (regra do pedido: "não deleta se houver leads associados"). Conta também
+   * os que estão na LIXEIRA (e o mesmo vale para `contarOrcamentos`): eles
+   * ainda podem ser restaurados e precisam do cliente. */
   async contarLeads(clienteId: number): Promise<number> {
     const { count, error } = await this.supabase
       .from("leads")

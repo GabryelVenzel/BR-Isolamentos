@@ -14,12 +14,15 @@ export class OrcamentoRepository extends BaseRepository<Orcamento> {
   // histórico/detalhe, que sempre precisam desses dados juntos.
   protected select = "*, cliente:clientes(*), itens:itens_orcamento(*)";
 
+  // LIXEIRA (migração 047) — ver `temLixeira` em ./base.ts.
+  protected temLixeira = true;
+
   constructor(supabase: SupabaseClient) {
     super(supabase, "orcamentos");
   }
 
   async listar(filtros: FiltrosOrcamento = {}): Promise<Orcamento[]> {
-    let query = this.queryBuilder().select(this.select).order("criado_em", { ascending: false });
+    let query = this.ativos().order("criado_em", { ascending: false });
 
     if (filtros.status) query = query.eq("status", filtros.status);
     if (filtros.clienteId) query = query.eq("cliente_id", filtros.clienteId);
@@ -45,6 +48,10 @@ export class OrcamentoRepository extends BaseRepository<Orcamento> {
    * exatamente o comportamento pedido: excluir um do MEIO não afeta o
    * próximo número (continua a sequência normal); excluir o ÚLTIMO libera
    * esse número de novo pro próximo orçamento criado.
+   *
+   * A consulta olha TODOS os orçamentos, inclusive os que estão na lixeira
+   * (migração 047): o número de um orçamento na lixeira continua reservado,
+   * senão restaurá-lo colidiria com um criado depois.
    *
    * Não é atômico (mesma limitação do código original) — aceitável no
    * volume atual de uso por um único operador; se o cadastro passar a ser
@@ -77,8 +84,11 @@ export class OrcamentoRepository extends BaseRepository<Orcamento> {
       .insert(itens.map((item) => ({ ...item, orcamento_id: orcamento.id })));
 
     if (erroItens) {
-      // evita orçamento órfão sem itens
+      // evita orçamento órfão sem itens — apagar de vez é só de administrador
+      // (migração 047); pros demais o banco ignora o delete e o órfão vai pra
+      // lixeira, que dá no mesmo pra quem usa.
       await this.queryBuilder().delete().eq("id", orcamento.id);
+      await this.moverParaLixeira(orcamento.id, criadoPor);
       throw erroItens;
     }
 
@@ -98,8 +108,7 @@ export class OrcamentoRepository extends BaseRepository<Orcamento> {
     dataFim: string,
     responsavel?: string
   ): Promise<Array<{ tipo_trabalho: string; valor_final: number }>> {
-    let query = this.queryBuilder()
-      .select("tipo_trabalho, valor_final")
+    let query = this.ativos("tipo_trabalho, valor_final")
       .eq("status", "aceito")
       .gte("data_criacao", dataInicio)
       .lte("data_criacao", dataFim);

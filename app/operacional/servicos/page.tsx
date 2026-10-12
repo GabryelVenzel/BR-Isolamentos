@@ -5,7 +5,7 @@ import { toast } from "@/components/modules/operacional/toast";
 import KanbanServicos from "@/components/modules/operacional/KanbanServicos";
 import ServicoDetailModal from "@/components/modules/operacional/ServicoDetailModal";
 import NovoServicoModal from "@/components/modules/operacional/NovoServicoModal";
-import LixeiraServicos from "@/components/modules/operacional/LixeiraServicos";
+import Lixeira from "@/components/Lixeira";
 import { useAcesso } from "@/lib/hooks/useAcesso";
 import { TIPOS_TRABALHO_OPCOES } from "@/components/modules/operacional/MultiSelectTiposTrabalho";
 import type { EtapaServico, Servico } from "@/lib/types/domain";
@@ -145,7 +145,7 @@ export default function ServicosPage() {
         />
       )}
 
-      {mostrarLixeira && <LixeiraServicos onFechar={() => setMostrarLixeira(false)} onRestaurado={carregar} />}
+      {mostrarLixeira && <Lixeira tipo="servicos" onFechar={() => setMostrarLixeira(false)} onRestaurado={carregar} />}
 
       {mostrarNovo && (
         <NovoServicoModal

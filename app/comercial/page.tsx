@@ -16,6 +16,8 @@ import { exigeValorFechado, valorDoLead } from "@/lib/leads";
 import { formatarEtapa, formatarMoeda } from "@/lib/format";
 import type { AgendamentoLeadFrio, EtapaFunil, Lead } from "@/lib/types/domain";
 import { confirmar } from "@/components/ui/confirmar";
+import Lixeira from "@/components/Lixeira";
+import { useAcesso } from "@/lib/hooks/useAcesso";
 
 // A aba "Relatórios" que existia aqui foi removida — os relatórios
 // comerciais (funil, origem, performance por responsável etc.) agora vivem
@@ -59,6 +61,8 @@ function ComercialPageConteudo() {
 
   const [leadSelecionadoId, setLeadSelecionadoId] = useState<string | null>(null);
   const [mostrarNovoLead, setMostrarNovoLead] = useState(false);
+  const [mostrarLixeira, setMostrarLixeira] = useState(false);
+  const { acesso } = useAcesso();
 
   // Aba selecionada persiste entre visitas (localStorage) — mesmo padrão de
   // outros módulos com sub-navegação. `?aba=` na URL tem prioridade (permite
@@ -242,9 +246,27 @@ function ComercialPageConteudo() {
           </p>
         </div>
         {aba === "crm" && (
-          <button type="button" className="btn-primary" onClick={() => setMostrarNovoLead(true)}>
-            + Novo Lead
-          </button>
+          <div className="flex flex-wrap gap-2">
+            {/* Lixeira (migração 047): leads excluídos, recuperáveis por 30 dias — só administrador. */}
+            {acesso?.admin && (
+              <button type="button" className="btn-secondary" onClick={() => setMostrarLixeira(true)}>
+                Lixeira
+              </button>
+            )}
+            <button type="button" className="btn-primary" onClick={() => setMostrarNovoLead(true)}>
+              + Novo Lead
+            </button>
+          </div>
+        )}
+        {mostrarLixeira && (
+          <Lixeira
+            tipo="leads"
+            onFechar={() => setMostrarLixeira(false)}
+            onRestaurado={() => {
+              carregarLeads();
+              carregarLeadsFrios();
+            }}
+          />
         )}
       </div>
 

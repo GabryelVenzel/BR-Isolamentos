@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { ClienteRepository } from "@/lib/repositories";
 import { UpdateClienteSchema, parseOrThrow } from "@/lib/validators";
-import { ConflictError, toHttpError } from "@/lib/errors";
+import { ConflictError, NotFoundError, toHttpError } from "@/lib/errors";
+import { sessao } from "@/lib/api";
 import { logger } from "@/lib/logger";
 
 interface Params {
@@ -45,13 +46,14 @@ export async function PATCH(request: Request, { params }: Params) {
   }
 }
 
-/** DELETE: bloqueia a exclusão se o cliente tiver algum lead OU orçamento
- * associado (regra do pedido: "não deleta se houver leads"; estendida aqui
+/** DELETE: manda o cliente pra LIXEIRA (migração 047). Bloqueia a exclusão
+ * se o cliente tiver algum lead OU orçamento associado — inclusive os que
+ * estão na lixeira, que ainda podem ser restaurados (regra do pedido: "não deleta se houver leads"; estendida aqui
  * pra orçamento — um cliente pode ter orçamento sem nunca ter passado por
  * um Lead, criado direto pelo wizard) — o usuário precisa excluir/realocar
  * esses registros primeiro. */
 export async function DELETE(_request: Request, { params }: Params) {
-  const supabase = createSupabaseServerClient();
+  const { supabase, email } = await sessao();
   const clienteRepo = new ClienteRepository(supabase);
 
   try {
@@ -59,24 +61,20 @@ export async function DELETE(_request: Request, { params }: Params) {
     const totalLeads = await clienteRepo.contarLeads(clienteId);
     if (totalLeads > 0) {
       throw new ConflictError(
-        `Este cliente tem ${totalLeads} lead${totalLeads === 1 ? "" : "s"} associado${totalLeads === 1 ? "" : "s"} — exclua ou realoque ${totalLeads === 1 ? "o lead" : "os leads"} antes de excluir o cliente.`
+        `Este cliente tem ${totalLeads} lead${totalLeads === 1 ? "" : "s"} associado${totalLeads === 1 ? "" : "s"} — exclua ou realoque ${totalLeads === 1 ? "o lead" : "os leads"} antes de excluir o cliente (leads na lixeira também contam, até serem removidos de vez).`
       );
     }
 
     const totalOrcamentos = await clienteRepo.contarOrcamentos(clienteId);
     if (totalOrcamentos > 0) {
       throw new ConflictError(
-        `Este cliente tem ${totalOrcamentos} orçamento${totalOrcamentos === 1 ? "" : "s"} associado${totalOrcamentos === 1 ? "" : "s"} — não é possível excluir um cliente com histórico de orçamento.`
+        `Este cliente tem ${totalOrcamentos} orçamento${totalOrcamentos === 1 ? "" : "s"} associado${totalOrcamentos === 1 ? "" : "s"} — não é possível excluir um cliente com histórico de orçamento (orçamentos na lixeira também contam, até serem removidos de vez).`
       );
     }
 
-    // Qualquer OUTRA referência de chave estrangeira a este cliente que não
-    // seja lead/orçamento (ex.: uma tabela futura) já vira uma mensagem
-    // amigável genérica — `toHttpError` reconhece o código 23503 (violação
-    // de chave estrangeira) pra qualquer rota, não só esta (ver lib/errors.ts).
-    await clienteRepo.delete(clienteId);
+    if (!(await clienteRepo.moverParaLixeira(clienteId, email))) throw new NotFoundError("Cliente não encontrado.");
 
-    logger.info("Cliente excluído", { id: params.id });
+    logger.info("Cliente enviado para a lixeira", { id: params.id, por: email });
     return NextResponse.json({ ok: true });
   } catch (error) {
     logger.error("Falha ao excluir cliente", error, { id: params.id });

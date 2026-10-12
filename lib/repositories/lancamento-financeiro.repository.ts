@@ -31,12 +31,16 @@ export class LancamentoFinanceiroRepository extends BaseRepository<LancamentoFin
   protected select =
     "*, orcamento:orcamentos(*, cliente:clientes(*)), servico:servicos(id, numero_servico, cliente:clientes(nome)), fornecedor:fornecedores(id, nome), parceiro:parceiros(id, nome)";
 
+  // LIXEIRA (migração 047) — ver `temLixeira` em ./base.ts. Lançamento na
+  // lixeira não entra em nenhuma soma, relatório ou alerta.
+  protected temLixeira = true;
+
   constructor(supabase: SupabaseClient) {
     super(supabase, "lancamentos_financeiros");
   }
 
   async listar(filtros: FiltrosLancamento = {}): Promise<LancamentoFinanceiro[]> {
-    let query = this.queryBuilder().select(this.select).order("data", { ascending: false });
+    let query = this.ativos().order("data", { ascending: false });
 
     if (filtros.tipo) query = query.eq("tipo", filtros.tipo);
     if (filtros.categoria) query = query.eq("categoria", filtros.categoria);
@@ -63,16 +67,20 @@ export class LancamentoFinanceiroRepository extends BaseRepository<LancamentoFin
     return (data ?? []) as unknown as LancamentoFinanceiro[];
   }
 
-  /** Exclui o lançamento informado e as parcelas SEGUINTES do mesmo grupo
-   * que ainda estão em aberto — as que já foram pagas ficam (apagar um
-   * pagamento registrado por tabela seria perder histórico). Devolve quantas
-   * linhas foram excluídas no total. */
-  async excluirDestaEmDiante(lancamento: Pick<LancamentoFinanceiro, "id" | "grupo_id" | "parcela_numero">): Promise<number> {
-    await this.delete(lancamento.id);
+  /** Manda pra LIXEIRA o lançamento informado e as parcelas SEGUINTES do
+   * mesmo grupo que ainda estão em aberto — as que já foram pagas ficam
+   * (excluir um pagamento registrado por tabela seria perder histórico).
+   * Devolve quantas linhas foram excluídas no total. */
+  async excluirDestaEmDiante(
+    lancamento: Pick<LancamentoFinanceiro, "id" | "grupo_id" | "parcela_numero">,
+    usuarioEmail: string | null
+  ): Promise<number> {
+    await this.moverParaLixeira(lancamento.id, usuarioEmail);
     if (!lancamento.grupo_id || lancamento.parcela_numero == null) return 1;
 
     const { data, error } = await this.queryBuilder()
-      .delete()
+      .update({ excluido_em: new Date().toISOString(), excluido_por: usuarioEmail })
+      .is("excluido_em", null)
       .eq("grupo_id", lancamento.grupo_id)
       .gt("parcela_numero", lancamento.parcela_numero)
       .eq("pago", false)
@@ -84,7 +92,7 @@ export class LancamentoFinanceiroRepository extends BaseRepository<LancamentoFin
   /** Só os campos que o resultado por obra precisa, de todos os lançamentos
    * ligados a alguma obra. */
   async listarLigadosAObras(): Promise<Array<Pick<LancamentoFinanceiro, "servico_id" | "tipo" | "valor" | "pago">>> {
-    const { data, error } = await this.queryBuilder().select("servico_id, tipo, valor, pago").not("servico_id", "is", null);
+    const { data, error } = await this.ativos("servico_id, tipo, valor, pago").not("servico_id", "is", null);
     if (error) throw error;
     return (data ?? []) as Array<Pick<LancamentoFinanceiro, "servico_id" | "tipo" | "valor" | "pago">>;
   }
@@ -134,8 +142,7 @@ export class LancamentoFinanceiroRepository extends BaseRepository<LancamentoFin
     dataFim: string,
     opts: FiltroCruzado = {}
   ): Promise<number> {
-    let query = this.queryBuilder()
-      .select(this.selectParaFiltro(opts))
+    let query = this.ativos(this.selectParaFiltro(opts))
       .eq("tipo", tipo)
       .gte("data_competencia", dataInicio)
       .lte("data_competencia", dataFim);
@@ -156,14 +163,13 @@ export class LancamentoFinanceiroRepository extends BaseRepository<LancamentoFin
     dataFim: string,
     opts: FiltroCruzado = {}
   ): Promise<Array<{ data: string; valor: number }>> {
-    let query = this.queryBuilder()
-      // `data:data_competencia` — quem agrupa por mês continua lendo `data`,
-      // que aqui é a competência (migração 041).
-      .select(
-        opts.tipoTrabalho || opts.responsavel
-          ? "data:data_competencia, valor, orcamento:orcamentos!inner(tipo_trabalho, atribuido_a)"
-          : "data:data_competencia, valor"
-      )
+    // `data:data_competencia` — quem agrupa por mês continua lendo `data`,
+    // que aqui é a competência (migração 041).
+    let query = this.ativos(
+      opts.tipoTrabalho || opts.responsavel
+        ? "data:data_competencia, valor, orcamento:orcamentos!inner(tipo_trabalho, atribuido_a)"
+        : "data:data_competencia, valor"
+    )
       .eq("tipo", tipo)
       .gte("data_competencia", dataInicio)
       .lte("data_competencia", dataFim);
@@ -180,10 +186,7 @@ export class LancamentoFinanceiroRepository extends BaseRepository<LancamentoFin
    * tem); pra receitas, `data` já é preenchida como a data esperada do
    * recebimento, então é a melhor aproximação disponível sem migration nova. */
   async listarAReceber(): Promise<LancamentoFinanceiro[]> {
-    const { data, error } = await this.queryBuilder()
-      .select(this.select)
-      .eq("tipo", "receita")
-      .eq("pago", false);
+    const { data, error } = await this.ativos().eq("tipo", "receita").eq("pago", false);
     if (error) throw error;
     return (data ?? []) as unknown as LancamentoFinanceiro[];
   }
@@ -194,7 +197,7 @@ export class LancamentoFinanceiroRepository extends BaseRepository<LancamentoFin
    * que lista lançamentos. */
   async listarPorLeadIds(leadIds: string[]): Promise<LancamentoFinanceiro[]> {
     if (leadIds.length === 0) return [];
-    const { data, error } = await this.queryBuilder().select("id, lead_id, pago").in("lead_id", leadIds);
+    const { data, error } = await this.ativos("id, lead_id, pago").in("lead_id", leadIds);
     if (error) throw error;
     return (data ?? []) as unknown as LancamentoFinanceiro[];
   }

@@ -7,6 +7,11 @@ export class AgendamentoLeadFrioRepository extends BaseRepository<AgendamentoLea
   // precisam do nome do cliente e do valor estimado sem query extra.
   protected select = "*, lead:leads(*, cliente:clientes(*))";
 
+  // As duas listas abaixo pulam o agendamento cujo lead está na LIXEIRA
+  // (migração 047): ele não aparece no painel nem é reativado sozinho, e
+  // volta a valer se o lead for restaurado.
+  private selectLeadAtivo = "*, lead:leads!inner(*, cliente:clientes(*))";
+
   constructor(supabase: SupabaseClient) {
     super(supabase, "agendamentos_leads_frios");
   }
@@ -15,7 +20,8 @@ export class AgendamentoLeadFrioRepository extends BaseRepository<AgendamentoLea
    * data de retorno primeiro — ver LeadsFriosPanel.tsx. */
   async listarAgendados(): Promise<AgendamentoLeadFrio[]> {
     const { data, error } = await this.queryBuilder()
-      .select(this.select)
+      .select(this.selectLeadAtivo)
+      .is("lead.excluido_em", null)
       .eq("status", "agendado")
       .order("data_retorno", { ascending: true });
 
@@ -30,7 +36,8 @@ export class AgendamentoLeadFrioRepository extends BaseRepository<AgendamentoLea
    * poder controlar o "agora" sem mockar o relógio do banco. */
   async listarVencidos(agoraIso: string): Promise<AgendamentoLeadFrio[]> {
     const { data, error } = await this.queryBuilder()
-      .select(this.select)
+      .select(this.selectLeadAtivo)
+      .is("lead.excluido_em", null)
       .eq("status", "agendado")
       .lte("data_retorno", agoraIso);
 

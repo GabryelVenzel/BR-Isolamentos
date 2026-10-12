@@ -321,10 +321,14 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
   }
 
   async function excluir() {
-    if (!(await confirmar("Excluir este lead? Esta ação não pode ser desfeita."))) return;
+    const seguir = await confirmar(
+      "Excluir este lead? Ele sai das telas e vai para a lixeira, com histórico, interações e anexos preservados. Um administrador pode restaurar por 30 dias; depois disso é removido de vez.",
+      { titulo: "Excluir lead", confirmarLabel: "Enviar para a lixeira" }
+    );
+    if (!seguir) return;
     const response = await fetch(`/api/comercial/leads/${leadId}`, { method: "DELETE" });
     if (response.ok) {
-      toast.sucesso("Lead excluído.");
+      toast.sucesso("Lead enviado para a lixeira.");
       onLeadMudou();
       onFechar();
     } else {

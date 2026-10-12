@@ -25,6 +25,10 @@ class MockQueryBuilder {
   eq(...args: unknown[]) {
     return this.chain("eq", ...args);
   }
+  // Filtro da lixeira (migração 047): toda leitura passa por `.is("excluido_em", null)`.
+  is(...args: unknown[]) {
+    return this.chain("is", ...args);
+  }
   ilike(...args: unknown[]) {
     return this.chain("ilike", ...args);
   }

@@ -8,6 +8,8 @@ import type { Cliente } from "@/lib/types";
 import type { ClienteResumo } from "@/lib/types/domain";
 import { confirmar } from "@/components/ui/confirmar";
 import { Pencil, Trash2 } from "lucide-react";
+import Lixeira from "@/components/Lixeira";
+import { useAcesso } from "@/lib/hooks/useAcesso";
 
 const POR_PAGINA = 10;
 
@@ -43,15 +45,22 @@ export default function ClientesTab() {
     return () => clearTimeout(timeout);
   }, [carregar]);
 
+  const [mostrarLixeira, setMostrarLixeira] = useState(false);
+  const { acesso } = useAcesso();
+
   async function excluir(cliente: ClienteResumo) {
-    if (!(await confirmar(`Excluir o cliente "${cliente.nome}"?`))) return;
+    const seguir = await confirmar(
+      `Excluir o cliente "${cliente.nome}"? Ele vai para a lixeira; um administrador pode restaurar por 30 dias, depois disso é removido de vez.`,
+      { titulo: "Excluir cliente", confirmarLabel: "Enviar para a lixeira" }
+    );
+    if (!seguir) return;
     const response = await fetch(`/api/clientes/${cliente.id}`, { method: "DELETE" });
     const data = await response.json();
     if (!response.ok) {
       toast.erro(data.error ?? "Não foi possível excluir o cliente.");
       return;
     }
-    toast.sucesso("Cliente excluído.");
+    toast.sucesso("Cliente enviado para a lixeira.");
     carregar();
   }
 
@@ -67,9 +76,18 @@ export default function ClientesTab() {
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
         />
-        <button type="button" className="btn-primary" onClick={() => setEditando("novo")}>
-          + Cadastrar novo cliente
-        </button>
+        <div className="flex flex-wrap gap-2">
+          {/* Lixeira (migração 047): clientes excluídos, recuperáveis por 30 dias — só administrador. */}
+          {acesso?.admin && (
+            <button type="button" className="btn-secondary" onClick={() => setMostrarLixeira(true)}>
+              Lixeira
+            </button>
+          )}
+          <button type="button" className="btn-primary" onClick={() => setEditando("novo")}>
+            + Cadastrar novo cliente
+          </button>
+        </div>
+        {mostrarLixeira && <Lixeira tipo="clientes" onFechar={() => setMostrarLixeira(false)} onRestaurado={carregar} />}
       </div>
 
       {carregando ? (

@@ -4,6 +4,7 @@ import { createComercialContext } from "@/lib/contexts/comercial";
 import { apiError, apiSuccess } from "@/lib/types/common";
 import { toHttpError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
+import { sessao } from "@/lib/api";
 
 interface Params {
   params: { id: string };
@@ -39,12 +40,14 @@ export async function PATCH(request: Request, { params }: Params) {
   }
 }
 
+/** DELETE: manda o lead pra LIXEIRA (migração 047). */
 export async function DELETE(_request: Request, { params }: Params) {
-  const ctx = createComercialContext(createSupabaseServerClient());
+  const { supabase, email } = await sessao();
+  const ctx = createComercialContext(supabase);
 
   try {
-    await ctx.removerLead(params.id);
-    logger.info("Lead excluído", { id: params.id });
+    await ctx.removerLead(params.id, email);
+    logger.info("Lead enviado para a lixeira", { id: params.id, por: email });
     return NextResponse.json(apiSuccess({ ok: true }));
   } catch (error) {
     logger.error("Falha ao excluir lead", error, { id: params.id });

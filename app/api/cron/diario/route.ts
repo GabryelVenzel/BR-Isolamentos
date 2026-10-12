@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createComercialContext } from "@/lib/contexts/comercial";
 import { createFinanceiroContext } from "@/lib/contexts/financeiro";
-import { createOperacionalContext } from "@/lib/contexts/operacional";
+import { createLixeiraContext } from "@/lib/contexts/lixeira";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { apiError, apiSuccess } from "@/lib/types/common";
 import { logger } from "@/lib/logger";
@@ -14,7 +14,8 @@ export const dynamic = "force-dynamic";
  *
  *   - reativa leads frios cujo prazo de retorno venceu;
  *   - gera os custos fixos do mês como lançamentos a pagar;
- *   - remove de vez os serviços que estão há mais de 30 dias na lixeira.
+ *   - remove de vez o que está há mais de 30 dias na lixeira (serviços,
+ *     leads, orçamentos, clientes e lançamentos).
  *
  * Não há usuário logado: roda com a chave de serviço, e por isso exige o
  * segredo `CRON_SECRET` — a Vercel envia `Authorization: Bearer <segredo>`
@@ -52,12 +53,12 @@ export async function GET(request: Request) {
   }
 
   try {
-    const removidos = await createOperacionalContext(admin).esvaziarLixeiraVencida();
-    resultado.servicosRemovidosDaLixeira = removidos.length;
-    if (removidos.length > 0) logger.info("Rotina diária: serviços removidos da lixeira", { codigos: removidos.join(", ") });
+    const removidos = await createLixeiraContext(admin).esvaziarVencidos();
+    resultado.removidosDaLixeira = removidos.length;
+    if (removidos.length > 0) logger.info("Rotina diária: itens removidos da lixeira", { itens: removidos.join(", ") });
   } catch (error) {
-    logger.error("Rotina diária: falha ao esvaziar a lixeira de serviços", error);
-    resultado.servicosRemovidosDaLixeira = "erro";
+    logger.error("Rotina diária: falha ao esvaziar a lixeira", error);
+    resultado.removidosDaLixeira = "erro";
   }
 
   logger.info("Rotina diária concluída", resultado);

@@ -4,6 +4,7 @@ import { createFinanceiroContext } from "@/lib/contexts/financeiro";
 import { apiError, apiSuccess } from "@/lib/types/common";
 import { toHttpError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
+import { sessao } from "@/lib/api";
 
 interface Params {
   params: { id: string };
@@ -40,16 +41,17 @@ export async function PATCH(request: Request, { params }: Params) {
   }
 }
 
-/** DELETE: exclui o lançamento. Com `?escopo=seguintes`, exclui também as
- * parcelas seguintes do mesmo parcelamento/recorrência que ainda estão em
- * aberto (as já pagas ficam). */
+/** DELETE: manda o lançamento pra LIXEIRA (migração 047). Com
+ * `?escopo=seguintes`, vão junto as parcelas seguintes do mesmo
+ * parcelamento/recorrência que ainda estão em aberto (as já pagas ficam). */
 export async function DELETE(request: Request, { params }: Params) {
-  const ctx = createFinanceiroContext(createSupabaseServerClient());
+  const { supabase, email } = await sessao();
+  const ctx = createFinanceiroContext(supabase);
   const emDiante = new URL(request.url).searchParams.get("escopo") === "seguintes";
 
   try {
-    const excluidos = emDiante ? await ctx.removerLancamentoEmDiante(params.id) : (await ctx.removerLancamento(params.id), 1);
-    logger.info("Lançamento financeiro excluído", { id: params.id, excluidos });
+    const excluidos = emDiante ? await ctx.removerLancamentoEmDiante(params.id, email) : (await ctx.removerLancamento(params.id, email), 1);
+    logger.info("Lançamento financeiro enviado para a lixeira", { id: params.id, excluidos, por: email });
     return NextResponse.json(apiSuccess({ ok: true, excluidos }));
   } catch (error) {
     logger.error("Falha ao excluir lançamento financeiro", error, { id: params.id });

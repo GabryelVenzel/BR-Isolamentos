@@ -25,12 +25,25 @@ export class LeadRepository extends BaseRepository<Lead> {
   // outro fetch.
   protected select = "*, cliente:clientes(*), orcamento:orcamentos(*), parceiro:parceiros(*)";
 
+  // LIXEIRA (migração 047) — ver `temLixeira` em ./base.ts.
+  protected temLixeira = true;
+
   constructor(supabase: SupabaseClient) {
     super(supabase, "leads");
   }
 
+  /** Além de esconder os leads na lixeira, esconde o ORÇAMENTO vinculado
+   * quando é ele que está lá: o lead continua aparecendo, só sem o orçamento
+   * (o vínculo `orcamento_id` fica guardado e volta se o orçamento for
+   * restaurado). */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  protected ativos(colunas: string = this.select, opcoes?: Record<string, unknown>): any {
+    const query = super.ativos(colunas, opcoes);
+    return colunas.includes("orcamento:orcamentos") ? query.is("orcamento.excluido_em", null) : query;
+  }
+
   async listar(filtros: FiltrosLead = {}): Promise<Lead[]> {
-    let query = this.queryBuilder().select(this.select).order("created_at", { ascending: false });
+    let query = this.ativos().order("created_at", { ascending: false });
 
     if (filtros.etapa) query = query.eq("etapa", filtros.etapa);
     if (filtros.atribuidoA) query = query.eq("atribuido_a", filtros.atribuidoA);
@@ -49,7 +62,7 @@ export class LeadRepository extends BaseRepository<Lead> {
   /** Leads em qualquer etapa ativa (não terminal — nem fechado nem perdido),
    * opcionalmente restritos a um responsável. */
   async listarAtivos(atribuidoA?: string): Promise<Lead[]> {
-    let query = this.queryBuilder().select(this.select).not("etapa", "in", "(fechado,perdido)");
+    let query = this.ativos().not("etapa", "in", "(fechado,perdido)");
     if (atribuidoA) query = query.eq("atribuido_a", atribuidoA);
 
     const { data, error } = await query;
@@ -68,8 +81,7 @@ export class LeadRepository extends BaseRepository<Lead> {
     dataFim: string,
     atribuidoA?: string
   ): Promise<Lead[]> {
-    let query = this.queryBuilder()
-      .select(this.select)
+    let query = this.ativos()
       .eq("etapa", etapa)
       .gte("updated_at", dataInicio)
       .lte("updated_at", `${dataFim}T23:59:59`);
@@ -83,8 +95,7 @@ export class LeadRepository extends BaseRepository<Lead> {
   /** Contagem de leads criados no intervalo — base de "novos leads no
    * período" (KPI 2) e do denominador da taxa de conversão (KPI 3). */
   async contarCriadosNoIntervalo(dataInicio: string, dataFim: string, atribuidoA?: string): Promise<number> {
-    let query = this.queryBuilder()
-      .select("id", { count: "exact", head: true })
+    let query = this.ativos("id", { count: "exact", head: true })
       .gte("created_at", dataInicio)
       .lte("created_at", `${dataFim}T23:59:59`);
     if (atribuidoA) query = query.eq("atribuido_a", atribuidoA);
@@ -105,7 +116,7 @@ export class LeadRepository extends BaseRepository<Lead> {
   /** Contagem total de leads (todas as etapas) — usado como denominador
    * alternativo de conversão histórica, se precisar no futuro. */
   async contarTodos(): Promise<number> {
-    const { count, error } = await this.queryBuilder().select("id", { count: "exact", head: true });
+    const { count, error } = await this.ativos("id", { count: "exact", head: true });
     if (error) throw error;
     return count ?? 0;
   }

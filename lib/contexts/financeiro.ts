@@ -10,6 +10,7 @@
 // na hora da venda (ver lib/tributos.ts); aqui só se registra o fluxo de caixa.
 
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { NotFoundError } from "../errors";
 import {
   CategoriaLancamentoRepository,
   ConfigFinanceiroRepository,
@@ -76,15 +77,18 @@ export function createFinanceiroContext(supabase: SupabaseClient) {
       return marcarComoPago(id, dataPagamento, { lancamentoRepo, historicoRepo: historicoCustoFixoRepo });
     },
 
-    removerLancamento(id: string): Promise<void> {
-      return lancamentoRepo.delete(id);
+    /** "Excluir" um lançamento = mandar pra lixeira (migração 047): deixa
+     * de contar em saldos, relatórios e alertas; restaurar ou remover de vez
+     * é do administrador (lib/contexts/lixeira.ts). */
+    async removerLancamento(id: string, usuarioEmail?: string | null): Promise<void> {
+      if (!(await lancamentoRepo.moverParaLixeira(id, usuarioEmail ?? null))) throw new NotFoundError("Lançamento não encontrado.");
     },
 
-    /** Exclui a parcela e as seguintes ainda em aberto do mesmo
+    /** Exclui (lixeira) a parcela e as seguintes ainda em aberto do mesmo
      * parcelamento/recorrência — devolve quantas foram excluídas. */
-    async removerLancamentoEmDiante(id: string): Promise<number> {
+    async removerLancamentoEmDiante(id: string, usuarioEmail?: string | null): Promise<number> {
       const lancamento = await lancamentoRepo.findByIdOrThrow(id);
-      return lancamentoRepo.excluirDestaEmDiante(lancamento);
+      return lancamentoRepo.excluirDestaEmDiante(lancamento, usuarioEmail ?? null);
     },
 
     async resumoMesAtual(): Promise<ResumoMesAtual & { custosFixosMensal: number }> {

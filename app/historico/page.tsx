@@ -4,6 +4,8 @@ import { useCallback, useEffect, useState } from "react";
 import TableOrcamentos from "@/components/TableOrcamentos";
 import type { Orcamento, StatusOrcamento } from "@/lib/types";
 import { confirmar } from "@/components/ui/confirmar";
+import Lixeira from "@/components/Lixeira";
+import { useAcesso } from "@/lib/hooks/useAcesso";
 
 const STATUS_OPCOES: Array<{ value: StatusOrcamento | ""; label: string }> = [
   { value: "", label: "Todos os status" },
@@ -50,8 +52,15 @@ export default function HistoricoPage() {
     carregar();
   }, [carregar]);
 
+  const [mostrarLixeira, setMostrarLixeira] = useState(false);
+  const { acesso } = useAcesso();
+
   async function excluir(id: number) {
-    if (!(await confirmar("Excluir este orçamento? Esta ação não pode ser desfeita."))) return;
+    const seguir = await confirmar(
+      "Excluir este orçamento? Ele sai das telas e vai para a lixeira. Um administrador pode restaurar por 30 dias; depois disso é removido de vez.",
+      { titulo: "Excluir orçamento", confirmarLabel: "Enviar para a lixeira" }
+    );
+    if (!seguir) return;
     const response = await fetch(`/api/orcamentos/${id}`, { method: "DELETE" });
     if (response.ok) {
       setOrcamentos((prev) => prev.filter((o) => o.id !== id));
@@ -60,10 +69,19 @@ export default function HistoricoPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Histórico de Orçamentos</h1>
-        <p className="text-sm text-gray-500">Consulte, filtre e gerencie todos os orçamentos.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">Histórico de Orçamentos</h1>
+          <p className="text-sm text-gray-500">Consulte, filtre e gerencie todos os orçamentos.</p>
+        </div>
+        {/* Lixeira (migração 047): orçamentos excluídos, recuperáveis por 30 dias — só administrador. */}
+        {acesso?.admin && (
+          <button type="button" className="btn-secondary" onClick={() => setMostrarLixeira(true)}>
+            Lixeira
+          </button>
+        )}
       </div>
+      {mostrarLixeira && <Lixeira tipo="orcamentos" onFechar={() => setMostrarLixeira(false)} onRestaurado={carregar} />}
 
       <div className="card grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div>

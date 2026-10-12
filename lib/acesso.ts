@@ -101,6 +101,8 @@ export function regraDaRota(pathname: string, metodo: string): Regra {
   if (comecaCom(pathname, "/rh/usuarios") || comecaCom(pathname, "/api/rh/usuarios") || comecaCom(pathname, "/api/rh/auditoria")) {
     return { apenasAdmin: true };
   }
+  // Lixeira (restaurar / excluir de vez): só administrador.
+  if (comecaCom(pathname, "/api/lixeira")) return { apenasAdmin: true };
 
   if (comecaCom(pathname, "/api")) {
     if (comecaCom(pathname, "/api/auth") || comecaCom(pathname, "/api/arquivo")) return { livre: true };

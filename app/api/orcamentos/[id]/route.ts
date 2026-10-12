@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { createOrcamentoContext } from "@/lib/contexts/orcamento";
 import { toHttpError, ValidationError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
+import { sessao } from "@/lib/api";
 
 interface Params {
   params: { id: string };
@@ -38,12 +39,14 @@ export async function PUT(request: Request, { params }: Params) {
   }
 }
 
+/** DELETE: manda o orçamento pra LIXEIRA (migração 047). */
 export async function DELETE(_request: Request, { params }: Params) {
-  const ctx = createOrcamentoContext(createSupabaseServerClient());
+  const { supabase, email } = await sessao();
+  const ctx = createOrcamentoContext(supabase);
 
   try {
-    await ctx.remover(params.id);
-    logger.info("Orçamento excluído", { id: params.id });
+    await ctx.remover(params.id, email);
+    logger.info("Orçamento enviado para a lixeira", { id: params.id, por: email });
     return NextResponse.json({ ok: true });
   } catch (error) {
     logger.error("Falha ao excluir orçamento", error, { id: params.id });

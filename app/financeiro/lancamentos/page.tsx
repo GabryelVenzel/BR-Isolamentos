@@ -5,6 +5,8 @@ import { Download, Paperclip, Pencil, Trash2 } from "lucide-react";
 import ModalLancamento from "@/components/modules/financeiro/ModalLancamento";
 import { toast } from "@/components/modules/financeiro/toast";
 import { confirmar, escolher } from "@/components/ui/confirmar";
+import Lixeira from "@/components/Lixeira";
+import { useAcesso } from "@/lib/hooks/useAcesso";
 import {
   FORMAS_PAGAMENTO,
   LABEL_FORMA_PAGAMENTO,
@@ -127,6 +129,8 @@ export default function LancamentosPage() {
   const [filtroForma, setFiltroForma] = useState("");
 
   const [editando, setEditando] = useState<LancamentoFinanceiro | "novo" | null>(null);
+  const [mostrarLixeira, setMostrarLixeira] = useState(false);
+  const { acesso } = useAcesso();
 
   // O período escolhido fica lembrado entre visitas.
   useEffect(() => {
@@ -204,7 +208,12 @@ export default function LancamentosPage() {
       );
       if (!escolha) return;
       emDiante = escolha === "em_diante";
-    } else if (!(await confirmar(`Excluir o lançamento "${lancamento.descricao}"?`))) {
+    } else if (
+      !(await confirmar(
+        `Excluir o lançamento "${lancamento.descricao}"? Ele vai para a lixeira e deixa de contar nos saldos e relatórios; um administrador pode restaurar por 30 dias.`,
+        { titulo: "Excluir lançamento", confirmarLabel: "Enviar para a lixeira" }
+      ))
+    ) {
       return;
     }
 
@@ -215,7 +224,7 @@ export default function LancamentosPage() {
       return;
     }
     const excluidos: number = data.data?.excluidos ?? 1;
-    toast.sucesso(excluidos > 1 ? `${excluidos} lançamentos excluídos.` : "Lançamento excluído.");
+    toast.sucesso(excluidos > 1 ? `${excluidos} lançamentos enviados para a lixeira.` : "Lançamento enviado para a lixeira.");
     carregar();
   }
 
@@ -251,10 +260,17 @@ export default function LancamentosPage() {
           <button type="button" className="btn-secondary" onClick={() => baixarCsv(filtrados)} disabled={filtrados.length === 0}>
             <Download className="icone mr-2" aria-hidden /> Exportar planilha
           </button>
+          {/* Lixeira (migração 047): lançamentos excluídos, recuperáveis por 30 dias — só administrador. */}
+          {acesso?.admin && (
+            <button type="button" className="btn-secondary" onClick={() => setMostrarLixeira(true)}>
+              Lixeira
+            </button>
+          )}
           <button type="button" className="btn-primary" onClick={() => setEditando("novo")}>
             + Novo Lançamento
           </button>
         </div>
+        {mostrarLixeira && <Lixeira tipo="lancamentos" onFechar={() => setMostrarLixeira(false)} onRestaurado={carregar} />}
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
