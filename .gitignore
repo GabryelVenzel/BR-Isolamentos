@@ -16,6 +16,7 @@
 # comprovantes financeiros, fotos, documentos e acessos) — repositório local
 # de trabalho, NUNCA vai para o GitHub.
 /Arquivos BR Isolamentos/
+/0.Arquivos BR Isolamentos/
 
 # credentials doc (contains GitHub token + Supabase keys in plain text) —
 # rede de segurança caso o arquivo seja copiado para fora da pasta acima
