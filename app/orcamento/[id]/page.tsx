@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { classesStatus, formatarData, formatarMoeda, formatarNumero, formatarStatus } from "@/lib/format";
 import TableMateriais from "@/components/TableMateriais";
 import type { Orcamento } from "@/lib/types";
+import { LABEL_FUNCAO_MAO_OBRA } from "@/lib/usecases/orcamento/maoObraEquipe";
 
 export const dynamic = "force-dynamic";
 
@@ -98,11 +99,33 @@ export default async function OrcamentoDetalhePage({ params }: { params: { id: s
                   Acabamento: {formatarNumero(item.area_m2)} m² × {formatarMoeda(item.preco_acabamento_m2)}/m²
                 </p>
               )}
-              {item.horas_mao_obra > 0 && <p>Mão de obra: {formatarNumero(item.horas_mao_obra, 1)}h</p>}
+              {item.horas_mao_obra > 0 && (
+                <p>
+                  Mão de obra: {formatarNumero(item.horas_mao_obra, 1)} h{orcamento.mao_obra_equipe ? " de obra da equipe" : ""}
+                </p>
+              )}
             </div>
           )}
         </div>
       ))}
+
+      {/* Equipe e diárias (migração 048) — só em orçamentos criados depois dela. */}
+      {orcamento.mao_obra_equipe && (
+        <div className="card space-y-1 text-sm">
+          <h2 className="mb-2 text-lg font-semibold">Mão de obra — equipe e diárias</h2>
+          {orcamento.mao_obra_equipe.funcoes.map((f) => (
+            <p key={f.funcao}>
+              {LABEL_FUNCAO_MAO_OBRA[f.funcao]}: {f.pessoas} × {f.diarias} {f.diarias === 1 ? "diária" : "diárias"} × {formatarMoeda(f.valor_diaria)} ={" "}
+              {formatarMoeda(f.subtotal)}
+            </p>
+          ))}
+          <p className="border-t border-gray-100 pt-1 text-gray-500">
+            {formatarNumero(orcamento.mao_obra_equipe.horas_obra, 1)} h de obra ÷ {formatarNumero(orcamento.mao_obra_equipe.horas_uteis_dia, 1)} h úteis por dia ={" "}
+            {orcamento.mao_obra_equipe.dias} {orcamento.mao_obra_equipe.dias === 1 ? "dia" : "dias"} de obra
+            {orcamento.mao_obra_equipe.dias_manual ? " (ajuste manual)" : ""} · equipe: {formatarMoeda(orcamento.mao_obra_equipe.valor_total)}
+          </p>
+        </div>
+      )}
 
       <div className="card space-y-1 text-sm">
         <h2 className="mb-2 text-lg font-semibold">Financeiro</h2>

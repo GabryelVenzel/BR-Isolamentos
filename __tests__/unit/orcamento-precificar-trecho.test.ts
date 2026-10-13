@@ -29,13 +29,11 @@ const quantificacaoNeutra: ParametrosQuantificacao = {
 };
 
 const maoObraNeutra: ParametrosMaoObra = {
-  m2_por_hora_dupla: 1, // 1 m²/hora → horas_base = metragem, sem diluir a conta
   eficiencia_tubulacao_pequena: 0.75,
   eficiencia_tubulacao_media: 0.85,
   eficiencia_curva: 0.75,
   eficiencia_altura: 0.5,
   eficiencia_fator_br: 1, // sem o fator BR aqui pra manter as contas redondas
-  horas_uteis_dia: 9,
 };
 
 const precosAcessoriosZerados = { rebiteUn: 0, parafusoUn: 0, arameMetro: 0, siliconeFrasco: 0 };
@@ -49,7 +47,6 @@ describe("precificarTrecho", () => {
       precoIsolanteM2: 50,
       precoAcabamentoM2: 85,
       precosAcessorios: precosAcessoriosZerados,
-      valorHoraMaoObra: 120,
       trabalhoAltura: false,
       parametrosQuantificacao: quantificacaoNeutra,
       parametrosMaoObra: maoObraNeutra,
@@ -57,12 +54,15 @@ describe("precificarTrecho", () => {
 
     expect(resultado.metragem_m2).toBe(10);
     expect(resultado.subtotal_material).toBe(1350); // 10 × 135
-    expect(resultado.horas_mao_obra).toBe(10); // 10m² / 1m²/h, eficiência 1.0
-    expect(resultado.subtotal_mao_obra).toBe(1200); // 10h × 120
-    expect(resultado.subtotal_trecho).toBe(2550);
+    // Mão de obra (migração 048): aqui só o trabalho do trecho — horas e
+    // valor vêm depois, da equipe da proposta (maoObraEquipe.ts).
+    expect(resultado.m2_equivalente_mao_obra).toBe(10); // 10 m², eficiência 1.0
+    expect(resultado.horas_mao_obra).toBe(0);
+    expect(resultado.subtotal_mao_obra).toBe(0);
+    expect(resultado.subtotal_trecho).toBe(1350);
   });
 
-  it("tipo_proposta 'somente_mo' zera o subtotal de material, mão de obra continua normal", () => {
+  it("tipo_proposta 'somente_mo' zera o subtotal de material, o trabalho de mão de obra continua medido", () => {
     const resultado = precificarTrecho({
       escopoItens: [planoDe(10)],
       espessuraMm: 50,
@@ -70,18 +70,17 @@ describe("precificarTrecho", () => {
       precoIsolanteM2: 50,
       precoAcabamentoM2: 85,
       precosAcessorios: precosAcessoriosZerados,
-      valorHoraMaoObra: 120,
       trabalhoAltura: false,
       parametrosQuantificacao: quantificacaoNeutra,
       parametrosMaoObra: maoObraNeutra,
     });
 
     expect(resultado.subtotal_material).toBe(0);
-    expect(resultado.subtotal_mao_obra).toBe(1200);
-    expect(resultado.subtotal_trecho).toBe(1200);
+    expect(resultado.m2_equivalente_mao_obra).toBe(10);
+    expect(resultado.subtotal_trecho).toBe(0);
   });
 
-  it("trabalho em altura reduz a eficiência e aumenta as horas (e o custo de mão de obra)", () => {
+  it("trabalho em altura reduz a eficiência e aumenta o trabalho (m² equivalentes) do trecho", () => {
     const semAltura = precificarTrecho({
       escopoItens: [planoDe(10)],
       espessuraMm: 50,
@@ -89,7 +88,6 @@ describe("precificarTrecho", () => {
       precoIsolanteM2: 0,
       precoAcabamentoM2: 0,
       precosAcessorios: precosAcessoriosZerados,
-      valorHoraMaoObra: 100,
       trabalhoAltura: false,
       parametrosQuantificacao: quantificacaoNeutra,
       parametrosMaoObra: maoObraNeutra,
@@ -101,15 +99,14 @@ describe("precificarTrecho", () => {
       precoIsolanteM2: 0,
       precoAcabamentoM2: 0,
       precosAcessorios: precosAcessoriosZerados,
-      valorHoraMaoObra: 100,
       trabalhoAltura: true,
       parametrosQuantificacao: quantificacaoNeutra,
       parametrosMaoObra: maoObraNeutra,
     });
 
     expect(comAltura.eficiencia_global).toBe(0.5);
-    expect(comAltura.horas_mao_obra).toBeGreaterThan(semAltura.horas_mao_obra);
-    expect(comAltura.subtotal_mao_obra).toBeGreaterThan(semAltura.subtotal_mao_obra);
+    expect(semAltura.m2_equivalente_mao_obra).toBe(10);
+    expect(comAltura.m2_equivalente_mao_obra).toBe(20); // 10 ÷ 0.5
   });
 
   it("sem itens de escopo, subtotal material e mão de obra são zero", () => {
@@ -120,7 +117,6 @@ describe("precificarTrecho", () => {
       precoIsolanteM2: 50,
       precoAcabamentoM2: 85,
       precosAcessorios: precosAcessoriosZerados,
-      valorHoraMaoObra: 120,
       trabalhoAltura: false,
       parametrosQuantificacao: quantificacaoNeutra,
       parametrosMaoObra: maoObraNeutra,

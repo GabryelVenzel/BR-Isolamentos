@@ -13,6 +13,7 @@ import {
   linhasMaoDeObra,
   linhasOperacionaisIncluso,
   linhasQuantificacaoMateriais,
+  prazoExecucaoDaProposta,
   prazoExecucaoDiasUteis,
   projetarEconomiaAcumulada,
   temAnaliseFinanceira,
@@ -382,5 +383,46 @@ describe("linhasMaoDeObra", () => {
 
   it("trecho sem horas de mão de obra não gera linha", () => {
     expect(linhasMaoDeObra([item({ horas_mao_obra: 0 })])).toEqual([]);
+  });
+});
+
+describe("mão de obra por equipe e diárias (migração 048)", () => {
+  const equipe = {
+    m2_equivalente: 164,
+    producao_m2_dia: 14,
+    horas_obra: 82,
+    horas_uteis_dia: 7,
+    dias: 12,
+    dias_manual: false,
+    pessoas: 3,
+    funcoes: [
+      { funcao: "funileiro" as const, pessoas: 2, m2_dia: 7, valor_diaria: 400, diarias: 12, subtotal: 9600 },
+      { funcao: "ajudante" as const, pessoas: 1, m2_dia: 3.5, valor_diaria: 200, diarias: 12, subtotal: 2400 },
+    ],
+    valor_total: 12000,
+  };
+
+  it("linhasMaoDeObra: uma linha por função, com profissionais e diárias, sem valor", () => {
+    expect(linhasMaoDeObra([item({ horas_mao_obra: 50 }), item({ horas_mao_obra: 32 })], equipe)).toEqual([
+      { trechoNumero: "Todos", titulo: "Mão de obra — Funileiro (2 profissionais)", quantidade: 12, unidade: "diárias cada" },
+      { trechoNumero: "Todos", titulo: "Mão de obra — Ajudante (1 profissional)", quantidade: 12, unidade: "diárias" },
+    ]);
+  });
+
+  it("linhasMaoDeObra: orçamento antigo (sem equipe) continua mostrando as horas por trecho", () => {
+    const linhas = linhasMaoDeObra([item({ horas_mao_obra: 13.1 })], null);
+    expect(linhas).toHaveLength(1);
+    expect(linhas[0].unidade).toBe("h");
+  });
+
+  it("prazoExecucaoDaProposta: com equipe, o prazo são os próprios dias cobrados", () => {
+    expect(prazoExecucaoDaProposta({ mao_obra_equipe: equipe, horas_uteis_dia: null }, [item({ horas_mao_obra: 82 })], 7)).toBe(12);
+    expect(prazoExecucaoDaProposta({ mao_obra_equipe: { ...equipe, dias: 15, dias_manual: true }, horas_uteis_dia: null }, [], 7)).toBe(15);
+  });
+
+  it("prazoExecucaoDaProposta: sem equipe, cai na estimativa por horas (com as horas úteis do orçamento, se houver)", () => {
+    const itens = [item({ horas_mao_obra: 20 })];
+    expect(prazoExecucaoDaProposta({ mao_obra_equipe: null, horas_uteis_dia: null }, itens, 10)).toBe(2);
+    expect(prazoExecucaoDaProposta({ mao_obra_equipe: null, horas_uteis_dia: 5 }, itens, 10)).toBe(4);
   });
 });

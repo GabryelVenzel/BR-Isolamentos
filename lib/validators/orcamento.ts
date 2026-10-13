@@ -105,6 +105,31 @@ export const CreateOrcamentoSchema = z.object({
   // especificamente; `null`/ausente = usa o padrão de ConfigEmpresa no
   // momento de gerar a Proposta (ver prazoExecucaoDiasUteis).
   horas_uteis_dia: z.number().positive().nullable().optional(),
+  // Migração 048 — equipe e diárias da mão de obra (ver MaoObraEquipe em
+  // lib/types.ts). Ausente/`null` em quem ainda manda o modelo antigo.
+  mao_obra_equipe: z
+    .object({
+      m2_equivalente: z.number().nonnegative(),
+      producao_m2_dia: z.number().nonnegative(),
+      horas_obra: z.number().nonnegative(),
+      horas_uteis_dia: z.number().nonnegative(),
+      dias: z.number().int().nonnegative(),
+      dias_manual: z.boolean(),
+      pessoas: z.number().int().nonnegative(),
+      funcoes: z.array(
+        z.object({
+          funcao: z.enum(["funileiro", "isolador", "ajudante"]),
+          pessoas: z.number().int().positive(),
+          m2_dia: z.number().nonnegative(),
+          valor_diaria: z.number().nonnegative(),
+          diarias: z.number().int().nonnegative(),
+          subtotal: z.number().nonnegative(),
+        })
+      ),
+      valor_total: z.number().nonnegative(),
+    })
+    .nullable()
+    .optional(),
   subtotal: z.number().nonnegative(),
   detalhamento_impostos: z.array(z.object({ nome: z.string(), percentual: z.number(), valor: z.number() })),
   total_impostos: z.number().nonnegative(),

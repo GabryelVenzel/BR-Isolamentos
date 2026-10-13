@@ -12,7 +12,9 @@ interface Props {
 // orçamento o frete é digitado direto em R$ (não depende de nenhum preço
 // configurado aqui).
 const CAMPOS_CUSTOS: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo: string }> = [
-  { nome: "valor_hora_mao_obra", label: "Mão de obra", sufixo: "R$/hora" },
+  { nome: "valor_diaria_funileiro", label: "Diária — Funileiro", sufixo: "R$/dia" },
+  { nome: "valor_diaria_isolador", label: "Diária — Isolador", sufixo: "R$/dia" },
+  { nome: "valor_diaria_ajudante", label: "Diária — Ajudante", sufixo: "R$/dia" },
   { nome: "valor_km_deslocamento", label: "Deslocamento", sufixo: "R$/km" },
   { nome: "valor_noite_hospedagem", label: "Hospedagem", sufixo: "R$/noite" },
   { nome: "valor_diaria_aluguel_carro", label: "Aluguel de carro", sufixo: "R$/diária" },
@@ -50,13 +52,15 @@ const CAMPOS_QUANTIFICACAO: Array<{ nome: keyof ConfigEmpresa; label: string; su
 ];
 
 const CAMPOS_MAO_OBRA: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo: string }> = [
-  { nome: "m2_por_hora_dupla", label: "Base dupla", sufixo: "m²/hora" },
+  { nome: "m2_dia_funileiro", label: "Rendimento — Funileiro", sufixo: "m²/pessoa/dia" },
+  { nome: "m2_dia_isolador", label: "Rendimento — Isolador", sufixo: "m²/pessoa/dia" },
+  { nome: "m2_dia_ajudante", label: "Rendimento — Ajudante", sufixo: "m²/pessoa/dia" },
   { nome: "eficiencia_tubulacao_pequena", label: 'Eficiência tubulação < 3"', sufixo: "× (ex.: 0.75)" },
   { nome: "eficiencia_tubulacao_media", label: 'Eficiência tubulação 3"–6"', sufixo: "× (ex.: 0.85)" },
   { nome: "eficiencia_curva", label: "Eficiência curva", sufixo: "× (ex.: 0.75)" },
   { nome: "eficiencia_altura", label: "Eficiência altura (> 2m)", sufixo: "× (ex.: 0.50)" },
   { nome: "eficiencia_fator_br", label: "Fator de rendimento (BR)", sufixo: "× (ex.: 0.80)" },
-  { nome: "horas_uteis_dia", label: "Horas úteis por dia (padrão)", sufixo: "h" },
+  { nome: "horas_uteis_dia", label: "Horas úteis por dia (dia de trabalho)", sufixo: "h" },
 ];
 
 // Projeções exibidas só na Proposta Comercial (migração 020) — nunca
@@ -285,12 +289,14 @@ export default function FormConfigEmpresa({ config }: Props) {
         <div>
           <h3 className="mb-2 text-sm font-semibold text-gray-600">Mão de obra automática</h3>
           <p className="mb-3 text-xs text-gray-500">
-            Substitui o campo manual "Mão de obra (horas)" — a eficiência é o produto de todos os fatores que se
-            aplicam ao trecho (diâmetro da tubulação × curva × altura × fator BR). O diâmetro tem 3 faixas: acima de
-            6" usa eficiência 1 (sem penalidade, sem campo próprio), entre 3" e 6" usa "Eficiência tubulação 3"–6"",
-            abaixo de 3" usa "Eficiência tubulação &lt; 3"". "Horas úteis por dia" aqui é só o padrão — cada
-            orçamento pode ajustar isso caso a caso na Tela 4, já que nem toda hora paga é produtiva
-            (deslocamento/liberação de acesso no local variam de obra pra obra).
+            A mão de obra é orçada por equipe e por diária. "Rendimento" é quanto UMA pessoa de cada função produz
+            em um dia de trabalho, a 100% de eficiência; a produção da equipe é a soma das pessoas escolhidas no
+            orçamento. A metragem de cada trecho é dividida pela eficiência (diâmetro da tubulação × curva × altura ×
+            fator BR — acima de 6" a eficiência de diâmetro é 1, entre 3" e 6" usa "Eficiência tubulação 3"–6"",
+            abaixo de 3" usa "Eficiência tubulação &lt; 3"") e o resultado vira horas de obra. As horas são sempre
+            arredondadas para cima em dias fechados de "Horas úteis por dia", e cada pessoa da equipe é cobrada por
+            esses dias, pelo valor da diária da função (em "Custos operacionais", acima). Cada orçamento pode ajustar
+            as horas úteis do dia na Tela 4, quando deslocamento ou liberação de acesso reduzem o tempo produtivo.
           </p>
           {camposGrid(CAMPOS_MAO_OBRA, "sm:grid-cols-2 lg:grid-cols-3")}
         </div>

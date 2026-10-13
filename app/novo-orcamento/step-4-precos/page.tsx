@@ -2,8 +2,15 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { horasMaoObraTotal, useWizardStore } from "@/lib/store";
-import { comporCamadasIsolante, precificarTrecho, precoAcessorioPorUnidade, somarMetragemEscopo } from "@/lib/usecases/orcamento";
+import { calcularMaoObraDoWizard, horasMaoObraTotal, m2EquivalenteDoTrecho, useWizardStore } from "@/lib/store";
+import {
+  comporCamadasIsolante,
+  distribuirMaoObraPorTrecho,
+  precificarTrecho,
+  precoAcessorioPorUnidade,
+  somarMetragemEscopo,
+} from "@/lib/usecases/orcamento";
+import EquipeMaoObra from "@/components/EquipeMaoObra";
 import { formatarMoeda, formatarNumero } from "@/lib/format";
 import type { CalcularOrcamentoInput, ConfigEmpresa, ImpostoConfig, PrecoConfig } from "@/lib/types";
 import FecharComEsc from "@/components/ui/FecharComEsc";
@@ -77,7 +84,10 @@ export default function Step4PrecosPage() {
     custosOperacionais,
     setCustosOperacionais,
     horasUteisDiaOverride,
-    setHorasUteisDiaOverride,
+    equipe,
+    valoresDiariaOverride,
+    diasMaoObraManual,
+    recalcularMaoObra,
     confirmarItemAtual,
     setResultadoOrcamento,
   } = useWizardStore();
@@ -164,7 +174,6 @@ export default function Step4PrecosPage() {
           precoIsolanteM2: precoIsolanteBase,
           precoAcabamentoM2: precoAcabamentoBase,
           precosAcessorios,
-          valorHoraMaoObra: config.valor_hora_mao_obra,
           trabalhoAltura: especificacoes.trabalho_altura,
           parametrosQuantificacao: config,
           parametrosMaoObra: config,
@@ -310,15 +319,30 @@ export default function Step4PrecosPage() {
     setItensAdicionais((prev) => prev.filter((it) => it.id !== id));
   }
 
-  const horasMaoObraEfetiva = base ? valor("maoObra", "quantidade", base.horas_mao_obra) : 0;
-  const valorHoraEfetivo = base ? valor("maoObra", "precoUnitario", base.valor_hora_mao_obra) : 0;
-  // Subtotal "oficial" de execução do trecho (persistido em subtotal_mao_obra)
-  // = mão de obra automática (horas × valor/hora) + itens adicionais de
-  // categoria "execucao" (ex.: andaime, linha de vida). O card "Mão de obra"
-  // abaixo mostra só a parte de horas — os itens de execução aparecem no
-  // próprio card "Itens Adicionais".
-  const subtotalMaoObraHoras = Number((horasMaoObraEfetiva * valorHoraEfetivo).toFixed(2));
-  const subtotalMaoObra = Number((subtotalMaoObraHoras + subtotalItensAdicionaisExecucao).toFixed(2));
+  // Mão de obra (migração 048): é da PROPOSTA inteira — equipe × dias
+  // fechados (ver lib/usecases/orcamento/maoObraEquipe.ts). Este trecho só
+  // contribui com o trabalho dele (m² equivalentes = metragem ÷ eficiência);
+  // "excluir" a mão de obra do trecho zera essa contribuição. O que aparece
+  // aqui é uma PRÉVIA: os trechos já confirmados + este, com a parte que cabe
+  // a este trecho. O número definitivo é refeito ao avançar (e de novo na
+  // Revisão, sempre que a lista de trechos ou a equipe mudar).
+  const m2EquivalenteTrecho = base && !estaRemovida("maoObra") ? base.m2_equivalente_mao_obra : 0;
+  const maoObraPrevia =
+    base && config
+      ? calcularMaoObraDoWizard(
+          [...itens, { precificacao: { ...base, m2_equivalente_mao_obra: m2EquivalenteTrecho } }],
+          { equipe, valoresDiariaOverride, horasUteisDiaOverride, diasMaoObraManual },
+          config
+        )
+      : null;
+  const parteDesteTrecho = maoObraPrevia
+    ? distribuirMaoObraPorTrecho([...itens.map((i) => m2EquivalenteDoTrecho(i.precificacao)), m2EquivalenteTrecho], maoObraPrevia)[itens.length]
+    : { horas: 0, valor: 0 };
+  // Subtotal de execução do trecho (persistido em subtotal_mao_obra) = parte
+  // da equipe que cabe a ele + itens adicionais de categoria "execucao" (ex.:
+  // andaime, linha de vida), que aparecem no próprio card "Itens Adicionais".
+  const subtotalMaoObraEquipe = parteDesteTrecho.valor;
+  const subtotalMaoObra = Number((subtotalMaoObraEquipe + subtotalItensAdicionaisExecucao).toFixed(2));
   const subtotalTrecho = Number((subtotalMaterial + subtotalMaoObra).toFixed(2));
 
   // Título real de cada linha (material/acabamento escolhido) — precificarTrecho()
@@ -405,8 +429,9 @@ export default function Step4PrecosPage() {
         ...base,
         preco_isolante_m2: precoIsolanteEfetivo,
         preco_acabamento_m2: valor("acabamento", "precoUnitario", precoAcabamentoBase),
-        horas_mao_obra: horasMaoObraEfetiva,
-        valor_hora_mao_obra: valorHoraEfetivo,
+        horas_mao_obra: parteDesteTrecho.horas,
+        m2_equivalente_mao_obra: m2EquivalenteTrecho,
+        subtotal_itens_execucao: subtotalItensAdicionaisExecucao,
         subtotal_material: subtotalMaterial,
         subtotal_mao_obra: subtotalMaoObra,
         subtotal_trecho: subtotalTrecho,
@@ -423,16 +448,17 @@ export default function Step4PrecosPage() {
     setSalvando("revisao");
     try {
       confirmarItemAtual(payload);
-      const todosOsItens = useWizardStore.getState().itens;
+      // Refaz a mão de obra da proposta com TODOS os trechos (dias fechados
+      // no total) e reparte entre eles — os subtotais de mão de obra dos
+      // trechos confirmados antes também mudam.
+      const todosOsItens = recalcularMaoObra(config);
 
       const valorMateriaisTotal = Number(
         todosOsItens.reduce((acc, i) => acc + i.precificacao.subtotal_material, 0).toFixed(2)
       );
-      // Bug relatado: um Item Adicional de execução (ex.: "Remoção de
-      // isolamento") somava certo no subtotal do trecho, mas sumia do Resumo
-      // Financeiro final — sem `valor_mao_obra_direto`, calcularOrcamento()
-      // recomputava a mão de obra do zero só como horas × valor/hora,
-      // ignorando qualquer item adicional (que não é cobrado por hora).
+      // Mão de obra da equipe (já repartida entre os trechos) + itens
+      // adicionais de execução de cada trecho — vai pronta em
+      // `valor_mao_obra_direto`; calcularOrcamento() não recalcula.
       const valorMaoObraTotal = Number(
         todosOsItens.reduce((acc, i) => acc + i.precificacao.subtotal_mao_obra, 0).toFixed(2)
       );
@@ -623,64 +649,31 @@ export default function Step4PrecosPage() {
 
           {base && config && (
             <div className="card space-y-2">
-              <h2 className="text-lg font-semibold">Mão de obra</h2>
-              <p className="text-xs text-gray-400">
-                Automática: {formatarNumero(metragem, 2)} m² ÷ {formatarNumero(config.m2_por_hora_dupla, 2)} m²/h, eficiência média{" "}
-                {formatarNumero(base.eficiencia_global * 100, 1)}%
-                {especificacoes.trabalho_altura && " (inclui trabalho em altura)"}. Ajustável no lápis, se precisar.
-              </p>
-
-              {/* Horas úteis por dia deste orçamento (pedido explícito): as
-                  "horas úteis" de Configurar Preços são as horas TOTAIS pagas
-                  por dia — deslocamento/liberação de acesso no local podem
-                  reduzir quantas dessas horas são de fato produtivas, o que
-                  aumenta o prazo de execução real. Ajustável aqui, caso a
-                  caso, sem mexer no padrão global. Só afeta o prazo de
-                  execução exibido na Proposta, nunca o valor financeiro —
-                  fica na parte de Mão de Obra (pedido explícito), acima do
-                  valor calculado. */}
-              <div>
-                <label className="label-field">Horas úteis de serviço por dia (este orçamento)</label>
-                <input
-                  type="number"
-                  step="0.1"
-                  className="input-field max-w-xs"
-                  placeholder={config ? `Padrão: ${formatarNumero(config.horas_uteis_dia, 1)}h` : "—"}
-                  value={horasUteisDiaOverride ?? ""}
-                  onChange={(e) => setHorasUteisDiaOverride(e.target.value ? Number(e.target.value) : null)}
-                />
-                <p className="mt-1 text-xs text-gray-400">
-                  Das horas pagas por dia, quantas são realmente produtivas depois de descontar deslocamento e
-                  liberação de acesso no local — deixe em branco para usar o padrão de Configurar Preços. Só afeta o
-                  prazo de execução estimado na Proposta, não o valor do orçamento.
-                </p>
-              </div>
-
+              <h2 className="text-lg font-semibold">Mão de obra deste trecho</h2>
               {estaRemovida("maoObra") ? (
                 <p className="text-sm text-gray-400">
-                  Mão de obra excluída deste trecho —{" "}
+                  Mão de obra excluída deste trecho — ele não conta nos dias de obra.{" "}
                   <button type="button" className="text-brand hover:underline" onClick={() => restaurarLinha("maoObra")}>
                     restaurar
                   </button>
                 </p>
               ) : (
                 <>
-                  <table className="min-w-full text-sm">
-                    <tbody>
-                      <LinhaTabela
-                        linha={{ chave: "maoObra", titulo: "Mão de obra (dupla de 2 profissionais)", unidadeQuantidade: "h", unidadePreco: "hora", quantidadeBase: base.horas_mao_obra, precoBase: base.valor_hora_mao_obra }}
-                        quantidade={horasMaoObraEfetiva}
-                        unidade={unidadeAtual("maoObra", "h")}
-                        precoUnitario={valorHoraEfetivo}
-                        onEditar={() =>
-                          setEditando({ chave: "maoObra", titulo: "Mão de obra (dupla de 2 profissionais)", unidadeQuantidade: "h", unidadePreco: "hora", quantidadeBase: base.horas_mao_obra, precoBase: base.valor_hora_mao_obra })
-                        }
-                        onExcluir={() => excluirLinha("maoObra")}
-                      />
-                    </tbody>
-                  </table>
+                  <p className="text-sm">
+                    Trabalho: <strong>{formatarNumero(metragem, 2)} m²</strong> ÷ eficiência média{" "}
+                    <strong>{formatarNumero(base.eficiencia_global * 100, 1)}%</strong>
+                    {especificacoes.trabalho_altura && " (inclui trabalho em altura)"} ={" "}
+                    <strong>{formatarNumero(m2EquivalenteTrecho, 2)} m² equivalentes</strong>
+                  </p>
+                  <p className="text-xs text-gray-400">
+                    A equipe e as diárias são do orçamento inteiro — ver "Mão de obra — equipe e diárias", mais abaixo. Com a
+                    equipe atual, este trecho responde por {formatarNumero(parteDesteTrecho.horas, 1)} h de obra.{" "}
+                    <button type="button" className="text-brand hover:underline" onClick={() => excluirLinha("maoObra")}>
+                      Excluir a mão de obra deste trecho
+                    </button>
+                  </p>
                   <div className="border-t border-gray-100 pt-2 text-sm font-semibold">
-                    <Linha label="Subtotal Mão de Obra" valor={subtotalMaoObraHoras} />
+                    <Linha label="Mão de obra (parte deste trecho)" valor={subtotalMaoObraEquipe} />
                   </div>
                 </>
               )}
@@ -810,6 +803,10 @@ export default function Step4PrecosPage() {
             )}
           </div>
 
+          {/* Equipe e diárias (migração 048) — do orçamento inteiro; a prévia
+              soma os trechos já confirmados com este. */}
+          {config && maoObraPrevia && <EquipeMaoObra config={config} maoObra={maoObraPrevia} />}
+
           {/* Custos operacionais: movidos da Revisão pra cá (pedido
               explícito) — valem pro orçamento inteiro, não só este trecho;
               o resumo financeiro final continua exibido na Revisão. */}
@@ -866,6 +863,12 @@ export default function Step4PrecosPage() {
             </div>
             {/* Aluguel de carro/Alimentação usam o preço por diária definido
                 em Configurar Preços — aqui só a quantidade. */}
+            {maoObraPrevia && maoObraPrevia.pessoas > 0 && maoObraPrevia.dias > 0 && (
+              <p className="text-xs text-gray-500">
+                Referência: equipe de {maoObraPrevia.pessoas} {maoObraPrevia.pessoas === 1 ? "pessoa" : "pessoas"} × {maoObraPrevia.dias}{" "}
+                {maoObraPrevia.dias === 1 ? "dia" : "dias"} de obra = {maoObraPrevia.pessoas * maoObraPrevia.dias} diárias de alimentação.
+              </p>
+            )}
             <p className="text-xs text-gray-400">
               Aluguel de carro e Alimentação usam o valor por diária definido em{" "}
               <a href="/config-precos" className="text-brand hover:underline">

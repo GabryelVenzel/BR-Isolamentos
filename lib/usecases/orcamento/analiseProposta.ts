@@ -7,7 +7,8 @@
 // CO₂ por árvore) é fixo aqui — sempre recebido como parâmetro
 // (ConfigEmpresa), ver decisão 2 em sql-migration-020-detalhamento-propostas.sql.
 
-import type { ItemOrcamento, Orcamento, TipoTrabalho } from "../../types";
+import type { ItemOrcamento, MaoObraEquipe, Orcamento, TipoTrabalho } from "../../types";
+import { LABEL_FUNCAO_MAO_OBRA } from "./maoObraEquipe";
 import { metragemFinalItem, quantidadeEscopoItem } from "./escopo";
 
 export interface BeneficiosConsolidados {
@@ -88,6 +89,20 @@ export function prazoExecucaoDiasUteis(itens: ItemOrcamento[], horasUteisDia: nu
   if (horasUteisDia <= 0) return 0;
   const horasTotais = itens.reduce((acc, i) => acc + (i.horas_mao_obra ?? 0), 0);
   return Math.max(1, Math.ceil(horasTotais / horasUteisDia));
+}
+
+/** Prazo de execução exibido nas Propostas. Orçamento com equipe e diárias
+ * (migração 048): são os próprios dias de obra cobrados — o prazo e as
+ * diárias nunca divergem. Orçamento anterior: a estimativa por horas de
+ * sempre (`prazoExecucaoDiasUteis`). */
+export function prazoExecucaoDaProposta(
+  orcamento: Pick<Orcamento, "mao_obra_equipe" | "horas_uteis_dia">,
+  itens: ItemOrcamento[],
+  horasUteisDiaPadrao: number
+): number {
+  const dias = orcamento.mao_obra_equipe?.dias ?? 0;
+  if (dias > 0) return dias;
+  return prazoExecucaoDiasUteis(itens, orcamento.horas_uteis_dia ?? horasUteisDiaPadrao);
 }
 
 /** true quando o orçamento tem dado suficiente para exibir a seção de
@@ -214,8 +229,18 @@ export function distribuirResumoFinanceiroSimplificado(
   return { material, maoDeObra };
 }
 
+/** Casas decimais da quantidade de uma linha da Quantificação: gramas com
+ * 1, diárias sem nenhuma (são sempre dias fechados), o resto com 2. */
+export function casasDecimaisQuantidade(unidade: string): number {
+  if (unidade === "g") return 1;
+  if (unidade.startsWith("diária")) return 0;
+  return 2;
+}
+
 export interface LinhaQuantidadeMaterial {
-  trechoNumero: number;
+  /** "Todos" nas linhas que valem para a proposta inteira (a equipe de mão
+   * de obra, migração 048). */
+  trechoNumero: number | "Todos";
   titulo: string;
   quantidade: number;
   unidade: string;
@@ -292,7 +317,20 @@ export function linhasOperacionaisIncluso(
  * 13,1h, quando na verdade são 2 pessoas dividindo esse total. Aparece pros
  * dois tipos de proposta (inclusive "somente_mo", onde é a única linha desta
  * lista) — mão de obra sempre existe, diferente de material. */
-export function linhasMaoDeObra(itens: ItemOrcamento[]): LinhaQuantidadeMaterial[] {
+export function linhasMaoDeObra(itens: ItemOrcamento[], equipe?: MaoObraEquipe | null): LinhaQuantidadeMaterial[] {
+  // Migração 048 — uma linha por função da equipe, com quantos profissionais
+  // e quantas diárias cada um (sem o valor da diária). Vale para a proposta
+  // inteira, não por trecho.
+  if (equipe && equipe.funcoes.length > 0 && equipe.dias > 0) {
+    return equipe.funcoes.map((f) => ({
+      trechoNumero: "Todos" as const,
+      titulo: `Mão de obra — ${LABEL_FUNCAO_MAO_OBRA[f.funcao]} (${f.pessoas} ${f.pessoas === 1 ? "profissional" : "profissionais"})`,
+      quantidade: f.diarias,
+      unidade: f.pessoas === 1 ? (f.diarias === 1 ? "diária" : "diárias") : f.diarias === 1 ? "diária cada" : "diárias cada",
+    }));
+  }
+
+  // Orçamentos anteriores à migração 048: horas de uma dupla, por trecho.
   return itens
     .map((item, index) => ({ trechoNumero: index + 1, titulo: "Mão de obra (dupla de 2 pessoas)", quantidade: item.horas_mao_obra, unidade: "h" }))
     .filter((linha) => linha.quantidade > 0);

@@ -26,6 +26,17 @@ export type { PrecificacaoTrecho, PrecosAcessorios, TrechoParaAlocacao } from ".
 export { quantificarMateriais } from "./quantificarMateriais";
 export type { ParametrosQuantificacao, QuantificacaoMateriais } from "./quantificarMateriais";
 export { calcularMaoObraAutomatica, calcularMaoObraPorItens } from "./calcularMaoObraAutomatica";
+export {
+  EQUIPE_PADRAO,
+  FUNCOES_MAO_OBRA,
+  LABEL_FUNCAO_MAO_OBRA,
+  calcularMaoObraEquipe,
+  diasFechados,
+  distribuirMaoObraPorTrecho,
+  rendimentoM2Dia,
+  valorDiariaPadrao,
+} from "./maoObraEquipe";
+export type { EquipeMaoObra, ParametrosEquipe } from "./maoObraEquipe";
 export type { FatoresMaoObra, ItemMaoObra, MaoObraAutomatica, ParametrosMaoObra } from "./calcularMaoObraAutomatica";
 export {
   arvoresEquivalentes,
@@ -42,7 +53,9 @@ export {
   linhasOperacionaisIncluso,
   linhasQuantificacaoMateriais,
   linhasItensAdicionaisExecucao,
+  prazoExecucaoDaProposta,
   prazoExecucaoDiasUteis,
+  casasDecimaisQuantidade,
   projetarEconomiaAcumulada,
   temAnaliseFinanceira,
 } from "./analiseProposta";

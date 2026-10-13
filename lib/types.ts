@@ -177,6 +177,40 @@ export interface LinhaDetalhamentoMaterial {
   subtotal: number;
 }
 
+/** Funções de mão de obra orçadas por diária (migração 048). */
+export type FuncaoMaoObra = "funileiro" | "isolador" | "ajudante";
+
+/** Mão de obra de uma proposta por EQUIPE e DIÁRIAS (migração 048) — o
+ * resultado de lib/usecases/orcamento/maoObraEquipe.ts, guardado junto do
+ * orçamento para as Propostas mostrarem a equipe e as diárias. Os valores de
+ * diária e rendimento são os do momento da criação. */
+export interface MaoObraEquipe {
+  /** Soma dos m² equivalentes (metragem ÷ eficiência) dos trechos. */
+  m2_equivalente: number;
+  /** Quanto a equipe escolhida produz por dia (Σ pessoas × rendimento). */
+  producao_m2_dia: number;
+  /** Horas de obra da equipe — base de cálculo dos dias. */
+  horas_obra: number;
+  horas_uteis_dia: number;
+  /** Dias fechados de obra = diárias de CADA pessoa da equipe. */
+  dias: number;
+  /** `true` quando os dias foram digitados à mão, não calculados. */
+  dias_manual: boolean;
+  pessoas: number;
+  funcoes: Array<{
+    funcao: FuncaoMaoObra;
+    pessoas: number;
+    /** Rendimento da função, m² por pessoa por dia. */
+    m2_dia: number;
+    valor_diaria: number;
+    /** Diárias por pessoa (= `dias`). */
+    diarias: number;
+    /** pessoas × diárias × valor da diária. */
+    subtotal: number;
+  }>;
+  valor_total: number;
+}
+
 export interface Orcamento {
   id: number;
   /** Migração 047 — preenchido quando o registro está na LIXEIRA (excluído,
@@ -227,8 +261,15 @@ export interface Orcamento {
    * o padrão, então de 10h pagas só 7h são realmente produtivas, aumentando
    * o prazo de execução. `null` = usa o padrão da config (comportamento de
    * antes desta migração). Só afeta o PRAZO DE EXECUÇÃO exibido nas
-   * Propostas, nunca o valor financeiro. */
+   * Propostas, nunca o valor financeiro — até a migração 048; a partir dela
+   * os dias de obra também definem as diárias cobradas, ver
+   * `mao_obra_equipe`. */
   horas_uteis_dia: number | null;
+
+  /** Migração 048 — equipe e diárias da mão de obra. `null`/ausente em
+   * orçamentos anteriores (modelo antigo: horas de uma dupla × valor/hora,
+   * com as horas guardadas em cada trecho). */
+  mao_obra_equipe?: MaoObraEquipe | null;
 
   // Status
   status: StatusOrcamento;
@@ -345,7 +386,15 @@ export interface ConfigEmpresa {
    * extra` explicitamente. Coluna mantida no schema por compatibilidade. */
   desconto_competitivo: number;
 
+  /** @deprecated Migração 048 — a mão de obra passou a ser orçada por
+   * diária e por função (`valor_diaria_*`). Coluna mantida só para os
+   * orçamentos antigos. */
   valor_hora_mao_obra: number;
+  /** Migração 048 — valor de UMA diária de cada função (R$ por pessoa por
+   * dia). */
+  valor_diaria_funileiro: number;
+  valor_diaria_isolador: number;
+  valor_diaria_ajudante: number;
   valor_km_deslocamento: number;
   valor_noite_hospedagem: number;
   /** @deprecated Sem uso — o frete não tem mais preço configurável por
@@ -394,7 +443,15 @@ export interface ConfigEmpresa {
   // Mão de obra automática (migração 019) — ver
   // lib/usecases/orcamento/calcularMaoObraAutomatica.ts. Substitui o campo
   // manual "Mão de obra deste trecho (horas)" que existia no wizard.
+  /** @deprecated Migração 048 — o rendimento passou a ser por pessoa por
+   * dia, um por função (`m2_dia_*`). Coluna mantida só por compatibilidade. */
   m2_por_hora_dupla: number;
+  /** Migração 048 — rendimento de cada função: m² por pessoa por dia de
+   * trabalho (dia de `horas_uteis_dia` horas), a 100% de eficiência. A
+   * produção diária da equipe é a soma de pessoas × rendimento. */
+  m2_dia_funileiro: number;
+  m2_dia_isolador: number;
+  m2_dia_ajudante: number;
   /** Multiplicador quando o diâmetro (do menor item de tubulação/curva do
    * trecho) é menor que 3" (76,2mm) — faixa mais restritiva das 3 (migração
    * 032: substitui o limiar único de 4" por faixas escalonáveis, pedido
@@ -413,7 +470,9 @@ export interface ConfigEmpresa {
   eficiencia_altura: number;
   /** Fator de rendimento da dupla brasileira — sempre aplicado. */
   eficiencia_fator_br: number;
-  /** Horas TOTAIS pagas por dia de trabalho (ex.: 9h) — usado como valor
+  /** Horas úteis de um dia de trabalho (7h desde a migração 048) — é o dia
+   * a que os rendimentos `m2_dia_*` se referem e o divisor que transforma
+   * horas de obra em diárias fechadas. Usado como valor
    * padrão pra "Horas úteis" de um orçamento novo (migração 032: cada
    * orçamento pode ajustar esse número caso a caso na Tela 4, porque nem
    * toda hora paga é produtiva — deslocamento e liberação de acesso no local

@@ -119,7 +119,7 @@ export default function EditarOrcamentoPage() {
                   <p>Material: {item.material}</p>
                   {item.acabamento && <p>Acabamento: {item.acabamento}</p>}
                   <p>Metragem: {formatarNumero(item.area_m2, 2)} m²</p>
-                  <p>Mão de obra: {formatarNumero(item.horas_mao_obra, 1)}h</p>
+                  <p>Mão de obra: {formatarNumero(item.horas_mao_obra, 1)} h</p>
                 </div>
                 <div className="mt-2 flex justify-between border-t border-gray-100 pt-1.5 text-xs text-gray-500">
                   <span>Material: {formatarMoeda(item.subtotal_material)}</span>

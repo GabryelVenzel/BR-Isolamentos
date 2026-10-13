@@ -14,6 +14,13 @@
 // trechos (proporcional ao custo de cada um), para exibição — não recalcula
 // impostos/margem por conta própria.
 //
+// Migração 048 — a mão de obra deixou de ser precificada AQUI: ela é
+// calculada uma vez para a proposta inteira, por equipe e diárias fechadas
+// (maoObraEquipe.ts), e depois repartida entre os trechos. Esta função só
+// mede o trabalho do trecho (`m2_equivalente_mao_obra`); `horas_mao_obra` e
+// `subtotal_mao_obra` saem zerados daqui e são preenchidos na repartição
+// (ver `aplicarMaoObraNosTrechos` em lib/store.ts).
+//
 // Migração 019 — motor de quantificação + mão de obra automática: o material
 // não é mais "metragem × preço/m²" direto — cada material tem sua própria
 // quantidade (isolante/acabamento com acréscimo, rebite/parafuso/arame/
@@ -42,8 +49,15 @@ export interface PrecificacaoTrecho {
   metragem_m2: number;
   preco_isolante_m2: number;
   preco_acabamento_m2: number;
+  /** Horas de obra da equipe que cabem a este trecho — preenchido na
+   * repartição da mão de obra da proposta (migração 048). */
   horas_mao_obra: number;
-  valor_hora_mao_obra: number;
+  /** Metragem ÷ eficiência: quanto trabalho o trecho dá, independente da
+   * equipe (migração 048). 0 quando a mão de obra do trecho foi excluída. */
+  m2_equivalente_mao_obra: number;
+  /** Itens Adicionais de categoria "execução" do trecho (andaime, linha de
+   * vida...) — somam em `subtotal_mao_obra` junto com a parte da equipe. */
+  subtotal_itens_execucao: number;
   eficiencia_global: number;
   subtotal_material: number;
   subtotal_mao_obra: number;
@@ -73,7 +87,6 @@ export function precificarTrecho(input: {
   precoIsolanteM2: number;
   precoAcabamentoM2: number;
   precosAcessorios: PrecosAcessorios;
-  valorHoraMaoObra: number;
   trabalhoAltura: boolean;
   parametrosQuantificacao: ParametrosQuantificacao;
   parametrosMaoObra: ParametrosMaoObra;
@@ -84,7 +97,8 @@ export function precificarTrecho(input: {
   const quantidades = quantificarMateriais(input.escopoItens, input.espessuraMm, input.parametrosQuantificacao);
 
   // Item a item (bug relatado: 100 m de reta + 2 curvas dobrava o tempo do
-  // trecho todo) — cada item do Escopo com a eficiência dele, horas somadas.
+  // trecho todo) — cada item do Escopo com a eficiência dele, m² equivalentes
+  // somados.
   const maoObra = calcularMaoObraPorItens(
     input.escopoItens.map((item) => ({
       metragemM2: metragemFinalItem(item),
@@ -107,8 +121,6 @@ export function precificarTrecho(input: {
             quantidades.siliconeFrascos * input.precosAcessorios.siliconeFrasco
         );
 
-  const subtotalMaoObra = round2(maoObra.horasAjustadas * input.valorHoraMaoObra);
-
   const detalhamentoMateriais: LinhaDetalhamentoMaterial[] =
     input.tipoProposta === "somente_mo"
       ? []
@@ -129,12 +141,13 @@ export function precificarTrecho(input: {
     metragem_m2: metragem,
     preco_isolante_m2: input.precoIsolanteM2,
     preco_acabamento_m2: input.precoAcabamentoM2,
-    horas_mao_obra: maoObra.horasAjustadas,
-    valor_hora_mao_obra: input.valorHoraMaoObra,
+    horas_mao_obra: 0,
+    m2_equivalente_mao_obra: maoObra.m2Equivalente,
+    subtotal_itens_execucao: 0,
     eficiencia_global: maoObra.eficienciaGlobal,
     subtotal_material: subtotalMaterial,
-    subtotal_mao_obra: subtotalMaoObra,
-    subtotal_trecho: round2(subtotalMaterial + subtotalMaoObra),
+    subtotal_mao_obra: 0,
+    subtotal_trecho: subtotalMaterial,
     quantidades,
     detalhamentoMateriais,
   };

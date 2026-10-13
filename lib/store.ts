@@ -21,10 +21,19 @@ import type {
   CalcularTermicoResultadoQuente,
   Cliente,
   CombustivelTipo,
+  FuncaoMaoObra,
   ItemEscopo,
+  MaoObraEquipe,
   TipoTrabalho,
 } from "./types";
 import type { PrecificacaoTrecho } from "./usecases/orcamento";
+import {
+  EQUIPE_PADRAO,
+  calcularMaoObraEquipe,
+  distribuirMaoObraPorTrecho,
+  type EquipeMaoObra,
+  type ParametrosEquipe,
+} from "./usecases/orcamento/maoObraEquipe";
 
 export interface WizardEspecificacoes {
   tipo_trabalho: TipoTrabalho;
@@ -127,9 +136,23 @@ interface WizardState {
   /** Horas úteis/produtivas por dia PARA ESTE ORÇAMENTO (migração 032,
    * pedido explícito — "preciso que tenha um outro fator na etapa de
    * orçamento que eu possa definir caso a caso quantas horas são úteis de
-   * serviço"). `null` = usa o padrão de ConfigEmpresa.horas_uteis_dia. Só
-   * afeta o prazo de execução estimado, nunca o valor financeiro. */
+   * serviço"). `null` = usa o padrão de ConfigEmpresa.horas_uteis_dia.
+   * Desde a migração 048 muda também o valor: menos horas produtivas por dia
+   * = mais dias de obra = mais diárias. */
   horasUteisDiaOverride: number | null;
+
+  // --- Mão de obra por equipe e diárias (migração 048) — vale pro orçamento
+  // inteiro, ver lib/usecases/orcamento/maoObraEquipe.ts ---
+  /** Quantas pessoas de cada função. */
+  equipe: EquipeMaoObra;
+  /** Valor da diária ajustado só para este orçamento, por função; ausente ou
+   * `null` = o valor de Configurar Preços. */
+  valoresDiariaOverride: Partial<Record<FuncaoMaoObra, number | null>>;
+  /** Dias de obra digitados à mão; `null` = calculados (sempre dias
+   * fechados, arredondados para cima). */
+  diasMaoObraManual: number | null;
+  /** Último resultado de `recalcularMaoObra` — o que vai salvo no orçamento. */
+  maoObraEquipe: MaoObraEquipe | null;
   resultadoOrcamento: CalcularOrcamentoResultado | null;
 
   setCliente: (cliente: Cliente | null) => void;
@@ -152,6 +175,15 @@ interface WizardState {
   removerItem: (index: number) => void;
   setCustosOperacionais: (dados: Partial<WizardCustosOperacionais>) => void;
   setHorasUteisDiaOverride: (horas: number | null) => void;
+  setEquipe: (dados: Partial<EquipeMaoObra>) => void;
+  setValorDiariaOverride: (funcao: FuncaoMaoObra, valor: number | null) => void;
+  setDiasMaoObraManual: (dias: number | null) => void;
+  /** Recalcula a mão de obra da proposta (equipe × dias fechados) a partir
+   * dos trechos já confirmados e reparte horas e valor entre eles —
+   * atualiza `itens` e `maoObraEquipe`. Chamar sempre que mudar a lista de
+   * trechos, a equipe, as diárias ou as horas úteis, ANTES de recalcular o
+   * orçamento. Devolve os trechos já atualizados. */
+  recalcularMaoObra: (parametros: ParametrosEquipe) => WizardItem[];
   setResultadoOrcamento: (resultado: CalcularOrcamentoResultado | null) => void;
   reset: () => void;
 }
@@ -210,6 +242,10 @@ export const useWizardStore = create<WizardState>()(
 
       custosOperacionais: custosOperacionaisIniciais,
       horasUteisDiaOverride: null,
+      equipe: EQUIPE_PADRAO,
+      valoresDiariaOverride: {},
+      diasMaoObraManual: null,
+      maoObraEquipe: null,
       resultadoOrcamento: null,
 
       setCliente: (cliente) => set({ clienteSelecionado: cliente }),
@@ -259,6 +295,17 @@ export const useWizardStore = create<WizardState>()(
       setCustosOperacionais: (dados) =>
         set((state) => ({ custosOperacionais: { ...state.custosOperacionais, ...dados } })),
       setHorasUteisDiaOverride: (horas) => set({ horasUteisDiaOverride: horas }),
+      setEquipe: (dados) => set((state) => ({ equipe: { ...state.equipe, ...dados } })),
+      setValorDiariaOverride: (funcao, valor) =>
+        set((state) => ({ valoresDiariaOverride: { ...state.valoresDiariaOverride, [funcao]: valor } })),
+      setDiasMaoObraManual: (dias) => set({ diasMaoObraManual: dias }),
+      recalcularMaoObra: (parametros) => {
+        const state = get();
+        const maoObraEquipe = calcularMaoObraDoWizard(state.itens, state, parametros);
+        const itens = aplicarMaoObraNosTrechos(state.itens, maoObraEquipe);
+        set({ itens, maoObraEquipe });
+        return itens;
+      },
       setResultadoOrcamento: (resultado) => set({ resultadoOrcamento: resultado }),
 
       reset: () =>
@@ -272,6 +319,10 @@ export const useWizardStore = create<WizardState>()(
           resultadoTermicoFrioAtual: null,
           custosOperacionais: custosOperacionaisIniciais,
           horasUteisDiaOverride: null,
+          equipe: EQUIPE_PADRAO,
+          valoresDiariaOverride: {},
+          diasMaoObraManual: null,
+          maoObraEquipe: null,
           resultadoOrcamento: null,
         }),
     }),
@@ -295,6 +346,8 @@ export const useWizardStore = create<WizardState>()(
           ...persisted,
           custosOperacionais: { ...currentState.custosOperacionais, ...persisted?.custosOperacionais },
           itemAtual: { ...currentState.itemAtual, ...persisted?.itemAtual },
+          equipe: { ...currentState.equipe, ...persisted?.equipe },
+          valoresDiariaOverride: { ...persisted?.valoresDiariaOverride },
         };
       },
     }
@@ -309,10 +362,61 @@ export function tipoTrabalhoAgregado(itens: WizardItem[]): TipoTrabalho {
   return "misto";
 }
 
-/** Soma as horas de mão de obra (já calculadas automaticamente por trecho —
- * ver precificarTrecho.ts/calcularMaoObraAutomatica.ts) de todos os trechos —
- * é o único `horas_mao_obra` que `calcularOrcamento` recebe (a taxa/hora é
- * global, não varia por trecho). */
+/** m² equivalentes (metragem ÷ eficiência) de um trecho — a medida de
+ * trabalho que a mão de obra da proposta usa. Um trecho salvo no navegador
+ * antes da migração 048 não tem o campo; reconstrói a partir da metragem e
+ * da eficiência que ele já guardava. */
+export function m2EquivalenteDoTrecho(precificacao: PrecificacaoTrecho): number {
+  if (typeof precificacao.m2_equivalente_mao_obra === "number") return precificacao.m2_equivalente_mao_obra;
+  const eficiencia = precificacao.eficiencia_global > 0 ? precificacao.eficiencia_global : 1;
+  return Number((precificacao.metragem_m2 / eficiencia).toFixed(2));
+}
+
+/** Mão de obra da proposta para uma lista de trechos, com a equipe, as
+ * diárias e as horas úteis escolhidas no wizard. */
+export function calcularMaoObraDoWizard(
+  itens: Array<Pick<WizardItem, "precificacao">>,
+  escolhas: Pick<WizardState, "equipe" | "valoresDiariaOverride" | "horasUteisDiaOverride" | "diasMaoObraManual">,
+  parametros: ParametrosEquipe
+): MaoObraEquipe {
+  return calcularMaoObraEquipe({
+    m2Equivalente: itens.reduce((acc, i) => acc + m2EquivalenteDoTrecho(i.precificacao), 0),
+    equipe: escolhas.equipe,
+    parametros,
+    valoresDiaria: escolhas.valoresDiariaOverride,
+    horasUteisDia: escolhas.horasUteisDiaOverride,
+    diasManual: escolhas.diasMaoObraManual,
+  });
+}
+
+/** Reparte horas e valor da mão de obra da proposta entre os trechos e
+ * refaz os subtotais de cada um: mão de obra do trecho = parte da equipe +
+ * itens adicionais de execução dele. */
+export function aplicarMaoObraNosTrechos(itens: WizardItem[], maoObra: MaoObraEquipe): WizardItem[] {
+  const partes = distribuirMaoObraPorTrecho(
+    itens.map((i) => m2EquivalenteDoTrecho(i.precificacao)),
+    maoObra
+  );
+  return itens.map((item, index) => {
+    const execucao = item.precificacao.subtotal_itens_execucao ?? 0;
+    const subtotalMaoObra = Number((partes[index].valor + execucao).toFixed(2));
+    return {
+      ...item,
+      precificacao: {
+        ...item.precificacao,
+        m2_equivalente_mao_obra: m2EquivalenteDoTrecho(item.precificacao),
+        subtotal_itens_execucao: execucao,
+        horas_mao_obra: partes[index].horas,
+        subtotal_mao_obra: subtotalMaoObra,
+        subtotal_trecho: Number((item.precificacao.subtotal_material + subtotalMaoObra).toFixed(2)),
+      },
+    };
+  });
+}
+
+/** Soma as horas de obra de todos os trechos (já repartidas por
+ * `aplicarMaoObraNosTrechos`) — o `horas_mao_obra` que `calcularOrcamento`
+ * recebe; o valor em si vai em `valor_mao_obra_direto`. */
 export function horasMaoObraTotal(itens: WizardItem[]): number {
   return Number(itens.reduce((acc, i) => acc + i.precificacao.horas_mao_obra, 0).toFixed(2));
 }

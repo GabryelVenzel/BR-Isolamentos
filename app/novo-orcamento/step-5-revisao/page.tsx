@@ -1,8 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { horasMaoObraTotal, tipoTrabalhoAgregado, useWizardStore, type WizardItem } from "@/lib/store";
+import { calcularMaoObraDoWizard, horasMaoObraTotal, tipoTrabalhoAgregado, useWizardStore, type WizardItem } from "@/lib/store";
+import EquipeMaoObra from "@/components/EquipeMaoObra";
 import { alocarValorFinalPorTrecho, descreverItemEscopo, geometriaRepresentativa } from "@/lib/usecases/orcamento";
 import { formatarMoeda, formatarNumero } from "@/lib/format";
 import type { CalcularOrcamentoInput, ConfigEmpresa, ImpostoConfig, ItemOrcamento, Orcamento } from "@/lib/types";
@@ -17,6 +18,11 @@ export default function Step5RevisaoPage() {
     resultadoOrcamento,
     custosOperacionais,
     horasUteisDiaOverride,
+    equipe,
+    valoresDiariaOverride,
+    diasMaoObraManual,
+    maoObraEquipe,
+    recalcularMaoObra,
     setResultadoOrcamento,
     editarItem,
     removerItem,
@@ -95,10 +101,38 @@ export default function Step5RevisaoPage() {
   async function excluirTrecho(index: number) {
     if (!(await confirmar("Excluir este trecho do orçamento?"))) return;
     removerItem(index);
-    const restantes = useWizardStore.getState().itens;
-    if (restantes.length > 0) recalcular(restantes, custosOperacionais);
-    else setResultadoOrcamento(null);
+    if (useWizardStore.getState().itens.length === 0) {
+      setResultadoOrcamento(null);
+      return;
+    }
+    // Sem o trecho, os dias de obra (e a parte de cada trecho) mudam.
+    if (config) recalcular(recalcularMaoObra(config), custosOperacionais);
   }
+
+  // Equipe, diárias, horas úteis ou dias mudaram aqui na Revisão: refaz a mão
+  // de obra da proposta e o orçamento. Não roda na primeira montagem (a Tela 4
+  // já entregou tudo calculado), só quando uma dessas escolhas muda de fato.
+  const escolhasMaoObra = JSON.stringify([equipe, valoresDiariaOverride, horasUteisDiaOverride, diasMaoObraManual]);
+  const escolhasAplicadas = useRef<string | null>(null);
+  useEffect(() => {
+    if (!config) return;
+    if (escolhasAplicadas.current === null) {
+      escolhasAplicadas.current = escolhasMaoObra;
+      return;
+    }
+    if (escolhasAplicadas.current === escolhasMaoObra) return;
+    escolhasAplicadas.current = escolhasMaoObra;
+    if (useWizardStore.getState().itens.length === 0) return;
+    recalcular(recalcularMaoObra(config), useWizardStore.getState().custosOperacionais);
+  }, [config, escolhasMaoObra, recalcular, recalcularMaoObra]);
+
+  // O que o card da equipe mostra: o último cálculo aplicado aos trechos; se
+  // o navegador ainda não tem um (sessão anterior à migração 048), a conta
+  // feita na hora com os mesmos dados.
+  const maoObraDaTela =
+    config && itens.length > 0
+      ? maoObraEquipe ?? calcularMaoObraDoWizard(itens, { equipe, valoresDiariaOverride, horasUteisDiaOverride, diasMaoObraManual }, config)
+      : null;
 
   function editarTrecho(index: number) {
     editarItem(index);
@@ -185,6 +219,7 @@ export default function Step5RevisaoPage() {
         valor_aluguel_carro: resultadoOrcamento!.valor_aluguel_carro,
         valor_alimentacao: resultadoOrcamento!.valor_alimentacao,
         horas_uteis_dia: horasUteisDiaOverride,
+        mao_obra_equipe: maoObraEquipe,
         subtotal: resultadoOrcamento!.subtotal,
         detalhamento_impostos: resultadoOrcamento!.detalhamento_impostos,
         total_impostos: resultadoOrcamento!.total_impostos,
@@ -255,7 +290,7 @@ export default function Step5RevisaoPage() {
             <p>Material: {item.materialNome}</p>
             {item.acabamentoNome && <p>Acabamento: {item.acabamentoNome}</p>}
             <p>Metragem: {formatarNumero(item.precificacao.metragem_m2, 2)} m²</p>
-            <p>Mão de obra: {formatarNumero(item.precificacao.horas_mao_obra, 1)}h</p>
+            <p>Mão de obra: {formatarNumero(item.precificacao.horas_mao_obra, 1)} h de obra da equipe</p>
           </div>
 
           <div>
@@ -287,6 +322,10 @@ export default function Step5RevisaoPage() {
           </div>
         </div>
       ))}
+
+      {/* Equipe e diárias (migração 048) — do orçamento inteiro; mudar aqui
+          recalcula a mão de obra e o orçamento na hora. */}
+      {config && maoObraDaTela && <EquipeMaoObra config={config} maoObra={maoObraDaTela} />}
 
       {/* Custos operacionais: campos de edição movidos pra Tela 4 (pedido
           explícito) — aqui só o resumo financeiro final (abaixo), que já

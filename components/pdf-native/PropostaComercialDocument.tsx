@@ -43,10 +43,11 @@ import {
   itensNaoContemplados,
   linhasEspecificacoesTecnicas,
   linhasMaoDeObra,
+  casasDecimaisQuantidade,
   linhasOperacionaisIncluso,
   linhasQuantificacaoMateriais,
   linhasItensAdicionaisExecucao,
-  prazoExecucaoDiasUteis,
+  prazoExecucaoDaProposta,
   projetarEconomiaAcumulada,
   temAnaliseFinanceira,
 } from "@/lib/usecases/orcamento";
@@ -163,7 +164,7 @@ export default function PropostaComercialDocument({ orcamento, configEmpresa }: 
   // ESTE orçamento (migração 032: deslocamento/liberação de acesso no local
   // podem reduzir quantas das horas pagas são realmente produtivas), caindo
   // pro padrão da config quando o orçamento não tem override.
-  const prazoDias = configEmpresa ? prazoExecucaoDiasUteis(itens, orcamento.horas_uteis_dia ?? configEmpresa.horas_uteis_dia) : null;
+  const prazoDias = configEmpresa ? prazoExecucaoDaProposta(orcamento, itens, configEmpresa.horas_uteis_dia) : null;
   const descontoAvista = configEmpresa?.desconto_avista_percentual ?? 5;
   const garantiaMeses = configEmpresa?.garantia_mao_obra_meses ?? 12;
   const validadeDias = configEmpresa?.validade_proposta_dias ?? 30;
@@ -181,7 +182,7 @@ export default function PropostaComercialDocument({ orcamento, configEmpresa }: 
   // categoria "material" de fato não entra aqui (o cliente fornece por
   // fora), mas a categoria "execução" precisa continuar aparecendo, já que é
   // exatamente o que este quadro mostra.
-  const linhasQuadro1 = [...(somenteMaoObra ? linhasItensAdicionaisExecucao(itens) : linhasQuantificacaoMateriais(itens)), ...linhasMaoDeObra(itens)];
+  const linhasQuadro1 = [...(somenteMaoObra ? linhasItensAdicionaisExecucao(itens) : linhasQuantificacaoMateriais(itens)), ...linhasMaoDeObra(itens, orcamento.mao_obra_equipe)];
   const quadroOperacional = linhasOperacionaisIncluso(orcamento);
 
   let n = 1;
@@ -289,7 +290,7 @@ export default function PropostaComercialDocument({ orcamento, configEmpresa }: 
                     {itens.length > 1 && <Text style={estilos.celula}>{linha.trechoNumero}</Text>}
                     <Text style={{ ...estilos.celula, flex: 2 }}>{linha.titulo}</Text>
                     <Text style={estilos.celula}>
-                      {formatarNumero(linha.quantidade, linha.unidade === "g" ? 1 : 2)} {linha.unidade}
+                      {formatarNumero(linha.quantidade, casasDecimaisQuantidade(linha.unidade))} {linha.unidade}
                     </Text>
                   </View>
                 ))}

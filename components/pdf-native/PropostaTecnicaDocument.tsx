@@ -33,6 +33,7 @@ import {
   itensNaoContemplados,
   linhasEspecificacoesTecnicas,
   linhasMaoDeObra,
+  casasDecimaisQuantidade,
   linhasOperacionaisIncluso,
   linhasQuantificacaoMateriais,
   linhasItensAdicionaisExecucao,
@@ -146,7 +147,7 @@ export default function PropostaTecnicaDocument({ orcamento, configEmpresa }: Pr
   // categoria "material" de fato não entra aqui (o cliente fornece por
   // fora), mas a categoria "execução" precisa continuar aparecendo, já que é
   // exatamente o que este quadro mostra.
-  const linhasQuadro1 = [...(somenteMaoObra ? linhasItensAdicionaisExecucao(itens) : linhasQuantificacaoMateriais(itens)), ...linhasMaoDeObra(itens)];
+  const linhasQuadro1 = [...(somenteMaoObra ? linhasItensAdicionaisExecucao(itens) : linhasQuantificacaoMateriais(itens)), ...linhasMaoDeObra(itens, orcamento.mao_obra_equipe)];
   const quadroOperacional = linhasOperacionaisIncluso(orcamento);
 
   let numeroSecao = 2; // 1. já é "Por que isolar termicamente"
@@ -376,7 +377,7 @@ export default function PropostaTecnicaDocument({ orcamento, configEmpresa }: Pr
                     {itens.length > 1 && <Text style={estilos.celula}>{linha.trechoNumero}</Text>}
                     <Text style={{ ...estilos.celula, flex: 2 }}>{linha.titulo}</Text>
                     <Text style={estilos.celula}>
-                      {formatarNumero(linha.quantidade, linha.unidade === "g" ? 1 : 2)} {linha.unidade}
+                      {formatarNumero(linha.quantidade, casasDecimaisQuantidade(linha.unidade))} {linha.unidade}
                     </Text>
                   </View>
                 ))}
