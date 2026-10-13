@@ -53,8 +53,31 @@ export default function Step2EscopoPage() {
         </div>
       )}
 
-      <div className="flex justify-end">
-        <button type="button" className="btn-primary" onClick={() => setEditando("novo")}>
+      {/* Migração 019 — "tem curvas"/"tubulação pequena" já são deriváveis
+          dos itens de escopo (tipo/diâmetro), não pedidos de novo aqui. Só
+          "trabalho em altura" precisa de um campo próprio: não tem proxy no
+          Escopo, e só afeta a eficiência da mão de obra (nunca a
+          quantificação de material) — ver calcularMaoObraAutomatica.ts. Fica
+          no topo, em destaque, porque muda bastante os dias de obra e era
+          fácil de passar batido no rodapé. */}
+      <div className="flex flex-wrap items-stretch justify-between gap-3">
+        <label
+          className={`flex flex-1 cursor-pointer items-center gap-3 rounded-card border px-4 py-3 ${
+            itemAtual.trabalho_altura ? "border-amber-400 bg-amber-50" : "border-gray-200 bg-white"
+          }`}
+        >
+          <input
+            type="checkbox"
+            className="h-4 w-4"
+            checked={itemAtual.trabalho_altura}
+            onChange={(e) => setItemAtual({ trabalho_altura: e.target.checked })}
+          />
+          <span>
+            <span className="block text-sm font-medium text-gray-800">Este trecho é trabalho em altura (acima de 2 m)</span>
+            <span className="block text-xs text-gray-500">Reduz o rendimento da equipe neste trecho e aumenta os dias de obra. Não muda a quantidade de material.</span>
+          </span>
+        </label>
+        <button type="button" className="btn-primary self-center" onClick={() => setEditando("novo")}>
           + Adicionar Item
         </button>
       </div>
@@ -69,23 +92,6 @@ export default function Step2EscopoPage() {
         <span className="font-montserrat text-sm font-bold uppercase text-brand">Total metragem</span>
         <span className="font-montserrat text-2xl font-bold text-accent">{formatarNumero(total, 2)} m²</span>
       </div>
-
-      {/* Migração 019 — "tem curvas"/"tubulação pequena" já são deriváveis
-          dos itens de escopo acima (tipo/diâmetro), não pedidos de novo
-          aqui. Só "trabalho em altura" precisa de um campo próprio: não tem
-          proxy no Escopo, e só afeta a eficiência da mão de obra (nunca a
-          quantificação de material) — ver calcularMaoObraAutomatica.ts. */}
-      <label className="card flex cursor-pointer items-center justify-between">
-        <span>
-          <span className="block text-sm font-medium text-gray-800">Trabalho em altura (&gt; 2m)?</span>
-          <span className="block text-xs text-gray-400">Afeta só o cálculo de mão de obra deste trecho.</span>
-        </span>
-        <input
-          type="checkbox"
-          checked={itemAtual.trabalho_altura}
-          onChange={(e) => setItemAtual({ trabalho_altura: e.target.checked })}
-        />
-      </label>
 
       {editando && (
         <ModalItemEscopo

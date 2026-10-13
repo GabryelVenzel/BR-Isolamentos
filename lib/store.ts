@@ -1,5 +1,5 @@
 // Estado do wizard "Novo Orçamento", compartilhado entre as rotas
-// step-1-cliente .. step-5-revisao (cada step é uma rota real do App
+// step-1-cliente .. step-6-revisao (cada step é uma rota real do App
 // Router; o Zustand é o que preserva os dados ao navegar entre elas).
 //
 // Um orçamento pode ter vários "itens" (trechos técnicos independentes — ex.: linha de
@@ -85,9 +85,57 @@ export interface WizardEspecificacoes {
   metragem_manual_m2: number | null;
 }
 
+/** Linhas da Tela 4 que aceitam ajuste manual. "maoObra" só usa `removida`
+ * (excluir a mão de obra do trecho). */
+export type ChaveLinhaAjuste = "isolante" | "acabamento" | "rebite" | "parafuso" | "arame" | "silicone" | "maoObra";
+
+export interface OverrideLinha {
+  quantidade?: number;
+  precoUnitario?: number;
+  /** Unidade de medida exibida (pedido "devo poder editar a quantidade, o
+   * preço e a unidade de medida") — cosmética: não recalcula nada, só reflete
+   * melhor o que a quantidade representa quando o valor automático é
+   * ajustado (ex.: trocar "m" por "verba" no Arame). */
+  unidade?: string;
+  /** Linha excluída deste trecho (pedido explícito: "devo conseguir excluir
+   * os itens... não somente editá-los") — zera a quantidade (some do
+   * subtotal e do detalhamento persistido, que já filtra `quantidade > 0`)
+   * e marca pra sumir da tabela; "Restaurar" limpa o override inteiro,
+   * voltando ao valor calculado automaticamente. */
+  removida?: boolean;
+}
+
+/** Item livre da caixa "Itens Adicionais" da Tela 4 (migração 025/026) — pra
+ * casos fora do catálogo/quantificação automática (andaime, linha de vida,
+ * etc.): nome, quantidade e preço unitário digitados direto. `categoria`
+ * decide em qual subtotal do trecho o item entra — "material" soma no
+ * Subtotal de Materiais, "execucao" soma junto com a mão de obra (andaime não
+ * é material, é custo de execução do serviço). */
+export interface ItemAdicional {
+  id: number;
+  nome: string;
+  quantidade: number;
+  precoUnitario: number;
+  unidade: string;
+  categoria: "material" | "execucao";
+}
+
+/** Tudo o que o usuário mexe à mão na Tela 4 de um trecho. Fica no estado do
+ * wizard (não só na tela) para sobreviver a recarregar a página e a "Editar"
+ * o trecho depois — antes se perdia e tinha que ser refeito. */
+export interface AjustesTrecho {
+  overrides: Partial<Record<ChaveLinhaAjuste, OverrideLinha>>;
+  itensAdicionais: ItemAdicional[];
+}
+
+const ajustesVazios: AjustesTrecho = { overrides: {}, itensAdicionais: [] };
+
 export interface WizardItem {
   escopoItens: ItemEscopo[];
   especificacoes: WizardEspecificacoes;
+  /** Ajustes manuais da Tela 4 deste trecho — recarregados em "Editar".
+   * Ausente em trechos salvos no navegador antes desta mudança. */
+  ajustes?: AjustesTrecho;
   materialNome: string;
   acabamentoNome: string | null;
   especificacaoIsolante: string | null;
@@ -131,6 +179,8 @@ interface WizardState {
   itemAtual: WizardEspecificacoes;
   resultadoTermicoQuenteAtual: CalcularTermicoResultadoQuente | null;
   resultadoTermicoFrioAtual: CalcularTermicoResultadoFrio | null;
+  /** Ajustes manuais da Tela 4 do trecho em edição. */
+  ajustesAtual: AjustesTrecho;
 
   custosOperacionais: WizardCustosOperacionais;
   /** Horas úteis/produtivas por dia PARA ESTE ORÇAMENTO (migração 032,
@@ -151,8 +201,7 @@ interface WizardState {
   /** Dias de obra digitados à mão; `null` = calculados (sempre dias
    * fechados, arredondados para cima). */
   diasMaoObraManual: number | null;
-  /** Último resultado de `recalcularMaoObra` — o que vai salvo no orçamento. */
-  maoObraEquipe: MaoObraEquipe | null;
+
   resultadoOrcamento: CalcularOrcamentoResultado | null;
 
   setCliente: (cliente: Cliente | null) => void;
@@ -178,12 +227,7 @@ interface WizardState {
   setEquipe: (dados: Partial<EquipeMaoObra>) => void;
   setValorDiariaOverride: (funcao: FuncaoMaoObra, valor: number | null) => void;
   setDiasMaoObraManual: (dias: number | null) => void;
-  /** Recalcula a mão de obra da proposta (equipe × dias fechados) a partir
-   * dos trechos já confirmados e reparte horas e valor entre eles —
-   * atualiza `itens` e `maoObraEquipe`. Chamar sempre que mudar a lista de
-   * trechos, a equipe, as diárias ou as horas úteis, ANTES de recalcular o
-   * orçamento. Devolve os trechos já atualizados. */
-  recalcularMaoObra: (parametros: ParametrosEquipe) => WizardItem[];
+  setAjustesAtual: (dados: Partial<AjustesTrecho>) => void;
   setResultadoOrcamento: (resultado: CalcularOrcamentoResultado | null) => void;
   reset: () => void;
 }
@@ -239,13 +283,13 @@ export const useWizardStore = create<WizardState>()(
       itemAtual: itemAtualInicial,
       resultadoTermicoQuenteAtual: null,
       resultadoTermicoFrioAtual: null,
+      ajustesAtual: ajustesVazios,
 
       custosOperacionais: custosOperacionaisIniciais,
       horasUteisDiaOverride: null,
       equipe: EQUIPE_PADRAO,
       valoresDiariaOverride: {},
       diasMaoObraManual: null,
-      maoObraEquipe: null,
       resultadoOrcamento: null,
 
       setCliente: (cliente) => set({ clienteSelecionado: cliente }),
@@ -268,6 +312,7 @@ export const useWizardStore = create<WizardState>()(
             resultadoTermicoFrio: state.resultadoTermicoFrioAtual,
             precificacao,
             valorMateriais: precificacao.subtotal_material,
+            ajustes: state.ajustesAtual,
           };
           return {
             itens: [...state.itens, novoItem],
@@ -275,6 +320,7 @@ export const useWizardStore = create<WizardState>()(
             itemAtual: itemAtualInicial,
             resultadoTermicoQuenteAtual: null,
             resultadoTermicoFrioAtual: null,
+            ajustesAtual: ajustesVazios,
           };
         }),
 
@@ -287,6 +333,7 @@ export const useWizardStore = create<WizardState>()(
           itemAtual: item.especificacoes,
           resultadoTermicoQuenteAtual: item.resultadoTermicoQuente,
           resultadoTermicoFrioAtual: item.resultadoTermicoFrio,
+          ajustesAtual: item.ajustes ?? ajustesVazios,
         }));
       },
 
@@ -299,13 +346,7 @@ export const useWizardStore = create<WizardState>()(
       setValorDiariaOverride: (funcao, valor) =>
         set((state) => ({ valoresDiariaOverride: { ...state.valoresDiariaOverride, [funcao]: valor } })),
       setDiasMaoObraManual: (dias) => set({ diasMaoObraManual: dias }),
-      recalcularMaoObra: (parametros) => {
-        const state = get();
-        const maoObraEquipe = calcularMaoObraDoWizard(state.itens, state, parametros);
-        const itens = aplicarMaoObraNosTrechos(state.itens, maoObraEquipe);
-        set({ itens, maoObraEquipe });
-        return itens;
-      },
+      setAjustesAtual: (dados) => set((state) => ({ ajustesAtual: { ...state.ajustesAtual, ...dados } })),
       setResultadoOrcamento: (resultado) => set({ resultadoOrcamento: resultado }),
 
       reset: () =>
@@ -317,12 +358,12 @@ export const useWizardStore = create<WizardState>()(
           itemAtual: itemAtualInicial,
           resultadoTermicoQuenteAtual: null,
           resultadoTermicoFrioAtual: null,
+          ajustesAtual: ajustesVazios,
           custosOperacionais: custosOperacionaisIniciais,
           horasUteisDiaOverride: null,
           equipe: EQUIPE_PADRAO,
           valoresDiariaOverride: {},
           diasMaoObraManual: null,
-          maoObraEquipe: null,
           resultadoOrcamento: null,
         }),
     }),
@@ -348,6 +389,7 @@ export const useWizardStore = create<WizardState>()(
           itemAtual: { ...currentState.itemAtual, ...persisted?.itemAtual },
           equipe: { ...currentState.equipe, ...persisted?.equipe },
           valoresDiariaOverride: { ...persisted?.valoresDiariaOverride },
+          ajustesAtual: { ...currentState.ajustesAtual, ...persisted?.ajustesAtual },
         };
       },
     }
@@ -392,7 +434,7 @@ export function calcularMaoObraDoWizard(
 /** Reparte horas e valor da mão de obra da proposta entre os trechos e
  * refaz os subtotais de cada um: mão de obra do trecho = parte da equipe +
  * itens adicionais de execução dele. */
-export function aplicarMaoObraNosTrechos(itens: WizardItem[], maoObra: MaoObraEquipe): WizardItem[] {
+export function aplicarMaoObraNosTrechos<T extends { precificacao: PrecificacaoTrecho }>(itens: T[], maoObra: MaoObraEquipe): T[] {
   const partes = distribuirMaoObraPorTrecho(
     itens.map((i) => m2EquivalenteDoTrecho(i.precificacao)),
     maoObra
@@ -417,6 +459,6 @@ export function aplicarMaoObraNosTrechos(itens: WizardItem[], maoObra: MaoObraEq
 /** Soma as horas de obra de todos os trechos (já repartidas por
  * `aplicarMaoObraNosTrechos`) — o `horas_mao_obra` que `calcularOrcamento`
  * recebe; o valor em si vai em `valor_mao_obra_direto`. */
-export function horasMaoObraTotal(itens: WizardItem[]): number {
+export function horasMaoObraTotal(itens: Array<{ precificacao: PrecificacaoTrecho }>): number {
   return Number(itens.reduce((acc, i) => acc + i.precificacao.horas_mao_obra, 0).toFixed(2));
 }

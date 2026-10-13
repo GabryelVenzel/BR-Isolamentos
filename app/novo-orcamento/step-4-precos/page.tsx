@@ -2,17 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { calcularMaoObraDoWizard, horasMaoObraTotal, m2EquivalenteDoTrecho, useWizardStore } from "@/lib/store";
-import {
-  comporCamadasIsolante,
-  distribuirMaoObraPorTrecho,
-  precificarTrecho,
-  precoAcessorioPorUnidade,
-  somarMetragemEscopo,
-} from "@/lib/usecases/orcamento";
-import EquipeMaoObra from "@/components/EquipeMaoObra";
+import { useWizardStore, type ChaveLinhaAjuste, type ItemAdicional, type OverrideLinha } from "@/lib/store";
+import { comporCamadasIsolante, precificarTrecho, precoAcessorioPorUnidade, somarMetragemEscopo } from "@/lib/usecases/orcamento";
 import { formatarMoeda, formatarNumero } from "@/lib/format";
-import type { CalcularOrcamentoInput, ConfigEmpresa, ImpostoConfig, PrecoConfig } from "@/lib/types";
+import type { ConfigEmpresa, PrecoConfig } from "@/lib/types";
+import BarraTotais from "@/components/orcamento/BarraTotais";
+import Explicacao from "@/components/ui/Explicacao";
 import FecharComEsc from "@/components/ui/FecharComEsc";
 import { AlertTriangle, Pencil, Trash2 } from "lucide-react";
 
@@ -20,23 +15,9 @@ import { AlertTriangle, Pencil, Trash2 } from "lucide-react";
  * catálogo "por centena" e são convertidos (ver precoAcessorio.ts). */
 const precoAcessorio = precoAcessorioPorUnidade;
 
-type ChaveLinha = "isolante" | "acabamento" | "rebite" | "parafuso" | "arame" | "silicone" | "maoObra";
-
-interface OverrideLinha {
-  quantidade?: number;
-  precoUnitario?: number;
-  /** Unidade de medida exibida (migração — pedido "devo poder editar a
-   * quantidade, o preço e a unidade de medida") — cosmética: não recalcula
-   * nada, só reflete melhor o que a quantidade representa quando o valor
-   * automático é ajustado (ex.: trocar "m" por "verba" no Arame). */
-  unidade?: string;
-  /** Linha excluída deste trecho (pedido explícito: "devo conseguir excluir
-   * os itens... não somente editá-los") — zera a quantidade (some do
-   * subtotal e do detalhamento persistido, que já filtra `quantidade > 0`)
-   * e marca pra sumir da tabela; "Restaurar" limpa o override inteiro,
-   * voltando ao valor calculado automaticamente. */
-  removida?: boolean;
-}
+// Os ajustes manuais desta tela (lápis, linhas excluídas e itens adicionais)
+// ficam no estado do wizard — ver `AjustesTrecho` em lib/store.ts.
+type ChaveLinha = ChaveLinhaAjuste;
 
 interface LinhaEdicao {
   chave: ChaveLinha;
@@ -47,31 +28,11 @@ interface LinhaEdicao {
   precoBase: number;
 }
 
-/** Item livre da caixa "Itens Adicionais" (migração 025/026) — pra casos
- * fora do catálogo/quantificação automática (andaime, linha de vida, etc.):
- * nome, quantidade e preço unitário digitados direto, sem passar pelo motor
- * de quantificação. `categoria` decide em qual subtotal do trecho o item
- * entra — "material" soma no Subtotal de Materiais, "execucao" soma junto
- * com a mão de obra (pedido explícito: andaime não é material, é custo de
- * execução do serviço) — os dois já entram no valor do trecho pra
- * imposto/margem incidirem em cima, e viram mais uma linha em
- * `detalhamento_materiais` pra aparecer no quadro de materiais e mão de obra
- * da Proposta. */
-interface ItemAdicional {
-  id: number;
-  nome: string;
-  quantidade: number;
-  precoUnitario: number;
-  unidade: string;
-  categoria: "material" | "execucao";
-}
-
-/** Tela 4 (refinada, ajuste final) — Resumo técnico virou só a análise
- * térmica (material/acabamento já aparecem na Quantificação, não precisa
- * repetir); as duas caixas grandes de "Preços deste trecho" viraram um
- * sistema uniforme de edição por lápis (mesma mecânica pra isolante,
- * acabamento, os 4 acessórios E mão de obra); "+ Adicionar outro trecho"
- * saiu daqui — essa ação já existe na Revisão (Tela 5), não precisa duplicar. */
+/** Tela 4 — preços de UM trecho: resumo técnico, quantificação de materiais
+ * (com lápis/lixeira por linha), o trabalho de mão de obra que o trecho dá e
+ * os itens adicionais dele. O que vale para o orçamento inteiro — equipe,
+ * diárias e custos operacionais — fica na etapa seguinte ("Equipe e custos"),
+ * uma vez só, em vez de se repetir a cada trecho. */
 export default function Step4PrecosPage() {
   const router = useRouter();
   const {
@@ -81,25 +42,26 @@ export default function Step4PrecosPage() {
     resultadoTermicoFrioAtual,
     itens,
     tipoProposta,
-    custosOperacionais,
-    setCustosOperacionais,
-    horasUteisDiaOverride,
-    equipe,
-    valoresDiariaOverride,
-    diasMaoObraManual,
-    recalcularMaoObra,
+    ajustesAtual,
+    setAjustesAtual,
     confirmarItemAtual,
-    setResultadoOrcamento,
   } = useWizardStore();
 
   const [precos, setPrecos] = useState<PrecoConfig[]>([]);
   const [config, setConfig] = useState<ConfigEmpresa | null>(null);
-  const [impostosExtras, setImpostosExtras] = useState<ImpostoConfig[]>([]);
-  const [overrides, setOverrides] = useState<Partial<Record<ChaveLinha, OverrideLinha>>>({});
   const [editando, setEditando] = useState<LinhaEdicao | null>(null);
-  const [salvando, setSalvando] = useState<"revisao" | null>(null);
-  const [erro, setErro] = useState<string | null>(null);
-  const [itensAdicionais, setItensAdicionais] = useState<ItemAdicional[]>([]);
+
+  // Ajustes do trecho, guardados no estado do wizard. As duas funções abaixo
+  // têm a mesma forma de um `setState`, pra o resto da tela não mudar.
+  const overrides = ajustesAtual.overrides;
+  const itensAdicionais = ajustesAtual.itensAdicionais;
+  type Overrides = typeof overrides;
+  function setOverrides(atualizar: (anterior: Overrides) => Overrides) {
+    setAjustesAtual({ overrides: atualizar(useWizardStore.getState().ajustesAtual.overrides) });
+  }
+  function setItensAdicionais(atualizar: (anterior: ItemAdicional[]) => ItemAdicional[]) {
+    setAjustesAtual({ itensAdicionais: atualizar(useWizardStore.getState().ajustesAtual.itensAdicionais) });
+  }
   const [novoItemAdicional, setNovoItemAdicional] = useState<{
     nome: string;
     quantidade: string;
@@ -109,14 +71,9 @@ export default function Step4PrecosPage() {
   }>({ nome: "", quantidade: "1", precoUnitario: "", unidade: "un.", categoria: "material" });
 
   useEffect(() => {
-    Promise.all([
-      fetch("/api/precos-config").then((r) => r.json()),
-      fetch("/api/config-empresa").then((r) => r.json()),
-      fetch("/api/impostos-config").then((r) => r.json()),
-    ]).then(([p, c, i]) => {
+    Promise.all([fetch("/api/precos-config").then((r) => r.json()), fetch("/api/config-empresa").then((r) => r.json())]).then(([p, c]) => {
       setPrecos(p);
       setConfig(c);
-      setImpostosExtras(i);
     });
   }, []);
 
@@ -320,29 +277,15 @@ export default function Step4PrecosPage() {
   }
 
   // Mão de obra (migração 048): é da PROPOSTA inteira — equipe × dias
-  // fechados (ver lib/usecases/orcamento/maoObraEquipe.ts). Este trecho só
-  // contribui com o trabalho dele (m² equivalentes = metragem ÷ eficiência);
-  // "excluir" a mão de obra do trecho zera essa contribuição. O que aparece
-  // aqui é uma PRÉVIA: os trechos já confirmados + este, com a parte que cabe
-  // a este trecho. O número definitivo é refeito ao avançar (e de novo na
-  // Revisão, sempre que a lista de trechos ou a equipe mudar).
+  // fechados (ver lib/usecases/orcamento/maoObraEquipe.ts), escolhida na
+  // etapa "Equipe e custos". Este trecho só contribui com o trabalho dele (m²
+  // equivalentes = metragem ÷ eficiência); "excluir" a mão de obra do trecho
+  // zera essa contribuição. Horas e valor da equipe são repartidos entre os
+  // trechos na hora de calcular (lib/hooks/useOrcamentoCalculado.ts) — aqui o
+  // subtotal de execução do trecho leva só os itens adicionais de categoria
+  // "execucao" (andaime, linha de vida...).
   const m2EquivalenteTrecho = base && !estaRemovida("maoObra") ? base.m2_equivalente_mao_obra : 0;
-  const maoObraPrevia =
-    base && config
-      ? calcularMaoObraDoWizard(
-          [...itens, { precificacao: { ...base, m2_equivalente_mao_obra: m2EquivalenteTrecho } }],
-          { equipe, valoresDiariaOverride, horasUteisDiaOverride, diasMaoObraManual },
-          config
-        )
-      : null;
-  const parteDesteTrecho = maoObraPrevia
-    ? distribuirMaoObraPorTrecho([...itens.map((i) => m2EquivalenteDoTrecho(i.precificacao)), m2EquivalenteTrecho], maoObraPrevia)[itens.length]
-    : { horas: 0, valor: 0 };
-  // Subtotal de execução do trecho (persistido em subtotal_mao_obra) = parte
-  // da equipe que cabe a ele + itens adicionais de categoria "execucao" (ex.:
-  // andaime, linha de vida), que aparecem no próprio card "Itens Adicionais".
-  const subtotalMaoObraEquipe = parteDesteTrecho.valor;
-  const subtotalMaoObra = Number((subtotalMaoObraEquipe + subtotalItensAdicionaisExecucao).toFixed(2));
+  const subtotalMaoObra = subtotalItensAdicionaisExecucao;
   const subtotalTrecho = Number((subtotalMaterial + subtotalMaoObra).toFixed(2));
 
   // Título real de cada linha (material/acabamento escolhido) — precificarTrecho()
@@ -429,7 +372,7 @@ export default function Step4PrecosPage() {
         ...base,
         preco_isolante_m2: precoIsolanteEfetivo,
         preco_acabamento_m2: valor("acabamento", "precoUnitario", precoAcabamentoBase),
-        horas_mao_obra: parteDesteTrecho.horas,
+        horas_mao_obra: 0,
         m2_equivalente_mao_obra: m2EquivalenteTrecho,
         subtotal_itens_execucao: subtotalItensAdicionaisExecucao,
         subtotal_material: subtotalMaterial,
@@ -440,61 +383,19 @@ export default function Step4PrecosPage() {
     };
   }
 
-  async function irParaRevisao() {
+  /** Salva o trecho no orçamento e segue: para a equipe e os custos, ou
+   * para o Escopo de um novo trecho. */
+  function salvarTrecho(destino: "equipe" | "novo-trecho") {
     const payload = montarPayloadConfirmacao();
-    if (!payload || !config) return;
-
-    setErro(null);
-    setSalvando("revisao");
-    try {
-      confirmarItemAtual(payload);
-      // Refaz a mão de obra da proposta com TODOS os trechos (dias fechados
-      // no total) e reparte entre eles — os subtotais de mão de obra dos
-      // trechos confirmados antes também mudam.
-      const todosOsItens = recalcularMaoObra(config);
-
-      const valorMateriaisTotal = Number(
-        todosOsItens.reduce((acc, i) => acc + i.precificacao.subtotal_material, 0).toFixed(2)
-      );
-      // Mão de obra da equipe (já repartida entre os trechos) + itens
-      // adicionais de execução de cada trecho — vai pronta em
-      // `valor_mao_obra_direto`; calcularOrcamento() não recalcula.
-      const valorMaoObraTotal = Number(
-        todosOsItens.reduce((acc, i) => acc + i.precificacao.subtotal_mao_obra, 0).toFixed(2)
-      );
-
-      const calcInput: CalcularOrcamentoInput = {
-        valor_materiais_direto: valorMateriaisTotal,
-        valor_mao_obra_direto: valorMaoObraTotal,
-        config,
-        impostosExtras,
-        horas_mao_obra: horasMaoObraTotal(todosOsItens),
-        km_deslocamento: custosOperacionais.km_deslocamento,
-        noites_hospedagem: custosOperacionais.noites_hospedagem,
-        valor_frete: custosOperacionais.valor_frete,
-        diarias_aluguel_carro: custosOperacionais.diarias_aluguel_carro,
-        quantidade_alimentacao: custosOperacionais.quantidade_alimentacao,
-        desconto_percentual_extra: custosOperacionais.desconto_percentual_extra ?? undefined,
-      };
-
-      const resposta = await fetch("/api/calcular-orcamento", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(calcInput),
-      });
-      const dados = await resposta.json();
-
-      if (!resposta.ok) {
-        setErro(dados.error ?? "Erro ao calcular o orçamento.");
-        return;
-      }
-
-      setResultadoOrcamento(dados);
-      router.push("/novo-orcamento/step-5-revisao");
-    } finally {
-      setSalvando(null);
-    }
+    if (!payload) return;
+    confirmarItemAtual(payload);
+    router.push(destino === "equipe" ? "/novo-orcamento/step-5-equipe" : "/novo-orcamento/step-2-escopo");
   }
+
+  // Trecho em edição já com os ajustes desta tela — entra na barra de totais
+  // como se estivesse salvo.
+  const rascunho = montarPayloadConfirmacao()?.precificacao ?? null;
+  const semTrechoEmEdicao = escopoAtual.length === 0;
 
   const financeiro = resultadoTermicoQuenteAtual?.financeiro;
 
@@ -503,22 +404,38 @@ export default function Step4PrecosPage() {
       <div>
         <h1 className="text-xl font-bold">4. Preços {itens.length > 0 && `— trecho ${itens.length + 1}`}</h1>
         <p className="text-sm text-gray-500">
-          Preços de materiais vêm do catálogo de{" "}
-          <a href="/config-precos" className="text-brand hover:underline">
-            Configuração de Preços
-          </a>
-          . Clique no lápis de qualquer linha pra ajustar quantidade/preço/unidade só deste orçamento (sem alterar o
-          catálogo), ou na lixeira pra excluir a linha inteira do trecho.
+          Materiais e itens adicionais deste trecho. O lápis ajusta uma linha só neste orçamento; a lixeira tira a linha do
+          trecho.
         </p>
       </div>
 
-      {!temResultado && (
+      {semTrechoEmEdicao && itens.length > 0 && (
+        <div className="card space-y-3">
+          <p className="text-sm text-gray-700">
+            {itens.length === 1 ? "O trecho já foi salvo" : `Os ${itens.length} trechos já foram salvos`} neste orçamento. Para mudar os
+            preços de um trecho, use "Editar" na Revisão.
+          </p>
+          <div className="flex flex-wrap gap-3">
+            <button type="button" className="btn-secondary" onClick={() => router.push("/novo-orcamento/step-2-escopo")}>
+              + Adicionar outro trecho
+            </button>
+            <button type="button" className="btn-primary" onClick={() => router.push("/novo-orcamento/step-5-equipe")}>
+              Ir para Equipe e custos →
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!semTrechoEmEdicao && !temResultado && (
         <p className="rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-700">
           Volte ao passo anterior e calcule as especificações deste trecho.
         </p>
       )}
+      {semTrechoEmEdicao && itens.length === 0 && (
+        <p className="rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-700">Comece pelo Escopo (passo 2): adicione os itens do trecho.</p>
+      )}
 
-      {temResultado && (
+      {!semTrechoEmEdicao && temResultado && (
         <>
           <div className="card space-y-3 text-sm">
             <h2 className="text-lg font-semibold">Resumo técnico</h2>
@@ -620,11 +537,16 @@ export default function Step4PrecosPage() {
                   aqui; ajuste o preço de cada espessura em Configurar Preços ou use "Itens Adicionais" pra uma correção pontual.
                 </p>
               )}
-              <p className="text-xs text-gray-400">
-                Preços de Rebite/Parafuso/Arame/Silicone vêm do catálogo ("Materiais Adicionais" em Configurar
-                Preços) — o lápis ajusta quantidade/preço/unidade só deste orçamento; a lixeira remove a linha
-                inteira do trecho (ex.: não vai usar Arame neste trecho).
-              </p>
+              <Explicacao titulo="De onde vêm estes números">
+                <p>
+                  Quantidades calculadas a partir do Escopo e dos parâmetros de quantificação; preços do catálogo, em{" "}
+                  <a href="/config-precos" className="text-brand hover:underline">
+                    Configurar Preços
+                  </a>{" "}
+                  (Rebite, Parafuso, Arame e Silicone ficam em "Materiais Adicionais").
+                </p>
+                <p>O lápis ajusta quantidade, preço e unidade só neste orçamento, sem alterar o catálogo. A lixeira remove a linha do trecho (ex.: não vai usar Arame aqui).</p>
+              </Explicacao>
               {linhas.some((l) => estaRemovida(l.chave)) && (
                 <p className="text-xs text-gray-400">
                   Removido{linhas.filter((l) => estaRemovida(l.chave)).length > 1 ? "s" : ""} deste trecho:{" "}
@@ -649,7 +571,7 @@ export default function Step4PrecosPage() {
 
           {base && config && (
             <div className="card space-y-2">
-              <h2 className="text-lg font-semibold">Mão de obra deste trecho</h2>
+              <h2 className="text-lg font-semibold">Trabalho de mão de obra deste trecho</h2>
               {estaRemovida("maoObra") ? (
                 <p className="text-sm text-gray-400">
                   Mão de obra excluída deste trecho — ele não conta nos dias de obra.{" "}
@@ -660,21 +582,17 @@ export default function Step4PrecosPage() {
               ) : (
                 <>
                   <p className="text-sm">
-                    Trabalho: <strong>{formatarNumero(metragem, 2)} m²</strong> ÷ eficiência média{" "}
+                    <strong>{formatarNumero(metragem, 2)} m²</strong> ÷ eficiência média{" "}
                     <strong>{formatarNumero(base.eficiencia_global * 100, 1)}%</strong>
                     {especificacoes.trabalho_altura && " (inclui trabalho em altura)"} ={" "}
                     <strong>{formatarNumero(m2EquivalenteTrecho, 2)} m² equivalentes</strong>
                   </p>
-                  <p className="text-xs text-gray-400">
-                    A equipe e as diárias são do orçamento inteiro — ver "Mão de obra — equipe e diárias", mais abaixo. Com a
-                    equipe atual, este trecho responde por {formatarNumero(parteDesteTrecho.horas, 1)} h de obra.{" "}
+                  <p className="text-xs text-gray-500">
+                    A equipe, os dias e o valor da mão de obra são definidos uma vez para o orçamento inteiro, na próxima etapa.{" "}
                     <button type="button" className="text-brand hover:underline" onClick={() => excluirLinha("maoObra")}>
                       Excluir a mão de obra deste trecho
                     </button>
                   </p>
-                  <div className="border-t border-gray-100 pt-2 text-sm font-semibold">
-                    <Linha label="Mão de obra (parte deste trecho)" valor={subtotalMaoObraEquipe} />
-                  </div>
                 </>
               )}
             </div>
@@ -689,11 +607,14 @@ export default function Step4PrecosPage() {
           <div className="card space-y-3">
             <div>
               <h2 className="text-lg font-semibold">Itens Adicionais</h2>
-              <p className="text-xs text-gray-400">
-                Pra itens fora da lista padrão (andaime, linha de vida, etc.) — quantidade e preço direto, sem
-                passar pelo catálogo. Marque se é Material ou Execução (ex.: andaime é execução, não material) —
-                decide em qual subtotal do trecho o item entra. Entra no total do trecho e aparece na proposta.
-              </p>
+              <p className="text-xs text-gray-500">Itens fora do catálogo, com quantidade e preço digitados direto.</p>
+              <Explicacao titulo="Material ou Execução?">
+                <p>
+                  "Material" soma com os materiais do trecho e aparece no quadro de Materiais da proposta. "Execução" (andaime,
+                  linha de vida, remoção de isolamento...) soma com a mão de obra e aparece no quadro "Itens Adicionais de
+                  Execução".
+                </p>
+              </Explicacao>
             </div>
 
             {itensAdicionais.length > 0 && (
@@ -803,98 +724,33 @@ export default function Step4PrecosPage() {
             )}
           </div>
 
-          {/* Equipe e diárias (migração 048) — do orçamento inteiro; a prévia
-              soma os trechos já confirmados com este. */}
-          {config && maoObraPrevia && <EquipeMaoObra config={config} maoObra={maoObraPrevia} />}
-
-          {/* Custos operacionais: movidos da Revisão pra cá (pedido
-              explícito) — valem pro orçamento inteiro, não só este trecho;
-              o resumo financeiro final continua exibido na Revisão. */}
-          <div className="card space-y-4">
-            <h2 className="text-lg font-semibold">Custos operacionais adicionais</h2>
-            <p className="text-xs text-gray-400">Valem para o orçamento inteiro (todos os trechos juntos).</p>
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
-              <div>
-                <label className="label-field">Alimentação (quantidade)</label>
-                <input
-                  type="number"
-                  className="input-field"
-                  value={custosOperacionais.quantidade_alimentacao}
-                  onChange={(e) => setCustosOperacionais({ quantidade_alimentacao: Number(e.target.value) })}
-                />
-              </div>
-              <div>
-                <label className="label-field">Deslocamento (km)</label>
-                <input
-                  type="number"
-                  className="input-field"
-                  value={custosOperacionais.km_deslocamento}
-                  onChange={(e) => setCustosOperacionais({ km_deslocamento: Number(e.target.value) })}
-                />
-              </div>
-              <div>
-                <label className="label-field">Aluguel de carro (diárias)</label>
-                <input
-                  type="number"
-                  className="input-field"
-                  value={custosOperacionais.diarias_aluguel_carro}
-                  onChange={(e) => setCustosOperacionais({ diarias_aluguel_carro: Number(e.target.value) })}
-                />
-              </div>
-              <div>
-                <label className="label-field">Hospedagem (noites)</label>
-                <input
-                  type="number"
-                  className="input-field"
-                  value={custosOperacionais.noites_hospedagem}
-                  onChange={(e) => setCustosOperacionais({ noites_hospedagem: Number(e.target.value) })}
-                />
-              </div>
-              <div>
-                <label className="label-field">Frete (R$)</label>
-                <input
-                  type="number"
-                  step="0.01"
-                  className="input-field"
-                  value={custosOperacionais.valor_frete ?? 0}
-                  onChange={(e) => setCustosOperacionais({ valor_frete: Number(e.target.value) })}
-                />
-              </div>
-            </div>
-            {/* Aluguel de carro/Alimentação usam o preço por diária definido
-                em Configurar Preços — aqui só a quantidade. */}
-            {maoObraPrevia && maoObraPrevia.pessoas > 0 && maoObraPrevia.dias > 0 && (
-              <p className="text-xs text-gray-500">
-                Referência: equipe de {maoObraPrevia.pessoas} {maoObraPrevia.pessoas === 1 ? "pessoa" : "pessoas"} × {maoObraPrevia.dias}{" "}
-                {maoObraPrevia.dias === 1 ? "dia" : "dias"} de obra = {maoObraPrevia.pessoas * maoObraPrevia.dias} diárias de alimentação.
-              </p>
-            )}
-            <p className="text-xs text-gray-400">
-              Aluguel de carro e Alimentação usam o valor por diária definido em{" "}
-              <a href="/config-precos" className="text-brand hover:underline">
-                Configurar Preços
-              </a>
-              .
-            </p>
-          </div>
-
-          <div className="card flex items-center justify-between border-t-4 border-t-accent">
-            <span className="font-montserrat text-sm font-bold uppercase text-brand">Valor total deste trecho</span>
+          <div className="card flex flex-wrap items-center justify-between gap-2 border-t-4 border-t-accent">
+            <span>
+              <span className="block font-montserrat text-sm font-bold uppercase text-brand">Subtotal deste trecho</span>
+              <span className="block text-xs text-gray-500">Materiais e itens adicionais — a mão de obra da equipe entra na próxima etapa.</span>
+            </span>
             <span className="font-montserrat text-2xl font-bold text-accent">{formatarMoeda(subtotalTrecho)}</span>
           </div>
         </>
       )}
 
-      {erro && <p className="text-sm text-status-error">{erro}</p>}
-
       <div className="flex flex-wrap justify-between gap-3">
         <button type="button" className="btn-secondary" onClick={() => router.push("/novo-orcamento/step-3-especificacoes")}>
           ← Voltar
         </button>
-        <button type="button" className="btn-primary" disabled={!base || salvando !== null} onClick={irParaRevisao}>
-          {salvando === "revisao" ? "Calculando..." : "Próximo →"}
-        </button>
+        {!semTrechoEmEdicao && (
+          <div className="flex flex-wrap gap-3">
+            <button type="button" className="btn-secondary" disabled={!base} onClick={() => salvarTrecho("novo-trecho")}>
+              Salvar e adicionar outro trecho
+            </button>
+            <button type="button" className="btn-primary" disabled={!base} onClick={() => salvarTrecho("equipe")}>
+              Próximo →
+            </button>
+          </div>
+        )}
       </div>
+
+      <BarraTotais rascunho={rascunho} />
 
       {editando && (
         <ModalEditarLinha

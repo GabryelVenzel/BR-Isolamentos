@@ -3,6 +3,7 @@
 import { useWizardStore } from "@/lib/store";
 import { formatarMoeda, formatarNumero } from "@/lib/format";
 import type { ConfigEmpresa, MaoObraEquipe } from "@/lib/types";
+import Explicacao from "@/components/ui/Explicacao";
 import { FUNCOES_MAO_OBRA, LABEL_FUNCAO_MAO_OBRA, rendimentoM2Dia, valorDiariaPadrao } from "@/lib/usecases/orcamento";
 
 interface Props {
@@ -15,9 +16,9 @@ interface Props {
 
 /** Equipe e diárias da mão de obra (migração 048) — vale para o orçamento
  * inteiro. Escolhe quantas pessoas de cada função, e mostra como a metragem
- * vira horas de obra, dias fechados e valor. Usado na Tela 4 (Preços) e na
- * Tela 5 (Revisão); só lê e grava o estado do wizard, não recalcula o
- * orçamento — quem usa reage às mudanças. */
+ * vira horas de obra, dias fechados e valor. Usado na etapa 5 ("Equipe e
+ * custos"); só lê e grava as escolhas no estado do wizard — o resultado
+ * (`maoObra`) vem calculado de lib/hooks/useOrcamentoCalculado.ts. */
 export default function EquipeMaoObra({ config, maoObra }: Props) {
   const {
     equipe,
@@ -38,16 +39,21 @@ export default function EquipeMaoObra({ config, maoObra }: Props) {
     <div className="card space-y-4">
       <div>
         <h2 className="text-lg font-semibold">Mão de obra — equipe e diárias</h2>
-        <p className="text-xs text-gray-400">
-          Vale para o orçamento inteiro (todos os trechos juntos). A metragem de cada trecho, já ajustada pela eficiência,
-          é dividida pela produção diária da equipe; as horas de obra são sempre arredondadas para cima em dias fechados de{" "}
-          {formatarNumero(maoObra.horas_uteis_dia, 1)} h, e cada pessoa da equipe é cobrada por esses dias. Rendimento e
-          valor de diária de cada função vêm de{" "}
-          <a href="/config-precos" className="text-brand hover:underline">
-            Configurar Preços
-          </a>
-          .
-        </p>
+        <p className="text-xs text-gray-500">Quantas pessoas de cada função vão executar a obra. Todos são cobrados pelos mesmos dias fechados.</p>
+        <Explicacao titulo="Como os dias e o valor são calculados">
+          <p>
+            A metragem de cada trecho, já ajustada pela eficiência, é dividida pela produção diária da equipe (soma de pessoas ×
+            rendimento da função). As horas de obra são sempre arredondadas para cima em dias fechados de{" "}
+            {formatarNumero(maoObra.horas_uteis_dia, 1)} h, e cada pessoa é cobrada por esses dias, pelo valor da diária da função.
+          </p>
+          <p>
+            Rendimento e valor de diária de cada função vêm de{" "}
+            <a href="/config-precos" className="text-brand hover:underline">
+              Configurar Preços
+            </a>
+            . Diária em branco usa o valor de lá (mostrado em cinza); preencha só para ajustar o valor neste orçamento.
+          </p>
+        </Explicacao>
       </div>
 
       <div className="overflow-x-auto">
@@ -102,10 +108,6 @@ export default function EquipeMaoObra({ config, maoObra }: Props) {
           </tbody>
         </table>
       </div>
-      <p className="text-xs text-gray-400">
-        Diária em branco usa o valor de Configurar Preços (mostrado em cinza); preencha só para ajustar o valor neste orçamento.
-      </p>
-
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label className="label-field">Horas úteis de serviço por dia (este orçamento)</label>
@@ -118,10 +120,7 @@ export default function EquipeMaoObra({ config, maoObra }: Props) {
             value={horasUteisDiaOverride ?? ""}
             onChange={(e) => setHorasUteisDiaOverride(e.target.value ? Number(e.target.value) : null)}
           />
-          <p className="mt-1 text-xs text-gray-400">
-            Deixe em branco para o dia padrão. Se deslocamento ou liberação de acesso reduzem o tempo produtivo neste local,
-            informe as horas realmente úteis — a obra leva mais dias e as diárias aumentam junto.
-          </p>
+          <p className="mt-1 text-xs text-gray-500">Em branco = dia padrão. Menos horas úteis no local = mais dias e mais diárias.</p>
         </div>
         <div>
           <label className="label-field">Dias de obra (ajuste manual)</label>
@@ -134,7 +133,7 @@ export default function EquipeMaoObra({ config, maoObra }: Props) {
             value={diasMaoObraManual ?? ""}
             onChange={(e) => setDiasMaoObraManual(e.target.value === "" ? null : Math.max(0, Math.floor(Number(e.target.value) || 0)))}
           />
-          <p className="mt-1 text-xs text-gray-400">Deixe em branco para o cálculo automático. Preencha só para fixar a quantidade de dias à mão.</p>
+          <p className="mt-1 text-xs text-gray-500">Em branco = cálculo automático.</p>
         </div>
       </div>
 

@@ -296,7 +296,7 @@ export default function FormConfigEmpresa({ config }: Props) {
             abaixo de 3" usa "Eficiência tubulação &lt; 3"") e o resultado vira horas de obra. As horas são sempre
             arredondadas para cima em dias fechados de "Horas úteis por dia", e cada pessoa da equipe é cobrada por
             esses dias, pelo valor da diária da função (em "Custos operacionais", acima). Cada orçamento pode ajustar
-            as horas úteis do dia na Tela 4, quando deslocamento ou liberação de acesso reduzem o tempo produtivo.
+            as horas úteis do dia na etapa "Equipe e custos", quando deslocamento ou liberação de acesso reduzem o tempo produtivo.
           </p>
           {camposGrid(CAMPOS_MAO_OBRA, "sm:grid-cols-2 lg:grid-cols-3")}
         </div>

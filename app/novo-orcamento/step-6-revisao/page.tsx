@@ -1,37 +1,27 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { calcularMaoObraDoWizard, horasMaoObraTotal, tipoTrabalhoAgregado, useWizardStore, type WizardItem } from "@/lib/store";
-import EquipeMaoObra from "@/components/EquipeMaoObra";
-import { alocarValorFinalPorTrecho, descreverItemEscopo, geometriaRepresentativa } from "@/lib/usecases/orcamento";
+import { tipoTrabalhoAgregado, useWizardStore } from "@/lib/store";
+import { LABEL_FUNCAO_MAO_OBRA, alocarValorFinalPorTrecho, descreverItemEscopo, geometriaRepresentativa } from "@/lib/usecases/orcamento";
+import { useOrcamentoCalculado } from "@/lib/hooks/useOrcamentoCalculado";
 import { formatarMoeda, formatarNumero } from "@/lib/format";
-import type { CalcularOrcamentoInput, ConfigEmpresa, ImpostoConfig, ItemOrcamento, Orcamento } from "@/lib/types";
+import type { ItemOrcamento, Orcamento } from "@/lib/types";
 import { confirmar } from "@/components/ui/confirmar";
 
-export default function Step5RevisaoPage() {
+/** Etapa 6 — conferência final e geração da proposta. Não edita equipe nem
+ * custos (isso é da etapa 5, "Equipe e custos"); mostra tudo já calculado —
+ * o mesmo cálculo derivado usado pela barra de totais e pelas outras etapas
+ * (lib/hooks/useOrcamentoCalculado.ts), então excluir um trecho aqui refaz
+ * os dias de obra e o orçamento na hora, sem nada para "recalcular". */
+export default function Step6RevisaoPage() {
   const router = useRouter();
-  const {
-    clienteSelecionado,
-    tipoProposta,
-    itens,
-    resultadoOrcamento,
-    custosOperacionais,
-    horasUteisDiaOverride,
-    equipe,
-    valoresDiariaOverride,
-    diasMaoObraManual,
-    maoObraEquipe,
-    recalcularMaoObra,
-    setResultadoOrcamento,
-    editarItem,
-    removerItem,
-    reset,
-  } = useWizardStore();
+  const { clienteSelecionado, tipoProposta, itens: itensSalvos, horasUteisDiaOverride, editarItem, removerItem, reset } = useWizardStore();
+  const { trechos, maoObra: maoObraEquipe, resultado: resultadoOrcamento, erro: erroCalculo } = useOrcamentoCalculado();
 
-  const [config, setConfig] = useState<ConfigEmpresa | null>(null);
-  const [impostosExtras, setImpostosExtras] = useState<ImpostoConfig[]>([]);
-  const [recalculando, setRecalculando] = useState(false);
+  // Trechos com a mão de obra da equipe já repartida (horas e valor).
+  const itens = itensSalvos.map((item, index) => ({ ...item, precificacao: trechos[index]?.precificacao ?? item.precificacao }));
+
   const [salvando, setSalvando] = useState<"rascunho" | "proposta" | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   // Nota livre pro orçamento — não faz parte do estado persistido do wizard
@@ -39,100 +29,13 @@ export default function Step5RevisaoPage() {
   // editável depois em /orcamento/[id]/editar (migração 021).
   const [observacoesAdicionais, setObservacoesAdicionais] = useState("");
 
-  useEffect(() => {
-    Promise.all([fetch("/api/config-empresa").then((r) => r.json()), fetch("/api/impostos-config").then((r) => r.json())]).then(
-      ([c, i]) => {
-        setConfig(c);
-        setImpostosExtras(i);
-      }
-    );
-  }, []);
-
   const tipoTrabalho = itens.length > 0 ? tipoTrabalhoAgregado(itens) : null;
   const completo = clienteSelecionado && itens.length > 0 && resultadoOrcamento;
-
-  const recalcular = useCallback(
-    async (itensAtuais: WizardItem[], custos: typeof custosOperacionais) => {
-      if (!config || itensAtuais.length === 0) return;
-      setRecalculando(true);
-      setErro(null);
-      try {
-        const valorMateriaisTotal = Number(
-          itensAtuais.reduce((acc, i) => acc + i.precificacao.subtotal_material, 0).toFixed(2)
-        );
-        // Mesmo bug/motivo de app/novo-orcamento/step-4-precos/page.tsx —
-        // esta tela recalcula o orçamento de novo sempre que um trecho é
-        // excluído ou os custos operacionais mudam, então precisa do mesmo
-        // `valor_mao_obra_direto`.
-        const valorMaoObraTotal = Number(
-          itensAtuais.reduce((acc, i) => acc + i.precificacao.subtotal_mao_obra, 0).toFixed(2)
-        );
-        const calcInput: CalcularOrcamentoInput = {
-          valor_materiais_direto: valorMateriaisTotal,
-          valor_mao_obra_direto: valorMaoObraTotal,
-          config,
-          impostosExtras,
-          horas_mao_obra: horasMaoObraTotal(itensAtuais),
-          km_deslocamento: custos.km_deslocamento,
-          noites_hospedagem: custos.noites_hospedagem,
-          valor_frete: custos.valor_frete,
-          diarias_aluguel_carro: custos.diarias_aluguel_carro,
-          quantidade_alimentacao: custos.quantidade_alimentacao,
-          desconto_percentual_extra: custos.desconto_percentual_extra ?? undefined,
-        };
-        const resposta = await fetch("/api/calcular-orcamento", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(calcInput),
-        });
-        const dados = await resposta.json();
-        if (!resposta.ok) {
-          setErro(dados.error ?? "Erro ao recalcular o orçamento.");
-          return;
-        }
-        setResultadoOrcamento(dados);
-      } finally {
-        setRecalculando(false);
-      }
-    },
-    [config, impostosExtras, setResultadoOrcamento]
-  );
 
   async function excluirTrecho(index: number) {
     if (!(await confirmar("Excluir este trecho do orçamento?"))) return;
     removerItem(index);
-    if (useWizardStore.getState().itens.length === 0) {
-      setResultadoOrcamento(null);
-      return;
-    }
-    // Sem o trecho, os dias de obra (e a parte de cada trecho) mudam.
-    if (config) recalcular(recalcularMaoObra(config), custosOperacionais);
   }
-
-  // Equipe, diárias, horas úteis ou dias mudaram aqui na Revisão: refaz a mão
-  // de obra da proposta e o orçamento. Não roda na primeira montagem (a Tela 4
-  // já entregou tudo calculado), só quando uma dessas escolhas muda de fato.
-  const escolhasMaoObra = JSON.stringify([equipe, valoresDiariaOverride, horasUteisDiaOverride, diasMaoObraManual]);
-  const escolhasAplicadas = useRef<string | null>(null);
-  useEffect(() => {
-    if (!config) return;
-    if (escolhasAplicadas.current === null) {
-      escolhasAplicadas.current = escolhasMaoObra;
-      return;
-    }
-    if (escolhasAplicadas.current === escolhasMaoObra) return;
-    escolhasAplicadas.current = escolhasMaoObra;
-    if (useWizardStore.getState().itens.length === 0) return;
-    recalcular(recalcularMaoObra(config), useWizardStore.getState().custosOperacionais);
-  }, [config, escolhasMaoObra, recalcular, recalcularMaoObra]);
-
-  // O que o card da equipe mostra: o último cálculo aplicado aos trechos; se
-  // o navegador ainda não tem um (sessão anterior à migração 048), a conta
-  // feita na hora com os mesmos dados.
-  const maoObraDaTela =
-    config && itens.length > 0
-      ? maoObraEquipe ?? calcularMaoObraDoWizard(itens, { equipe, valoresDiariaOverride, horasUteisDiaOverride, diasMaoObraManual }, config)
-      : null;
 
   function editarTrecho(index: number) {
     editarItem(index);
@@ -255,8 +158,8 @@ export default function Step5RevisaoPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-bold">5. Revisão</h1>
-        <p className="text-sm text-gray-500">Confira todos os trechos antes de gerar a proposta.</p>
+        <h1 className="text-xl font-bold">6. Revisão</h1>
+        <p className="text-sm text-gray-500">Confira trechos, equipe e valores antes de gerar a proposta.</p>
       </div>
 
       <div className="card space-y-1 text-sm">
@@ -323,13 +226,38 @@ export default function Step5RevisaoPage() {
         </div>
       ))}
 
-      {/* Equipe e diárias (migração 048) — do orçamento inteiro; mudar aqui
-          recalcula a mão de obra e o orçamento na hora. */}
-      {config && maoObraDaTela && <EquipeMaoObra config={config} maoObra={maoObraDaTela} />}
-
-      {/* Custos operacionais: campos de edição movidos pra Tela 4 (pedido
-          explícito) — aqui só o resumo financeiro final (abaixo), que já
-          mostra Deslocamento/Hospedagem/Frete calculados. */}
+      {/* Equipe e diárias — só leitura; quem edita é a etapa 5. */}
+      {maoObraEquipe && (
+        <div className="card space-y-2 text-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="text-lg font-semibold">Mão de obra — equipe e diárias</h2>
+            <button type="button" className="text-brand hover:underline" onClick={() => router.push("/novo-orcamento/step-5-equipe")}>
+              Alterar equipe e custos
+            </button>
+          </div>
+          {maoObraEquipe.funcoes.length === 0 ? (
+            <p className="rounded-lg bg-amber-50 px-4 py-2 text-amber-700">Nenhuma pessoa na equipe — o orçamento está sem mão de obra.</p>
+          ) : (
+            <>
+              {maoObraEquipe.funcoes.map((f) => (
+                <div key={f.funcao} className="flex justify-between gap-4">
+                  <span>
+                    {LABEL_FUNCAO_MAO_OBRA[f.funcao]}: {f.pessoas} × {f.diarias} {f.diarias === 1 ? "diária" : "diárias"} × {formatarMoeda(f.valor_diaria)}
+                  </span>
+                  <span>{formatarMoeda(f.subtotal)}</span>
+                </div>
+              ))}
+              <p className="border-t border-gray-100 pt-2 text-gray-500">
+                {formatarNumero(maoObraEquipe.horas_obra, 1)} h de obra ÷ {formatarNumero(maoObraEquipe.horas_uteis_dia, 1)} h úteis por dia ={" "}
+                <strong className="text-gray-800">
+                  {maoObraEquipe.dias} {maoObraEquipe.dias === 1 ? "dia" : "dias"} de obra
+                </strong>
+                {maoObraEquipe.dias_manual ? " (ajuste manual)" : ""} — é o prazo de execução que vai na proposta.
+              </p>
+            </>
+          )}
+        </div>
+      )}
 
       <div className="card space-y-2">
         <h2 className="text-lg font-semibold">Observações adicionais (opcional)</h2>
@@ -346,7 +274,7 @@ export default function Step5RevisaoPage() {
 
       {resultadoOrcamento && (
         <div className="card space-y-2 text-sm">
-          <h2 className="mb-2 text-lg font-semibold">Resumo financeiro do orçamento {recalculando && "(recalculando...)"}</h2>
+          <h2 className="mb-2 text-lg font-semibold">Resumo financeiro do orçamento</h2>
           <Linha label="Valor materiais" valor={resultadoOrcamento.valor_materiais} />
           {/* "Execução" (não "Mão de obra") — pedido explícito: esse valor
               agora pode incluir itens adicionais de execução (ex.: andaime),
@@ -388,10 +316,10 @@ export default function Step5RevisaoPage() {
           Complete os passos anteriores antes de salvar o orçamento.
         </p>
       )}
-      {erro && <p className="text-sm text-status-error">{erro}</p>}
+      {(erro ?? erroCalculo) && <p className="text-sm text-status-error">{erro ?? erroCalculo}</p>}
 
       <div className="flex flex-wrap justify-between gap-3">
-        <button type="button" className="btn-secondary" onClick={() => router.push("/novo-orcamento/step-4-precos")}>
+        <button type="button" className="btn-secondary" onClick={() => router.push("/novo-orcamento/step-5-equipe")}>
           ← Voltar
         </button>
         <div className="flex gap-3">
