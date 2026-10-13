@@ -32,11 +32,8 @@ import {
   itensContemplados,
   itensNaoContemplados,
   linhasEspecificacoesTecnicas,
-  linhasMaoDeObra,
-  casasDecimaisQuantidade,
+  quadrosQuantificacao,
   linhasOperacionaisIncluso,
-  linhasQuantificacaoMateriais,
-  linhasItensAdicionaisExecucao,
 } from "@/lib/usecases/orcamento";
 import { CORES, estilos } from "./estilos";
 import CapaProposta from "./CapaProposta";
@@ -139,15 +136,11 @@ export default function PropostaTecnicaDocument({ orcamento, configEmpresa }: Pr
   const naoContempla = itensNaoContemplados(orcamento.tipo_proposta);
   const linhasEspecificacoes = linhasEspecificacoesTecnicas(itens);
   const somenteMaoObra = orcamento.tipo_proposta === "somente_mo";
-  // Mão de obra entra na MESMA lista dos materiais, com horas reais (pedido
-  // explícito) — ver comentário de linhasMaoDeObra. "Custos Operacionais"
+  // Um quadro para cada coisa — Materiais, Mão de Obra (função e quantidade
+  // de pessoas, sem diárias) e Itens Adicionais de Execução — ver
+  // `quadrosQuantificacao`. "Custos Operacionais"
   // (deslocamento/hospedagem/frete/alimentação) continua só "Incluso".
-  // Bug relatado: um Item Adicional de execução (ex.: "Remoção de
-  // isolamento") sumia da tabela em propostas "Somente Mão de Obra" — a
-  // categoria "material" de fato não entra aqui (o cliente fornece por
-  // fora), mas a categoria "execução" precisa continuar aparecendo, já que é
-  // exatamente o que este quadro mostra.
-  const linhasQuadro1 = [...(somenteMaoObra ? linhasItensAdicionaisExecucao(itens) : linhasQuantificacaoMateriais(itens)), ...linhasMaoDeObra(itens, orcamento.mao_obra_equipe)];
+  const quadros = quadrosQuantificacao(orcamento, itens);
   const quadroOperacional = linhasOperacionaisIncluso(orcamento);
 
   let numeroSecao = 2; // 1. já é "Por que isolar termicamente"
@@ -363,29 +356,31 @@ export default function PropostaTecnicaDocument({ orcamento, configEmpresa }: Pr
           <Text style={estilos.secaoTitulo}>
             {numeroSecao++}. Quantificação de {somenteMaoObra ? "Mão de Obra" : "Materiais e Mão de Obra"}
           </Text>
-          {linhasQuadro1.length > 0 && (
-            <>
-              <Text style={estilos.blocoTitulo}>{somenteMaoObra ? "Execução" : "Materiais e Mão de Obra"}</Text>
+          {quadros.map((quadro, q) => (
+            <View key={quadro.titulo} wrap={false}>
+              <Text style={{ ...estilos.blocoTitulo, marginTop: q > 0 ? 10 : 0 }}>{quadro.titulo}</Text>
               <View style={estilos.tabela}>
                 <View style={estilos.linhaCabecalho}>
-                  {itens.length > 1 && <Text style={estilos.celulaCabecalho}>Trecho</Text>}
-                  <Text style={{ ...estilos.celulaCabecalho, flex: 2 }}>Item</Text>
-                  <Text style={estilos.celulaCabecalho}>Quantidade</Text>
-                </View>
-                {linhasQuadro1.map((linha, i) => (
-                  <View key={i} style={estilos.linha}>
-                    {itens.length > 1 && <Text style={estilos.celula}>{linha.trechoNumero}</Text>}
-                    <Text style={{ ...estilos.celula, flex: 2 }}>{linha.titulo}</Text>
-                    <Text style={estilos.celula}>
-                      {formatarNumero(linha.quantidade, casasDecimaisQuantidade(linha.unidade))} {linha.unidade}
+                  {quadro.cabecalho.map((coluna) => (
+                    <Text key={coluna} style={coluna === "Item" || coluna === "Função" ? { ...estilos.celulaCabecalho, flex: 2 } : estilos.celulaCabecalho}>
+                      {coluna}
                     </Text>
+                  ))}
+                </View>
+                {quadro.linhas.map((linha, i) => (
+                  <View key={i} style={estilos.linha}>
+                    {linha.map((texto, c) => (
+                      <Text key={c} style={quadro.cabecalho[c] === "Item" || quadro.cabecalho[c] === "Função" ? { ...estilos.celula, flex: 2 } : estilos.celula}>
+                        {texto}
+                      </Text>
+                    ))}
                   </View>
                 ))}
               </View>
-            </>
-          )}
+            </View>
+          ))}
 
-          <Text style={{ ...estilos.blocoTitulo, marginTop: linhasQuadro1.length > 0 ? 10 : 0 }}>Custos Operacionais</Text>
+          <Text style={{ ...estilos.blocoTitulo, marginTop: quadros.length > 0 ? 10 : 0 }}>Custos Operacionais</Text>
           {quadroOperacional.map((label) => (
             <Text key={label} style={estilos.listaItem}>
               • {label}: <Text style={{ fontFamily: "Helvetica-Bold" }}>Incluso</Text>

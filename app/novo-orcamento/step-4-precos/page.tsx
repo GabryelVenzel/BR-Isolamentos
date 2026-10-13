@@ -574,7 +574,7 @@ export default function Step4PrecosPage() {
             </div>
           ) : (
             <div className="card space-y-2">
-              <h2 className="text-lg font-semibold">Quantificação de materiais e mão de obra</h2>
+              <h2 className="text-lg font-semibold">Quantificação de materiais</h2>
               <div className="overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200 text-sm">
                   <thead className="table-header">

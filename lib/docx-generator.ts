@@ -54,11 +54,8 @@ import {
   itensContemplados,
   itensNaoContemplados,
   linhasEspecificacoesTecnicas,
-  linhasMaoDeObra,
-  casasDecimaisQuantidade,
+  quadrosQuantificacao,
   linhasOperacionaisIncluso,
-  linhasQuantificacaoMateriais,
-  linhasItensAdicionaisExecucao,
   prazoExecucaoDaProposta,
   projetarEconomiaAcumulada,
   temAnaliseFinanceira,
@@ -597,37 +594,24 @@ function tabelaEspecificacoesTecnicas(itens: Orcamento["itens"]): Table {
   );
 }
 
-/** "Quantificação de Materiais e Mão de Obra" — tabela + "Custos
- * Operacionais" (Incluso, sem quantidade/valor). */
+/** "Quantificação de Materiais e Mão de Obra" — um quadro para cada coisa
+ * (Materiais, Mão de Obra, Itens Adicionais de Execução — ver
+ * `quadrosQuantificacao`) + "Custos Operacionais" (Incluso, sem
+ * quantidade/valor). */
 function blocoQuantificacao(itens: NonNullable<Orcamento["itens"]>, orcamento: Orcamento): Array<Paragraph | Table> {
-  const somenteMaoObra = orcamento.tipo_proposta === "somente_mo";
-  // Bug relatado: um Item Adicional de execução (ex.: "Remoção de
-  // isolamento") sumia da tabela em propostas "Somente Mão de Obra" — a
-  // categoria "material" de fato não entra aqui (o cliente fornece por
-  // fora), mas a categoria "execução" precisa continuar aparecendo, já que é
-  // exatamente o que este quadro mostra.
-  const linhasQuadro1 = [...(somenteMaoObra ? linhasItensAdicionaisExecucao(itens) : linhasQuantificacaoMateriais(itens)), ...linhasMaoDeObra(itens, orcamento.mao_obra_equipe)];
+  const quadros = quadrosQuantificacao(orcamento, itens);
 
   const children: Array<Paragraph | Table> = [];
-  if (linhasQuadro1.length > 0) {
+  quadros.forEach((quadro, index) => {
     children.push(
-      subTitulo(somenteMaoObra ? "Execução" : "Materiais e Mão de Obra"),
+      subTitulo(quadro.titulo, index > 0 ? { before: 200 } : undefined),
       tabelaDados(
-        itens.length > 1 ? ["Trecho", "Item", "Quantidade"] : ["Item", "Quantidade"],
-        linhasQuadro1.map(
-          (linha) =>
-            new TableRow({
-              children: [
-                ...(itens.length > 1 ? [celula(String(linha.trechoNumero))] : []),
-                celula(linha.titulo),
-                celula(`${formatarNumero(linha.quantidade, casasDecimaisQuantidade(linha.unidade))} ${linha.unidade}`),
-              ],
-            })
-        )
+        quadro.cabecalho,
+        quadro.linhas.map((linha) => new TableRow({ children: linha.map((texto) => celula(texto)) }))
       )
     );
-  }
-  children.push(subTitulo("Custos Operacionais", { before: linhasQuadro1.length > 0 ? 200 : 0 }));
+  });
+  children.push(subTitulo("Custos Operacionais", { before: quadros.length > 0 ? 200 : 0 }));
   children.push(...linhasOperacionaisIncluso(orcamento).map((label) => paragrafoItem(`${label}: Incluso`)));
   return children;
 }

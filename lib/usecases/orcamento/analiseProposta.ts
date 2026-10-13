@@ -7,7 +7,7 @@
 // CO₂ por árvore) é fixo aqui — sempre recebido como parâmetro
 // (ConfigEmpresa), ver decisão 2 em sql-migration-020-detalhamento-propostas.sql.
 
-import type { ItemOrcamento, MaoObraEquipe, Orcamento, TipoTrabalho } from "../../types";
+import type { ItemOrcamento, Orcamento, TipoTrabalho } from "../../types";
 import { LABEL_FUNCAO_MAO_OBRA } from "./maoObraEquipe";
 import { metragemFinalItem, quantidadeEscopoItem } from "./escopo";
 
@@ -238,9 +238,7 @@ export function casasDecimaisQuantidade(unidade: string): number {
 }
 
 export interface LinhaQuantidadeMaterial {
-  /** "Todos" nas linhas que valem para a proposta inteira (a equipe de mão
-   * de obra, migração 048). */
-  trechoNumero: number | "Todos";
+  trechoNumero: number;
   titulo: string;
   quantidade: number;
   unidade: string;
@@ -317,21 +315,79 @@ export function linhasOperacionaisIncluso(
  * 13,1h, quando na verdade são 2 pessoas dividindo esse total. Aparece pros
  * dois tipos de proposta (inclusive "somente_mo", onde é a única linha desta
  * lista) — mão de obra sempre existe, diferente de material. */
-export function linhasMaoDeObra(itens: ItemOrcamento[], equipe?: MaoObraEquipe | null): LinhaQuantidadeMaterial[] {
-  // Migração 048 — uma linha por função da equipe, com quantos profissionais
-  // e quantas diárias cada um (sem o valor da diária). Vale para a proposta
-  // inteira, não por trecho.
-  if (equipe && equipe.funcoes.length > 0 && equipe.dias > 0) {
-    return equipe.funcoes.map((f) => ({
-      trechoNumero: "Todos" as const,
-      titulo: `Mão de obra — ${LABEL_FUNCAO_MAO_OBRA[f.funcao]} (${f.pessoas} ${f.pessoas === 1 ? "profissional" : "profissionais"})`,
-      quantidade: f.diarias,
-      unidade: f.pessoas === 1 ? (f.diarias === 1 ? "diária" : "diárias") : f.diarias === 1 ? "diária cada" : "diárias cada",
-    }));
-  }
-
-  // Orçamentos anteriores à migração 048: horas de uma dupla, por trecho.
+export function linhasMaoDeObra(itens: ItemOrcamento[]): LinhaQuantidadeMaterial[] {
+  // Só orçamentos anteriores à migração 048 (horas de uma dupla, por trecho)
+  // — nos novos a mão de obra é a equipe da proposta, ver
+  // `quadrosQuantificacao`.
   return itens
     .map((item, index) => ({ trechoNumero: index + 1, titulo: "Mão de obra (dupla de 2 pessoas)", quantidade: item.horas_mao_obra, unidade: "h" }))
     .filter((linha) => linha.quantidade > 0);
+}
+
+/** Um quadro da seção "Quantificação" das Propostas, pronto para desenhar:
+ * título, cabeçalho e linhas já formatadas (PDF e Word só percorrem). */
+export interface QuadroQuantificacao {
+  titulo: string;
+  cabecalho: string[];
+  linhas: string[][];
+}
+
+/** Quadros da "Quantificação" das Propostas — SEPARADOS (pedido explícito),
+ * cada um só aparece se tiver linhas:
+ *
+ *   1. Materiais — o que vem do catálogo e os itens adicionais de categoria
+ *      "material". Não existe em proposta "Somente Mão de Obra" (o cliente
+ *      fornece o material).
+ *   2. Mão de Obra — a equipe: nome da função e quantas pessoas. SEM
+ *      quantidade de diárias nem valor (pedido explícito): a estimativa de
+ *      duração aparece só no Prazo de Execução. Orçamentos anteriores à
+ *      migração 048 não têm equipe e mostram as horas por trecho, como
+ *      sempre mostraram.
+ *   3. Itens Adicionais de Execução — andaime, linha de vida, remoção de
+ *      isolamento... (itens adicionais de categoria "execução").
+ *
+ * Com mais de um trecho, Materiais e Itens Adicionais ganham a coluna
+ * "Trecho"; a equipe é da proposta inteira e não tem essa coluna. */
+export function quadrosQuantificacao(
+  orcamento: Pick<Orcamento, "tipo_proposta" | "mao_obra_equipe">,
+  itens: ItemOrcamento[]
+): QuadroQuantificacao[] {
+  const comTrecho = itens.length > 1;
+  const quantidade = (l: LinhaQuantidadeMaterial) => `${formatarNumeroBr(l.quantidade, casasDecimaisQuantidade(l.unidade))} ${l.unidade}`;
+  const porTrecho = (linhas: LinhaQuantidadeMaterial[]) => linhas.map((l) => [...(comTrecho ? [String(l.trechoNumero)] : []), l.titulo, quantidade(l)]);
+  const cabecalhoPorTrecho = comTrecho ? ["Trecho", "Item", "Quantidade"] : ["Item", "Quantidade"];
+
+  const quadros: QuadroQuantificacao[] = [];
+
+  if (orcamento.tipo_proposta !== "somente_mo") {
+    const materiais: LinhaQuantidadeMaterial[] = [];
+    itens.forEach((item, index) => {
+      for (const linha of item.detalhamento_materiais ?? []) {
+        if (linha.chave === "item_adicional_execucao") continue;
+        materiais.push({ trechoNumero: index + 1, titulo: linha.titulo, quantidade: linha.quantidade, unidade: linha.unidade });
+      }
+    });
+    if (materiais.length > 0) quadros.push({ titulo: "Materiais", cabecalho: cabecalhoPorTrecho, linhas: porTrecho(materiais) });
+  }
+
+  const equipe = orcamento.mao_obra_equipe;
+  if (equipe && equipe.funcoes.length > 0) {
+    quadros.push({
+      titulo: "Mão de Obra",
+      cabecalho: ["Função", "Quantidade"],
+      linhas: equipe.funcoes.map((f) => [LABEL_FUNCAO_MAO_OBRA[f.funcao], `${f.pessoas} ${f.pessoas === 1 ? "profissional" : "profissionais"}`]),
+    });
+  } else {
+    const horas = linhasMaoDeObra(itens);
+    if (horas.length > 0) quadros.push({ titulo: "Mão de Obra", cabecalho: cabecalhoPorTrecho, linhas: porTrecho(horas) });
+  }
+
+  const execucao = linhasItensAdicionaisExecucao(itens);
+  if (execucao.length > 0) quadros.push({ titulo: "Itens Adicionais de Execução", cabecalho: cabecalhoPorTrecho, linhas: porTrecho(execucao) });
+
+  return quadros;
+}
+
+function formatarNumeroBr(valor: number, casas: number): string {
+  return new Intl.NumberFormat("pt-BR", { minimumFractionDigits: casas, maximumFractionDigits: casas }).format(valor);
 }

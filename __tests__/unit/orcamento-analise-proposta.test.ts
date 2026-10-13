@@ -14,6 +14,7 @@ import {
   linhasOperacionaisIncluso,
   linhasQuantificacaoMateriais,
   prazoExecucaoDaProposta,
+  quadrosQuantificacao,
   prazoExecucaoDiasUteis,
   projetarEconomiaAcumulada,
   temAnaliseFinanceira,
@@ -402,17 +403,73 @@ describe("mão de obra por equipe e diárias (migração 048)", () => {
     valor_total: 12000,
   };
 
-  it("linhasMaoDeObra: uma linha por função, com profissionais e diárias, sem valor", () => {
-    expect(linhasMaoDeObra([item({ horas_mao_obra: 50 }), item({ horas_mao_obra: 32 })], equipe)).toEqual([
-      { trechoNumero: "Todos", titulo: "Mão de obra — Funileiro (2 profissionais)", quantidade: 12, unidade: "diárias cada" },
-      { trechoNumero: "Todos", titulo: "Mão de obra — Ajudante (1 profissional)", quantidade: 12, unidade: "diárias" },
+  const detalhe = (chave: string, titulo: string, quantidade: number, unidade: string) => ({ chave, titulo, quantidade, unidade, preco_unitario: 1, subtotal: quantidade });
+
+  it("quadrosQuantificacao: Materiais, Mão de Obra e Itens Adicionais de Execução em quadros separados", () => {
+    const itens = [
+      item({
+        horas_mao_obra: 82,
+        detalhamento_materiais: [
+          detalhe("isolante", "Lã de Rocha 50mm", 110, "m²"),
+          detalhe("item_adicional_material", "Fita de alumínio", 3, "rolo"),
+          detalhe("item_adicional_execucao", "Andaime", 2, "un."),
+        ] as never,
+      }),
+    ];
+    const quadros = quadrosQuantificacao({ tipo_proposta: "material_mo", mao_obra_equipe: equipe }, itens);
+
+    expect(quadros.map((q) => q.titulo)).toEqual(["Materiais", "Mão de Obra", "Itens Adicionais de Execução"]);
+    // Materiais: catálogo + adicional de material — o andaime NÃO entra aqui.
+    expect(quadros[0]).toEqual({
+      titulo: "Materiais",
+      cabecalho: ["Item", "Quantidade"],
+      linhas: [
+        ["Lã de Rocha 50mm", "110,00 m²"],
+        ["Fita de alumínio", "3,00 rolo"],
+      ],
+    });
+    // Mão de obra: função e pessoas — sem diárias, sem valor.
+    expect(quadros[1]).toEqual({
+      titulo: "Mão de Obra",
+      cabecalho: ["Função", "Quantidade"],
+      linhas: [
+        ["Funileiro", "2 profissionais"],
+        ["Ajudante", "1 profissional"],
+      ],
+    });
+    expect(JSON.stringify(quadros[1])).not.toMatch(/di[aá]ria|12/);
+    expect(quadros[2].linhas).toEqual([["Andaime", "2,00 un."]]);
+  });
+
+  it("quadrosQuantificacao: sem item de execução, o quadro de Itens Adicionais não aparece", () => {
+    const itens = [item({ detalhamento_materiais: [detalhe("isolante", "Lã de Rocha 50mm", 110, "m²")] as never })];
+    expect(quadrosQuantificacao({ tipo_proposta: "material_mo", mao_obra_equipe: equipe }, itens).map((q) => q.titulo)).toEqual(["Materiais", "Mão de Obra"]);
+  });
+
+  it("quadrosQuantificacao: 'Somente Mão de Obra' não tem Materiais, mas mantém equipe e itens de execução", () => {
+    const itens = [
+      item({ detalhamento_materiais: [detalhe("item_adicional_material", "Fita", 1, "un."), detalhe("item_adicional_execucao", "Linha de vida", 1, "un.")] as never }),
+    ];
+    expect(quadrosQuantificacao({ tipo_proposta: "somente_mo", mao_obra_equipe: equipe }, itens).map((q) => q.titulo)).toEqual([
+      "Mão de Obra",
+      "Itens Adicionais de Execução",
     ]);
   });
 
-  it("linhasMaoDeObra: orçamento antigo (sem equipe) continua mostrando as horas por trecho", () => {
-    const linhas = linhasMaoDeObra([item({ horas_mao_obra: 13.1 })], null);
-    expect(linhas).toHaveLength(1);
-    expect(linhas[0].unidade).toBe("h");
+  it("quadrosQuantificacao: com mais de um trecho, Materiais ganha a coluna Trecho e a equipe não", () => {
+    const itens = [
+      item({ id: 1, detalhamento_materiais: [detalhe("isolante", "A", 1, "m²")] as never }),
+      item({ id: 2, detalhamento_materiais: [detalhe("isolante", "B", 2, "m²")] as never }),
+    ];
+    const quadros = quadrosQuantificacao({ tipo_proposta: "material_mo", mao_obra_equipe: equipe }, itens);
+    expect(quadros[0].cabecalho).toEqual(["Trecho", "Item", "Quantidade"]);
+    expect(quadros[0].linhas[1]).toEqual(["2", "B", "2,00 m²"]);
+    expect(quadros[1].cabecalho).toEqual(["Função", "Quantidade"]);
+  });
+
+  it("quadrosQuantificacao: orçamento antigo (sem equipe) mostra as horas por trecho no quadro de Mão de Obra", () => {
+    const quadros = quadrosQuantificacao({ tipo_proposta: "somente_mo", mao_obra_equipe: null }, [item({ horas_mao_obra: 13.1, detalhamento_materiais: [] })]);
+    expect(quadros).toEqual([{ titulo: "Mão de Obra", cabecalho: ["Item", "Quantidade"], linhas: [["Mão de obra (dupla de 2 pessoas)", "13,10 h"]] }]);
   });
 
   it("prazoExecucaoDaProposta: com equipe, o prazo são os próprios dias cobrados", () => {

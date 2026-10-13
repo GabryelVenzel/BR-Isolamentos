@@ -53,6 +53,7 @@ export {
   linhasOperacionaisIncluso,
   linhasQuantificacaoMateriais,
   linhasItensAdicionaisExecucao,
+  quadrosQuantificacao,
   prazoExecucaoDaProposta,
   prazoExecucaoDiasUteis,
   casasDecimaisQuantidade,

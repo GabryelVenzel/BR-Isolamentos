@@ -57,7 +57,7 @@ export default function Step1ClientePage() {
             />
             <span>
               <span className="block font-medium text-gray-800">Somente Mão de Obra</span>
-              <span className="block text-xs text-gray-500">Apenas o cálculo de horas — sem custo de material.</span>
+              <span className="block text-xs text-gray-500">Apenas a equipe e as diárias — sem custo de material.</span>
             </span>
           </label>
         </div>
