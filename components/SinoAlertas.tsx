@@ -138,7 +138,7 @@ export default function SinoAlertas({ admin }: Props) {
                       <span className="min-w-0">
                         <span className="block text-sm font-semibold text-gray-900">{alerta.titulo}</span>
                         <span className="block text-xs text-gray-600">{alerta.detalhe}</span>
-                        <span className="mt-0.5 block text-[11px] font-semibold uppercase tracking-wide text-gray-400">{LABEL_MODULO[alerta.modulo]}</span>
+                        <span className="mt-0.5 block text-xs font-semibold uppercase tracking-wide text-gray-400">{LABEL_MODULO[alerta.modulo]}</span>
                       </span>
                     </Link>
                   </li>

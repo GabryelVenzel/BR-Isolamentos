@@ -1,6 +1,7 @@
 "use client";
 
 import { formatarTemperatura } from "@/lib/format";
+import PainelFiltros, { type FiltroAtivo } from "@/components/ui/PainelFiltros";
 import { ORIGENS_LEAD, type TemperaturaLead } from "@/lib/types/domain";
 import { Gift } from "lucide-react";
 
@@ -54,93 +55,88 @@ export default function FiltrosKanban({
   onTogglePerdidos,
   totalLeadsPerdidos,
 }: Props) {
+  const PERIODOS: Record<string, string> = { "7dias": "Últimos 7 dias", "30dias": "Últimos 30 dias", mes: "Este mês" };
+  const ativos: FiltroAtivo[] = [
+    ...(filtros.temperatura ? [{ label: formatarTemperatura(filtros.temperatura as TemperaturaLead), limpar: () => onChange({ temperatura: "" }) }] : []),
+    ...(filtros.origem ? [{ label: filtros.origem, limpar: () => onChange({ origem: "" }) }] : []),
+    ...(filtros.atribuidoA ? [{ label: usuarios.find((u) => u.email === filtros.atribuidoA)?.nome ?? filtros.atribuidoA, limpar: () => onChange({ atribuidoA: "" }) }] : []),
+    ...(filtros.periodo ? [{ label: PERIODOS[filtros.periodo] ?? filtros.periodo, limpar: () => onChange({ periodo: "" }) }] : []),
+    ...(mostrarFrios ? [{ label: "Leads frios em reativação", limpar: () => onToggleFrios(false) }] : []),
+    ...(soAtrasados ? [{ label: "Só atrasados", limpar: () => onToggleAtrasados(false) }] : []),
+    ...(soComissoes ? [{ label: "Só comissões", limpar: () => onToggleComissoes(false) }] : []),
+    ...(mostrarPerdidos ? [{ label: "Com perdidos", limpar: () => onTogglePerdidos(false) }] : []),
+  ];
+
+  // Revisão de usabilidade: busca sempre visível; o resto recolhe no celular
+  // (botão "Filtros") e os filtros ativos viram etiquetas removíveis.
   return (
-    <div className="card space-y-3">
-      <div>
-        <label className="label-field">Buscar</label>
+    <PainelFiltros
+      ativos={ativos}
+      busca={
         <input
           className="input-field"
-          placeholder="Código do lead (L00001), código do orçamento (O00001) ou cliente..."
+          aria-label="Buscar"
+          placeholder="Buscar por código do lead (L00001), do orçamento (O00001) ou cliente..."
           value={filtros.busca}
           onChange={(e) => onChange({ busca: e.target.value })}
         />
-      </div>
-
+      }
+    >
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div>
-          <label className="label-field">Temperatura</label>
-          <select
-            className="input-field"
-            value={filtros.temperatura}
-            onChange={(e) => onChange({ temperatura: e.target.value as TemperaturaLead | "" })}
-          >
-            <option value="">Todas</option>
-            {TEMPERATURAS.map((t) => (
-              <option key={t} value={t}>
-                {formatarTemperatura(t)}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="label-field">Origem</label>
-          <select className="input-field" value={filtros.origem} onChange={(e) => onChange({ origem: e.target.value })}>
-            <option value="">Todas as origens</option>
-            {ORIGENS_LEAD.map((o) => (
-              <option key={o} value={o}>
-                {o}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="label-field">Responsável</label>
-          <select className="input-field" value={filtros.atribuidoA} onChange={(e) => onChange({ atribuidoA: e.target.value })}>
-            <option value="">Todos</option>
-            {usuarios.map((u) => (
-              <option key={u.email} value={u.email}>
-                {u.nome}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="label-field">Período</label>
-          <select
-            className="input-field"
-            value={filtros.periodo}
-            onChange={(e) => onChange({ periodo: e.target.value as FiltrosKanbanState["periodo"] })}
-          >
-            <option value="">Todo período</option>
-            <option value="7dias">Últimos 7 dias</option>
-            <option value="30dias">Últimos 30 dias</option>
-            <option value="mes">Este mês</option>
-          </select>
-        </div>
+        <select className="input-field" aria-label="Temperatura" value={filtros.temperatura} onChange={(e) => onChange({ temperatura: e.target.value as TemperaturaLead | "" })}>
+          <option value="">Todas as temperaturas</option>
+          {TEMPERATURAS.map((t) => (
+            <option key={t} value={t}>
+              {formatarTemperatura(t)}
+            </option>
+          ))}
+        </select>
+        <select className="input-field" aria-label="Origem" value={filtros.origem} onChange={(e) => onChange({ origem: e.target.value })}>
+          <option value="">Todas as origens</option>
+          {ORIGENS_LEAD.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+        <select className="input-field" aria-label="Responsável" value={filtros.atribuidoA} onChange={(e) => onChange({ atribuidoA: e.target.value })}>
+          <option value="">Todos os responsáveis</option>
+          {usuarios.map((u) => (
+            <option key={u.email} value={u.email}>
+              {u.nome}
+            </option>
+          ))}
+        </select>
+        <select className="input-field" aria-label="Período" value={filtros.periodo} onChange={(e) => onChange({ periodo: e.target.value as FiltrosKanbanState["periodo"] })}>
+          <option value="">Todo o período</option>
+          <option value="7dias">Últimos 7 dias</option>
+          <option value="30dias">Últimos 30 dias</option>
+          <option value="mes">Este mês</option>
+        </select>
       </div>
 
-      <div className="flex flex-wrap gap-x-6 gap-y-2 border-t border-gray-100 pt-3">
-        <label className="flex items-center gap-2 text-sm text-gray-700">
-          <input type="checkbox" checked={mostrarFrios} onChange={(e) => onToggleFrios(e.target.checked)} />
-          Mostrar leads frios em reativação
+      <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
+        <label className="flex items-center gap-2 py-1 text-sm text-gray-700">
+          <input type="checkbox" className="h-4 w-4" checked={mostrarFrios} onChange={(e) => onToggleFrios(e.target.checked)} />
+          Leads frios em reativação
           {totalLeadsFrios > 0 && <span className="badge bg-brand-light text-brand">{totalLeadsFrios}</span>}
         </label>
-        <label className="flex items-center gap-2 text-sm text-gray-700">
-          <input type="checkbox" checked={soAtrasados} onChange={(e) => onToggleAtrasados(e.target.checked)} />
-          Mostrar só leads atrasados
+        <label className="flex items-center gap-2 py-1 text-sm text-gray-700">
+          <input type="checkbox" className="h-4 w-4" checked={soAtrasados} onChange={(e) => onToggleAtrasados(e.target.checked)} />
+          Só atrasados
           {totalLeadsAtrasados > 0 && <span className="badge bg-red-100 text-status-error">{totalLeadsAtrasados}</span>}
         </label>
-        <label className="flex items-center gap-2 text-sm text-gray-700">
-          <input type="checkbox" checked={soComissoes} onChange={(e) => onToggleComissoes(e.target.checked)} />
-          <Gift className="icone" aria-hidden /> Mostrar só comissões
+        <label className="flex items-center gap-2 py-1 text-sm text-gray-700">
+          <input type="checkbox" className="h-4 w-4" checked={soComissoes} onChange={(e) => onToggleComissoes(e.target.checked)} />
+          <Gift className="icone" aria-hidden /> Só comissões
           {totalLeadsComissao > 0 && <span className="badge bg-accent-light text-accent-dark">{totalLeadsComissao}</span>}
         </label>
-        <label className="flex items-center gap-2 text-sm text-gray-700">
-          <input type="checkbox" checked={mostrarPerdidos} onChange={(e) => onTogglePerdidos(e.target.checked)} />
+        <label className="flex items-center gap-2 py-1 text-sm text-gray-700">
+          <input type="checkbox" className="h-4 w-4" checked={mostrarPerdidos} onChange={(e) => onTogglePerdidos(e.target.checked)} />
           Mostrar perdidos
           {totalLeadsPerdidos > 0 && <span className="badge bg-gray-100 text-gray-600">{totalLeadsPerdidos}</span>}
         </label>
       </div>
-    </div>
+    </PainelFiltros>
   );
 }

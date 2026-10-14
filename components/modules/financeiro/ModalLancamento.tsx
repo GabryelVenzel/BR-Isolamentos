@@ -55,6 +55,7 @@ export default function ModalLancamento({ lancamento, onFechar, onSalvo }: Props
   const [servicoId, setServicoId] = useState(lancamento?.servico_id ?? "");
   const [fornecedorId, setFornecedorId] = useState(lancamento?.fornecedor_id ?? "");
   const [parceiroId, setParceiroId] = useState(lancamento?.parceiro_id ?? "");
+  const [mostrarVinculos, setMostrarVinculos] = useState(false);
   // Migração 052 — salário, pró-labore ou adiantamento de um funcionário.
   const [funcionarioId, setFuncionarioId] = useState(lancamento?.funcionario_id ?? "");
   const [pago, setPago] = useState(lancamento?.pago ?? false);
@@ -162,18 +163,21 @@ export default function ModalLancamento({ lancamento, onFechar, onSalvo }: Props
 
   const valorParcela =
     repeticao === "parcelado" && quantidadeValida && Number(valor) > 0
-      ? gerarParcelas({ descricao: "", valor: Number(valor), data: vencimento, data_competencia: vencimento }, n)[0].valor
+      ? gerarParcelas(
+          {
+            descricao: "",
+            valor: Number(valor),
+            data: vencimento,
+            data_competencia: vencimento,
+          },
+          n
+        )[0].valor
       : null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
+    <div className="modal-fundo z-50">
       <FecharComEsc onFechar={onFechar} />
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="titulo-modal-lancamento"
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-card bg-white p-6 shadow-card-hover"
-      >
+      <div role="dialog" aria-modal="true" aria-labelledby="titulo-modal-lancamento" className="modal-caixa sm:max-w-2xl">
         <h2 id="titulo-modal-lancamento" className="mb-4 font-montserrat text-lg font-bold text-brand">
           {lancamento ? "Editar Lançamento" : "Novo Lançamento"}
         </h2>
@@ -184,7 +188,12 @@ export default function ModalLancamento({ lancamento, onFechar, onSalvo }: Props
               Tipo<span className="text-status-error"> *</span>
             </p>
             <div className="grid grid-cols-2 gap-4">
-              <button type="button" aria-pressed={tipo === "receita"} className={tipo === "receita" ? "btn-accent" : "btn-secondary"} onClick={() => trocarTipo("receita")}>
+              <button
+                type="button"
+                aria-pressed={tipo === "receita"}
+                className={tipo === "receita" ? "btn-accent" : "btn-secondary"}
+                onClick={() => trocarTipo("receita")}
+              >
                 Receita
               </button>
               <button type="button" aria-pressed={despesa} className={despesa ? "btn-danger" : "btn-secondary"} onClick={() => trocarTipo("despesa")}>
@@ -269,70 +278,79 @@ export default function ModalLancamento({ lancamento, onFechar, onSalvo }: Props
             Vencimento é quando paga ou recebe. Competência é o mês a que o valor pertence nos relatórios de resultado.
           </p>
 
-          <fieldset className="rounded-card border border-gray-200 p-4">
-            <legend className="px-1 font-montserrat text-sm font-semibold text-brand">Ligado a</legend>
-            <div className={`grid grid-cols-1 gap-4 ${despesa ? "sm:grid-cols-3" : ""}`}>
-              <div>
-                <label className="label-field" htmlFor="lanc-servico">
-                  Obra (serviço)
-                </label>
-                <select id="lanc-servico" className="input-field" value={servicoId} onChange={(e) => setServicoId(e.target.value)}>
-                  <option value="">Nenhuma</option>
-                  {servicos.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.numero_servico}
-                      {s.cliente?.nome ? ` — ${s.cliente.nome}` : ""}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {despesa && (
-                <>
-                  <div>
-                    <label className="label-field" htmlFor="lanc-fornecedor">
-                      Fornecedor
-                    </label>
-                    <select id="lanc-fornecedor" className="input-field" value={fornecedorId} onChange={(e) => setFornecedorId(e.target.value)}>
-                      <option value="">Nenhum</option>
-                      {fornecedores.map((f) => (
-                        <option key={f.id} value={f.id}>
-                          {f.nome}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="label-field" htmlFor="lanc-parceiro">
-                      Parceiro (mão de obra)
-                    </label>
-                    <select id="lanc-parceiro" className="input-field" value={parceiroId} onChange={(e) => setParceiroId(e.target.value)}>
-                      <option value="">Nenhum</option>
-                      {parceiros.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.nome}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  {/* Migração 052 — salário, pró-labore, adiantamento: aparece na
+          {/* "Ligado a" é opcional: fechado até ser preciso (revisão de
+              usabilidade) — abre sozinho quando o lançamento já tem vínculo. */}
+          {!(mostrarVinculos || servicoId || (despesa && (fornecedorId || parceiroId || funcionarioId))) ? (
+            <button type="button" className="text-sm font-semibold text-brand hover:underline" onClick={() => setMostrarVinculos(true)}>
+              + Ligar a uma obra
+              {despesa ? ", fornecedor, parceiro ou funcionário" : ""}
+            </button>
+          ) : (
+            <fieldset className="rounded-card border border-gray-200 p-4">
+              <legend className="px-1 font-montserrat text-sm font-semibold text-brand">Ligado a</legend>
+              <div className={`grid grid-cols-1 gap-4 ${despesa ? "sm:grid-cols-3" : ""}`}>
+                <div>
+                  <label className="label-field" htmlFor="lanc-servico">
+                    Obra (serviço)
+                  </label>
+                  <select id="lanc-servico" className="input-field" value={servicoId} onChange={(e) => setServicoId(e.target.value)}>
+                    <option value="">Nenhuma</option>
+                    {servicos.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.numero_servico}
+                        {s.cliente?.nome ? ` — ${s.cliente.nome}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {despesa && (
+                  <>
+                    <div>
+                      <label className="label-field" htmlFor="lanc-fornecedor">
+                        Fornecedor
+                      </label>
+                      <select id="lanc-fornecedor" className="input-field" value={fornecedorId} onChange={(e) => setFornecedorId(e.target.value)}>
+                        <option value="">Nenhum</option>
+                        {fornecedores.map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {f.nome}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    <div>
+                      <label className="label-field" htmlFor="lanc-parceiro">
+                        Parceiro (mão de obra)
+                      </label>
+                      <select id="lanc-parceiro" className="input-field" value={parceiroId} onChange={(e) => setParceiroId(e.target.value)}>
+                        <option value="">Nenhum</option>
+                        {parceiros.map((p) => (
+                          <option key={p.id} value={p.id}>
+                            {p.nome}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                    {/* Migração 052 — salário, pró-labore, adiantamento: aparece na
                       ficha do funcionário (RH → Funcionários → Pagamentos). */}
-                  <div>
-                    <label className="label-field" htmlFor="lanc-funcionario">
-                      Funcionário
-                    </label>
-                    <select id="lanc-funcionario" className="input-field" value={funcionarioId} onChange={(e) => setFuncionarioId(e.target.value)}>
-                      <option value="">Nenhum</option>
-                      {funcionarios.map((f) => (
-                        <option key={f.id} value={f.id}>
-                          {f.nome}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </>
-              )}
-            </div>
-          </fieldset>
+                    <div>
+                      <label className="label-field" htmlFor="lanc-funcionario">
+                        Funcionário
+                      </label>
+                      <select id="lanc-funcionario" className="input-field" value={funcionarioId} onChange={(e) => setFuncionarioId(e.target.value)}>
+                        <option value="">Nenhum</option>
+                        {funcionarios.map((f) => (
+                          <option key={f.id} value={f.id}>
+                            {f.nome}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                )}
+              </div>
+            </fieldset>
+          )}
 
           {!lancamento ? (
             <fieldset className="rounded-card border border-gray-200 p-4">
@@ -378,8 +396,8 @@ export default function ModalLancamento({ lancamento, onFechar, onSalvo }: Props
           ) : (
             lancamento.grupo_id && (
               <p className="text-xs text-gray-500">
-                {lancamento.grupo_tipo === "parcelado" ? "Parcela" : "Repetição"} {lancamento.parcela_numero}/{lancamento.parcela_total} — a alteração vale só para
-                este lançamento.
+                {lancamento.grupo_tipo === "parcelado" ? "Parcela" : "Repetição"} {lancamento.parcela_numero}/{lancamento.parcela_total} — a alteração vale só
+                para este lançamento.
               </p>
             )
           )}
@@ -407,7 +425,7 @@ export default function ModalLancamento({ lancamento, onFechar, onSalvo }: Props
             </p>
           )}
 
-          <div className="flex justify-end gap-3">
+          <div className="rodape-modal flex justify-end gap-3">
             <button type="button" className="btn-secondary" onClick={onFechar}>
               Cancelar
             </button>

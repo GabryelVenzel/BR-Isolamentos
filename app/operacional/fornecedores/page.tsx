@@ -1,12 +1,18 @@
 "use client";
 
+import { Carregando } from "@/components/ui/Esqueleto";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "@/components/modules/operacional/toast";
 import ModalFornecedor from "@/components/modules/operacional/ModalFornecedor";
 import FiltroFornecedores from "@/components/modules/operacional/FiltroFornecedores";
 import type { CategoriaFornecimento, Fornecedor } from "@/lib/types/domain";
 import { confirmar } from "@/components/ui/confirmar";
-import { Pencil, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import CabecalhoPagina from "@/components/ui/CabecalhoPagina";
+import MenuAcoes from "@/components/ui/MenuAcoes";
+import PainelFiltros from "@/components/ui/PainelFiltros";
+import { useEstadoLembrado } from "@/lib/hooks/useEstadoLembrado";
 
 const LABEL_TIPOS_FORNECIMENTO: Record<string, string> = {
   isolantes: "Isolantes",
@@ -20,8 +26,10 @@ export default function FornecedoresPage() {
   const [fornecedores, setFornecedores] = useState<Fornecedor[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState("");
-  const [tiposFiltro, setTiposFiltro] = useState<CategoriaFornecimento[]>([]);
-  const [editando, setEditando] = useState<Fornecedor | "novo" | null>(null);
+  const router = useRouter();
+  const [tiposFiltro, setTiposFiltro] = useEstadoLembrado<CategoriaFornecimento[]>("filtros-fornecedores", []);
+  // Editar abre a ficha em página própria; aqui só o cadastro novo.
+  const [novo, setNovo] = useState(false);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -62,23 +70,22 @@ export default function FornecedoresPage() {
   }, [fornecedores, tiposFiltro]);
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Fornecedores</h1>
-        <p className="text-sm text-gray-500">Materiais, equipamentos e serviços de apoio à instalação.</p>
-      </div>
+    <div className="space-y-4">
+      <CabecalhoPagina
+        titulo="Fornecedores"
+        descricao="Materiais, equipamentos e serviços de apoio — clique em um fornecedor para abrir a ficha."
+        acaoPrincipal={{ label: "+ Novo Fornecedor", onClick: () => setNovo(true) }}
+      />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <input className="input-field max-w-xs" placeholder="Buscar fornecedor..." value={busca} onChange={(e) => setBusca(e.target.value)} />
-        <button type="button" className="btn-primary" onClick={() => setEditando("novo")}>
-          + Novo Fornecedor
-        </button>
-      </div>
-
-      <FiltroFornecedores value={tiposFiltro} onChange={setTiposFiltro} />
+      <PainelFiltros
+        busca={<input className="input-field" placeholder="Buscar fornecedor..." value={busca} onChange={(e) => setBusca(e.target.value)} />}
+        ativos={tiposFiltro.map((t) => ({ label: LABEL_TIPOS_FORNECIMENTO[t] ?? t, limpar: () => setTiposFiltro(tiposFiltro.filter((x) => x !== t)) }))}
+      >
+        <FiltroFornecedores value={tiposFiltro} onChange={setTiposFiltro} />
+      </PainelFiltros>
 
       {carregando ? (
-        <p className="text-sm text-gray-500">Carregando...</p>
+        <Carregando linhas={6} />
       ) : (
         <div className="card overflow-x-auto p-0">
           <table className="tabela-cartoes w-full text-sm">
@@ -96,27 +103,26 @@ export default function FornecedoresPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {fornecedoresFiltrados.map((f) => (
-                <tr key={f.id}>
-                  <td data-label="Código" className="px-4 py-2 font-mono text-xs text-gray-500">{f.numero_fornecedor ?? "—"}</td>
+                <tr key={f.id} className="cursor-pointer hover:bg-gray-50" onClick={() => router.push(`/operacional/fornecedores/${f.id}`)}>
+                  <td data-label="Código" className="so-computador px-4 py-2 font-mono text-xs text-gray-500">{f.numero_fornecedor ?? "—"}</td>
                   <td data-label="Nome" className="px-4 py-2 font-medium text-brand">{f.nome}</td>
                   <td data-label="Telefone" className="px-4 py-2 text-gray-500">{f.telefone ?? "—"}</td>
-                  <td data-label="CNPJ" className="px-4 py-2 text-gray-500">{f.cnpj ?? "—"}</td>
-                  <td data-label="Contato" className="px-4 py-2 text-gray-500">{f.pessoa_contato ?? "—"}</td>
-                  <td data-label="Estado" className="px-4 py-2 text-gray-500">{f.estado ?? "—"}</td>
+                  <td data-label="CNPJ" className="so-computador px-4 py-2 text-gray-500">{f.cnpj ?? "—"}</td>
+                  <td data-label="Contato" className="so-computador px-4 py-2 text-gray-500">{f.pessoa_contato ?? "—"}</td>
+                  <td data-label="Estado" className="so-computador px-4 py-2 text-gray-500">{f.estado ?? "—"}</td>
                   <td data-label="Tipos de fornecimento" className="px-4 py-2 text-gray-500">
                     {(f.tipos_fornecimento ?? []).length > 0
                       ? f.tipos_fornecimento.map((t) => LABEL_TIPOS_FORNECIMENTO[t] ?? t).join(", ")
                       : "—"}
                   </td>
-                  <td data-label="Ações" className="px-4 py-2">
-                    <div className="flex items-center justify-end gap-2">
-                      <button type="button" className="p-1 hover:opacity-70" title="Editar" aria-label="Editar" onClick={() => setEditando(f)}>
-                        <Pencil className="icone" aria-hidden />
-                      </button>
-                      <button type="button" className="p-1 hover:opacity-70" title="Excluir" aria-label="Excluir" onClick={() => excluir(f)}>
-                        <Trash2 className="icone" aria-hidden />
-                      </button>
-                    </div>
+                  <td data-label="Ações" className="px-4 py-2 text-right" onClick={(e) => e.stopPropagation()}>
+                    <MenuAcoes discreto
+                      alinhar="direita"
+                      acoes={[
+                        { label: "Abrir ficha", href: `/operacional/fornecedores/${f.id}` },
+                        { label: "Excluir", icone: <Trash2 className="icone" aria-hidden />, perigo: true, onClick: () => excluir(f) },
+                      ]}
+                    />
                   </td>
                 </tr>
               ))}
@@ -139,12 +145,12 @@ export default function FornecedoresPage() {
         </p>
       )}
 
-      {editando && (
+      {novo && (
         <ModalFornecedor
-          fornecedor={editando === "novo" ? null : editando}
-          onFechar={() => setEditando(null)}
+          fornecedor={null}
+          onFechar={() => setNovo(false)}
           onSalvo={() => {
-            setEditando(null);
+            setNovo(false);
             carregar();
           }}
         />

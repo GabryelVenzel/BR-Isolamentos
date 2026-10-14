@@ -1,5 +1,6 @@
 "use client";
 
+import { Carregando } from "@/components/ui/Esqueleto";
 import { useRouter } from "next/navigation";
 import EquipeMaoObra from "@/components/EquipeMaoObra";
 import { formatarMoeda, formatarNumero } from "@/lib/format";
@@ -105,7 +106,7 @@ export default function Step5EquipePage() {
         <p className="text-xs text-gray-500">"Execução" de cada trecho = a parte dele na mão de obra da equipe + os itens adicionais de execução dele.</p>
       </div>
 
-      {config && maoObra ? <EquipeMaoObra config={config} maoObra={maoObra} /> : <p className="text-sm text-gray-500">Carregando...</p>}
+      {config && maoObra ? <EquipeMaoObra config={config} maoObra={maoObra} /> : <Carregando />}
 
       <div className="card space-y-4">
         <div>
@@ -113,7 +114,7 @@ export default function Step5EquipePage() {
           <p className="text-xs text-gray-500">
             Informe só as quantidades — os valores unitários vêm de{" "}
             <a href="/config-precos" className="text-brand hover:underline">
-              Configurar Preços
+              Configurações do orçamento
             </a>
             . O frete é digitado direto em R$.
           </p>
@@ -141,7 +142,7 @@ export default function Step5EquipePage() {
       </div>
 
       {/* Itens de execução padrão (migração 051) — equipamentos e serviços
-          de apoio do catálogo de Configurar Preços: basta habilitar. O que
+          de apoio do catálogo de Configurações do orçamento: basta habilitar. O que
           fica habilitado entra em "O orçamento contempla" na proposta; o que
           não fica é citado em "Não contemplado". */}
       {config && (
@@ -157,7 +158,7 @@ export default function Step5EquipePage() {
             <p className="text-sm text-gray-500">
               Nenhum item cadastrado. Monte a lista (andaime, plataforma elevatória, guindauto...) em{" "}
               <a href="/config-precos" className="text-brand hover:underline">
-                Configurar Preços → Mão de Obra → Itens de execução padrão
+                Configurações do orçamento → Mão de Obra → Itens de execução padrão
               </a>
               .
             </p>
@@ -245,7 +246,7 @@ export default function Step5EquipePage() {
             </div>
           )}
           {itensExecucao.some((i) => i.incluido && i.preco_unitario === 0) && (
-            <p className="text-xs text-amber-700">Há item incluído com preço R$ 0,00 — informe o preço aqui ou cadastre o padrão em Configurar Preços.</p>
+            <p className="text-xs text-amber-700">Há item incluído com preço R$ 0,00 — informe o preço aqui ou cadastre o padrão em Configurações do orçamento.</p>
           )}
         </div>
       )}
@@ -256,7 +257,7 @@ export default function Step5EquipePage() {
       <div className="card space-y-4">
         <div>
           <h2 className="text-lg font-semibold">Margem e desconto</h2>
-          <p className="text-xs text-gray-500">Só deste orçamento. Em branco, a margem é a padrão de Configurar Preços.</p>
+          <p className="text-xs text-gray-500">Só deste orçamento. Em branco, a margem é a padrão de Configurações do orçamento.</p>
         </div>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>

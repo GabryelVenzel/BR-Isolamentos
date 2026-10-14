@@ -1,7 +1,11 @@
 "use client";
+import { Carregando } from "@/components/ui/Esqueleto";
 
 import { useCallback, useEffect, useState } from "react";
-import CalendarioCapacidade from "@/components/operacional/CalendarioCapacidade";
+import Link from "next/link";
+import CalendarioCapacidade, { corDaObra } from "@/components/operacional/CalendarioCapacidade";
+import CabecalhoPagina from "@/components/ui/CabecalhoPagina";
+import { formatarData } from "@/lib/format";
 import ModalCapacidadeDia from "@/components/operacional/ModalCapacidadeDia";
 import type { CapacidadeResumoDia } from "@/lib/usecases/operacional";
 
@@ -38,7 +42,11 @@ export default function AgendaPage() {
   const [dias, setDias] = useState<CapacidadeResumoDia[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
+  // Dia escolhido no calendário: a lista dele aparece embaixo; o detalhe
+  // por parceiro/funcionário abre na janela (ModalCapacidadeDia).
   const [diaSelecionado, setDiaSelecionado] = useState<string | null>(null);
+  const [detalheDia, setDetalheDia] = useState<string | null>(null);
+  const dia = dias.find((d) => d.data === diaSelecionado) ?? null;
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -63,6 +71,7 @@ export default function AgendaPage() {
   }, [carregar]);
 
   function mudarMes(delta: number) {
+    setDiaSelecionado(null);
     setAnoMes((atual) => {
       const data = new Date(atual.ano, atual.mes - 1 + delta, 1);
       return { ano: data.getFullYear(), mes: data.getMonth() + 1 };
@@ -70,24 +79,36 @@ export default function AgendaPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
+    <div className="space-y-4">
+      <CabecalhoPagina
+        titulo="Agenda"
+        descricao="Obras em andamento e ocupação da equipe por dia — toque num dia para ver a lista."
+        acaoPrincipal={{ label: "+ Novo Serviço", href: "/operacional/servicos?novo=1" }}
+        acoes={[{ label: carregando ? "Atualizando..." : "Atualizar", onClick: carregar }]}
+      />
+
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1 sm:gap-2">
           <button type="button" className="btn-secondary px-3" onClick={() => mudarMes(-1)} aria-label="Mês anterior">
             ◀
           </button>
-          <h1 className="w-40 text-center text-xl font-bold">
+          <h2 className="w-36 text-center text-lg font-bold sm:w-44">
             {MESES[mes - 1]} {ano}
-          </h1>
+          </h2>
           <button type="button" className="btn-secondary px-3" onClick={() => mudarMes(1)} aria-label="Próximo mês">
             ▶
           </button>
         </div>
-        <div className="flex gap-2">
-          <button type="button" className="btn-secondary" onClick={carregar} disabled={carregando}>
-            {carregando ? "Atualizando..." : "Atualizar"}
-          </button>
-        </div>
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={() => {
+            setDiaSelecionado(null);
+            setAnoMes(hojeSaoPaulo());
+          }}
+        >
+          Hoje
+        </button>
       </div>
 
       {erro && (
@@ -100,12 +121,45 @@ export default function AgendaPage() {
       )}
 
       {carregando && dias.length === 0 ? (
-        <p className="text-sm text-gray-500">Carregando...</p>
+        <Carregando />
       ) : (
-        !erro && <CalendarioCapacidade ano={ano} mes={mes} dias={dias} onClickDia={setDiaSelecionado} />
+        !erro && <CalendarioCapacidade ano={ano} mes={mes} dias={dias} selecionado={diaSelecionado} onSelecionarDia={setDiaSelecionado} />
       )}
 
-      {diaSelecionado && <ModalCapacidadeDia data={diaSelecionado} onFechar={() => setDiaSelecionado(null)} />}
+      {dia && (
+        <section className="card space-y-3" aria-live="polite">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="text-lg font-semibold">{formatarData(dia.data)}</h2>
+              <p className="text-sm text-gray-500">
+                {dia.totalDisponivel > 0 ? `${dia.totalLivre} de ${dia.totalDisponivel} pessoas livres · ${dia.totalMobilizado} mobilizada(s)` : "Sem equipe cadastrada para este dia."}
+              </p>
+            </div>
+            <button type="button" className="btn-secondary" onClick={() => setDetalheDia(dia.data)}>
+              Equipe do dia
+            </button>
+          </div>
+          {dia.servicos.length === 0 ? (
+            <p className="text-sm text-gray-400">Nenhuma obra em andamento neste dia.</p>
+          ) : (
+            <ul className="divide-y divide-gray-100">
+              {dia.servicos.map((s) => (
+                <li key={s.id}>
+                  <Link href={`/operacional/servicos/${s.id}`} className="flex items-center gap-3 rounded-input px-1 py-2.5 hover:bg-gray-50">
+                    <span className={`h-3 w-3 shrink-0 rounded-full ${corDaObra(s.id)}`} aria-hidden />
+                    <span className="min-w-0">
+                      <span className="block font-semibold text-brand">{s.numero}</span>
+                      {s.cliente && <span className="block truncate text-sm text-gray-500">{s.cliente}</span>}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
+
+      {detalheDia && <ModalCapacidadeDia data={detalheDia} onFechar={() => setDetalheDia(null)} />}
     </div>
   );
 }

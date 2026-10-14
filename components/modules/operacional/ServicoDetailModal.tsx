@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState, type ChangeEvent } from "react";
+import { Carregando } from "@/components/ui/Esqueleto";
 import { toast } from "./toast";
 import ModalAdicionarParceiroServico from "./ModalAdicionarParceiroServico";
 import { TIPOS_TRABALHO_OPCOES } from "./MultiSelectTiposTrabalho";
@@ -38,6 +39,9 @@ interface Props {
   servicoId: string;
   onFechar: () => void;
   onServicoMudou: () => void;
+  /** "pagina" (padrão desde a revisão de usabilidade): ficha em página
+   * própria, /operacional/servicos/[id]. "gaveta": o painel lateral de antes. */
+  modo?: "pagina" | "gaveta";
 }
 
 function descreverEvento(h: HistoricoServico): string {
@@ -55,7 +59,8 @@ function descreverEvento(h: HistoricoServico): string {
   }
 }
 
-export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou }: Props) {
+export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou, modo = "pagina" }: Props) {
+  const pagina = modo === "pagina";
   const { acesso } = useAcesso();
   const [aba, setAba] = useState<AbaInterna>("dados");
   const [servico, setServico] = useState<Servico | null>(null);
@@ -333,12 +338,15 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
   const podeFinalizar = temFotos && temPdf;
 
   return (
-    <div className="fixed inset-0 z-[60] flex justify-end bg-brand/60">
-      <FecharComEsc onFechar={onFechar} />
-      <div className="flex h-full w-full max-w-xl flex-col overflow-y-auto bg-white shadow-card-hover" onClick={(e) => e.stopPropagation()}>
+    <div className={pagina ? "" : "fixed inset-0 z-[60] flex justify-end bg-brand/60"}>
+      {!pagina && <FecharComEsc onFechar={onFechar} />}
+      <div
+        className={pagina ? "flex flex-col overflow-hidden rounded-card bg-white shadow-card" : "flex h-full w-full max-w-xl flex-col overflow-y-auto bg-white shadow-card-hover"}
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="border-b border-gray-100 p-4">
           <button type="button" className="text-sm text-brand hover:underline" onClick={onFechar}>
-            ← Voltar
+            ← Serviços
           </button>
 
           {servico && (
@@ -362,7 +370,9 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
         </div>
 
         {carregando ? (
-          <p className="p-4 text-sm text-gray-500">Carregando...</p>
+          <div className="p-4">
+            <Carregando linhas={6} />
+          </div>
         ) : erro || !servico ? (
           <div className="m-4 rounded-card bg-red-50 p-4 text-sm text-status-error">
             <p>{erro ?? "Não foi possível carregar o serviço."}</p>
@@ -515,7 +525,7 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img src={urlArquivo(url)} alt="Foto do projeto" className="h-20 w-full object-cover" />
                             <div className="flex items-center justify-between gap-1 p-1.5">
-                              <span className="truncate text-[11px] text-brand" title={nomeArquivo(url)}>
+                              <span className="truncate text-xs text-brand" title={nomeArquivo(url)}>
                                 <CheckCircle2 className="icone" aria-hidden /> {nomeArquivo(url)}
                               </span>
                               <div className="flex shrink-0 gap-1.5">

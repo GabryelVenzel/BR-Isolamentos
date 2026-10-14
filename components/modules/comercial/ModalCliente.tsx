@@ -10,6 +10,9 @@ interface Props {
   cliente: Cliente | null; // null = criar novo
   onFechar: () => void;
   onSalvo: () => void;
+  /** "pagina": o formulário dentro da ficha em página própria (revisão de
+   * usabilidade); padrão: janela. */
+  modo?: "janela" | "pagina";
 }
 
 interface FormCliente {
@@ -42,7 +45,8 @@ function paraForm(cliente: Cliente | null): FormCliente {
  * NovoLeadModal (que reaproveita FormCliente pra buscar-ou-criar dentro do
  * fluxo de criação de lead), este é o CRUD dedicado da aba, com todos os
  * campos do mockup (inclusive cidade/estado, que FormCliente não tem). */
-export default function ModalCliente({ cliente, onFechar, onSalvo }: Props) {
+export default function ModalCliente({ cliente, onFechar, onSalvo, modo = "janela" }: Props) {
+  const pagina = modo === "pagina";
   const [form, setForm] = useState<FormCliente>(paraForm(cliente));
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -98,13 +102,13 @@ export default function ModalCliente({ cliente, onFechar, onSalvo }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
-      <FecharComEsc onFechar={onFechar} />
+    <div className={pagina ? "" : "modal-fundo z-50"}>
+      {!pagina && <FecharComEsc onFechar={onFechar} />}
       <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-card bg-white p-6 shadow-card-hover"
+        className={pagina ? "card" : "modal-caixa sm:max-w-2xl"}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="mb-4 font-montserrat text-lg font-bold text-brand">{cliente ? "Editar Cliente" : "Novo Cliente"}</h2>
+        <h2 className={pagina ? "sr-only" : "mb-4 font-montserrat text-lg font-bold text-brand"}>{cliente ? "Editar Cliente" : "Novo Cliente"}</h2>
 
         <div className="space-y-4">
           <div>
@@ -174,7 +178,7 @@ export default function ModalCliente({ cliente, onFechar, onSalvo }: Props) {
 
           {erro && <p className="text-sm text-status-error">{erro}</p>}
 
-          <div className="flex justify-end gap-3">
+          <div className={pagina ? "mt-4 flex justify-end gap-3" : "rodape-modal flex justify-end gap-3"}>
             <button type="button" className="btn-secondary" onClick={onFechar}>
               Cancelar
             </button>

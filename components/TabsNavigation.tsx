@@ -28,13 +28,13 @@ export const CLASSES_ABA_BASE = "rounded-t-lg px-4 py-2 font-montserrat text-sm 
  * de navegação diferente. */
 export default function TabsNavigation<T extends string>({ tabs, activeTab, onTabChange }: Props<T>) {
   return (
-    <div className="flex flex-wrap gap-1 border-b border-gray-200">
+    <div className="-mx-4 flex gap-1 overflow-x-auto border-b border-gray-200 px-4 [scrollbar-width:none] sm:mx-0 sm:px-0">
       {tabs.map((tab) => (
         <button
           key={tab.valor}
           type="button"
           onClick={() => onTabChange(tab.valor)}
-          className={`${CLASSES_ABA_BASE} ${activeTab === tab.valor ? CLASSES_ABA_ATIVA : CLASSES_ABA_INATIVA}`}
+          className={`shrink-0 whitespace-nowrap ${CLASSES_ABA_BASE} ${activeTab === tab.valor ? CLASSES_ABA_ATIVA : CLASSES_ABA_INATIVA}`}
         >
           {tab.label}
         </button>

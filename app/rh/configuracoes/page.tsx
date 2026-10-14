@@ -1,8 +1,10 @@
 "use client";
 
+import { Carregando } from "@/components/ui/Esqueleto";
 import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { toast } from "@/components/modules/rh/toast";
+import CabecalhoPagina from "@/components/ui/CabecalhoPagina";
 import { useConfigRh } from "@/components/modules/rh/useConfigRh";
 import { CATEGORIAS_DOCUMENTO_EMPRESA, LABEL_CATEGORIA_DOCUMENTO, type DocumentoObrigatorioEmpresa, type TipoDocumentoRh } from "@/lib/rh";
 
@@ -42,14 +44,11 @@ export default function ConfiguracoesRhPage() {
   const meses = (v: string) => (v === "" ? null : Math.max(1, Math.round(Number(v)) || 1));
   const novoId = () => `item_${Date.now()}`;
 
-  if (!config) return <p className="text-sm text-gray-500">Carregando...</p>;
+  if (!config) return <Carregando />;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Configurações do RH</h1>
-        <p className="text-sm text-gray-500">Listas que padronizam a documentação. Validade em meses; em branco = não vence.</p>
-      </div>
+      <CabecalhoPagina titulo="Configurações do RH" descricao="Listas que padronizam a documentação. Validade em meses; em branco = não vence." />
 
       <section className="card space-y-3">
         <div>

@@ -82,12 +82,12 @@ export default function ValorFechadoHost() {
   }
 
   return (
-    <div className="fixed inset-0 z-[90] flex items-center justify-center bg-brand/60 p-4">
+    <div className="modal-fundo z-[90]">
       <form
         role="dialog"
         aria-modal="true"
         aria-labelledby="valor-fechado-titulo"
-        className="w-full max-w-md rounded-card bg-white p-6 shadow-card-hover"
+        className="modal-caixa sm:max-w-md"
         onSubmit={(e) => {
           e.preventDefault();
           confirmar();
@@ -122,7 +122,7 @@ export default function ValorFechadoHost() {
           </p>
         )}
 
-        <div className="mt-6 flex justify-end gap-3">
+        <div className="rodape-modal flex justify-end gap-3">
           <button type="button" className="btn-secondary" onClick={() => responder(null)}>
             Cancelar
           </button>

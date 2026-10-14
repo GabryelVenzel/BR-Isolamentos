@@ -1,5 +1,6 @@
 "use client";
 
+import { Carregando } from "@/components/ui/Esqueleto";
 import { useEffect, useState } from "react";
 import { formatarData, formatarMoeda } from "@/lib/format";
 import { TIPOS_TRABALHO_OPCOES } from "@/components/modules/operacional/MultiSelectTiposTrabalho";
@@ -26,7 +27,7 @@ export default function HistoricoFuncionario({ funcionarioId }: { funcionarioId:
       .catch(() => setH({ lancamentos: [], diarias: [], obras: [] }));
   }, [funcionarioId]);
 
-  if (!h) return <p className="text-sm text-gray-500">Carregando...</p>;
+  if (!h) return <Carregando />;
 
   const totalLancamentos = h.lancamentos.filter((l) => l.tipo === "despesa").reduce((acc, l) => acc + Number(l.valor), 0);
   const totalDiarias = h.diarias.reduce((acc, d) => acc + Number(d.valor), 0);

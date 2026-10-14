@@ -1,9 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import { toast } from "@/components/modules/operacional/toast";
 import KanbanServicos from "@/components/modules/operacional/KanbanServicos";
-import ServicoDetailModal from "@/components/modules/operacional/ServicoDetailModal";
+import { useRouter, useSearchParams } from "next/navigation";
+import CabecalhoPagina from "@/components/ui/CabecalhoPagina";
+import PainelFiltros from "@/components/ui/PainelFiltros";
+import { EsqueletoLista } from "@/components/ui/Esqueleto";
+import { useEstadoLembrado } from "@/lib/hooks/useEstadoLembrado";
 import NovoServicoModal from "@/components/modules/operacional/NovoServicoModal";
 import Lixeira from "@/components/Lixeira";
 import { useAcesso } from "@/lib/hooks/useAcesso";
@@ -15,14 +19,26 @@ import type { EtapaServico, Servico } from "@/lib/types/domain";
 const LABEL_TIPO: Record<string, string> = Object.fromEntries(TIPOS_TRABALHO_OPCOES.map((o) => [o.valor, o.label]));
 
 export default function ServicosPage() {
+  return (
+    <Suspense fallback={<EsqueletoLista />}>
+      <Servicos />
+    </Suspense>
+  );
+}
+
+function Servicos() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
   const [servicos, setServicos] = useState<Servico[]>([]);
   const [carregando, setCarregando] = useState(true);
-  const [busca, setBusca] = useState("");
-  const [filtroTipo, setFiltroTipo] = useState("");
-  const [filtroResponsavel, setFiltroResponsavel] = useState("");
+  // Filtros lembrados entre visitas (revisão de usabilidade).
+  const [filtros, setFiltros] = useEstadoLembrado("filtros-servicos", { busca: "", tipo: "", responsavel: "" });
+  const { busca, tipo: filtroTipo, responsavel: filtroResponsavel } = filtros;
+  const setBusca = (busca: string) => setFiltros((f) => ({ ...f, busca }));
+  const setFiltroTipo = (tipo: string) => setFiltros((f) => ({ ...f, tipo }));
+  const setFiltroResponsavel = (responsavel: string) => setFiltros((f) => ({ ...f, responsavel }));
   const [usuarios, setUsuarios] = useState<Array<{ email: string; nome: string }>>([]);
 
-  const [servicoSelecionadoId, setServicoSelecionadoId] = useState<string | null>(null);
   const [mostrarNovo, setMostrarNovo] = useState(false);
   const [mostrarLixeira, setMostrarLixeira] = useState(false);
   const { acesso } = useAcesso();
@@ -45,6 +61,11 @@ export default function ServicosPage() {
   useEffect(() => {
     carregar();
   }, [carregar]);
+
+  // "+ Criar → Novo serviço" do cabeçalho.
+  useEffect(() => {
+    if (searchParams.get("novo")) setMostrarNovo(true);
+  }, [searchParams]);
 
   useEffect(() => {
     fetch("/api/usuarios").then((r) => r.json()).then(setUsuarios).catch(() => setUsuarios([]));
@@ -83,65 +104,57 @@ export default function ServicosPage() {
       )
     : servicos;
 
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Serviços</h1>
-          <p className="text-sm text-gray-500">{servicos.length} serviço{servicos.length === 1 ? "" : "s"} no funil de obras.</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {/* Lixeira (migração 045): serviços excluídos, recuperáveis por 30 dias — só administrador. */}
-          {acesso?.admin && (
-            <button type="button" className="btn-secondary" onClick={() => setMostrarLixeira(true)}>
-              Lixeira
-            </button>
-          )}
-          <button type="button" className="btn-primary" onClick={() => setMostrarNovo(true)}>
-            + Novo Serviço
-          </button>
-        </div>
-      </div>
+  const abrir = (id: string) => router.push(`/operacional/servicos/${id}`);
+  const nomeResponsavel = usuarios.find((u) => u.email === filtroResponsavel)?.nome ?? filtroResponsavel;
 
-      <div className="card grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <input className="input-field" placeholder="Buscar por código ou cliente..." value={busca} onChange={(e) => setBusca(e.target.value)} />
-        <select className="input-field" value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}>
-          <option value="">Todos os tipos</option>
-          {Object.entries(LABEL_TIPO).map(([valor, label]) => (
-            <option key={valor} value={valor}>
-              {label}
-            </option>
-          ))}
-        </select>
-        <select className="input-field" value={filtroResponsavel} onChange={(e) => setFiltroResponsavel(e.target.value)}>
-          <option value="">Todos os responsáveis</option>
-          {usuarios.map((u) => (
-            <option key={u.email} value={u.email}>
-              {u.nome}
-            </option>
-          ))}
-        </select>
-      </div>
+  return (
+    <div className="space-y-4">
+      <CabecalhoPagina
+        titulo="Serviços"
+        descricao={`${servicos.length} serviço${servicos.length === 1 ? "" : "s"} no funil de obras.`}
+        acaoPrincipal={{ label: "+ Novo Serviço", onClick: () => setMostrarNovo(true) }}
+        // Lixeira (migração 045): serviços excluídos, recuperáveis por 30 dias — só administrador.
+        acoes={acesso?.admin ? [{ label: "Lixeira", onClick: () => setMostrarLixeira(true) }] : []}
+      />
+
+      <PainelFiltros
+        busca={<input className="input-field" placeholder="Buscar por código ou cliente..." value={busca} onChange={(e) => setBusca(e.target.value)} />}
+        ativos={[
+          ...(filtroTipo ? [{ label: LABEL_TIPO[filtroTipo] ?? filtroTipo, limpar: () => setFiltroTipo("") }] : []),
+          ...(filtroResponsavel ? [{ label: nomeResponsavel, limpar: () => setFiltroResponsavel("") }] : []),
+        ]}
+      >
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <select className="input-field" aria-label="Tipo de trabalho" value={filtroTipo} onChange={(e) => setFiltroTipo(e.target.value)}>
+            <option value="">Todos os tipos</option>
+            {Object.entries(LABEL_TIPO).map(([valor, label]) => (
+              <option key={valor} value={valor}>
+                {label}
+              </option>
+            ))}
+          </select>
+          <select className="input-field" aria-label="Responsável" value={filtroResponsavel} onChange={(e) => setFiltroResponsavel(e.target.value)}>
+            <option value="">Todos os responsáveis</option>
+            {usuarios.map((u) => (
+              <option key={u.email} value={u.email}>
+                {u.nome}
+              </option>
+            ))}
+          </select>
+        </div>
+      </PainelFiltros>
 
       {carregando ? (
-        <p className="text-sm text-gray-500">Carregando...</p>
+        <EsqueletoLista />
       ) : (
         <KanbanServicos
           servicos={servicosFiltrados}
-          onAbrirServico={(s) => setServicoSelecionadoId(s.id)}
+          onAbrirServico={(s) => abrir(s.id)}
           onMoverServico={moverServico}
           onSoltarEmFinalizado={(servicoId) => {
             toast.info("Pra finalizar, confirme o checklist de documentação (foto, PDF e valor real).");
-            setServicoSelecionadoId(servicoId);
+            abrir(servicoId);
           }}
-        />
-      )}
-
-      {servicoSelecionadoId && (
-        <ServicoDetailModal
-          servicoId={servicoSelecionadoId}
-          onFechar={() => setServicoSelecionadoId(null)}
-          onServicoMudou={carregar}
         />
       )}
 

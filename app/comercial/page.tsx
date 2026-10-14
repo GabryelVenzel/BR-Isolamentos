@@ -1,13 +1,15 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import TabsNavigation from "@/components/TabsNavigation";
+import CabecalhoPagina from "@/components/ui/CabecalhoPagina";
+import { EsqueletoLista } from "@/components/ui/Esqueleto";
+import { useEstadoLembrado } from "@/lib/hooks/useEstadoLembrado";
 import { toast } from "@/components/modules/comercial/toast";
 import KanbanBoard from "@/components/modules/comercial/KanbanBoard";
 import FiltrosKanban, { type FiltrosKanbanState } from "@/components/modules/comercial/FiltrosKanban";
 import LeadsFriosPanel from "@/components/modules/comercial/LeadsFriosPanel";
-import LeadDetailModal from "@/components/modules/comercial/LeadDetailModal";
 import ClientesTab from "@/components/modules/comercial/ClientesTab";
 import ConfiguracoesTab from "@/components/modules/comercial/ConfiguracoesTab";
 import NovoLeadModal from "@/components/comercial/NovoLeadModal";
@@ -44,22 +46,23 @@ export default function ComercialPage() {
 
 function ComercialPageConteudo() {
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   const [aba, setAba] = useState<AbaComercial>("crm");
   const [leads, setLeads] = useState<Lead[]>([]);
   const [carregandoLeads, setCarregandoLeads] = useState(true);
-  const [filtros, setFiltros] = useState<FiltrosKanbanState>(FILTROS_INICIAIS);
+  // Filtros lembrados entre visitas (revisão de usabilidade).
+  const [filtros, setFiltros] = useEstadoLembrado<FiltrosKanbanState>("filtros-comercial", FILTROS_INICIAIS);
   const [usuarios, setUsuarios] = useState<Array<{ email: string; nome: string }>>([]);
 
   const [mostrarFrios, setMostrarFrios] = useState(false);
   const [leadsFrios, setLeadsFrios] = useState<AgendamentoLeadFrio[]>([]);
   const [carregandoFrios, setCarregandoFrios] = useState(false);
 
-  const [soAtrasados, setSoAtrasados] = useState(false);
-  const [soComissoes, setSoComissoes] = useState(false);
-  const [mostrarPerdidos, setMostrarPerdidos] = useState(false);
+  const [soAtrasados, setSoAtrasados] = useEstadoLembrado("filtros-comercial-atrasados", false);
+  const [soComissoes, setSoComissoes] = useEstadoLembrado("filtros-comercial-comissoes", false);
+  const [mostrarPerdidos, setMostrarPerdidos] = useEstadoLembrado("filtros-comercial-perdidos", false);
 
-  const [leadSelecionadoId, setLeadSelecionadoId] = useState<string | null>(null);
   const [mostrarNovoLead, setMostrarNovoLead] = useState(false);
   const [mostrarLixeira, setMostrarLixeira] = useState(false);
   const { acesso } = useAcesso();
@@ -83,12 +86,13 @@ function ComercialPageConteudo() {
     window.localStorage.setItem(CHAVE_ABA, nova);
   }
 
-  // `?lead=<id>` abre o modal de detalhe automaticamente — usado pelo
-  // redirect de /comercial/[id] (rota antiga) e por links diretos.
+  // `?lead=<id>` (links antigos) leva à ficha do lead; `?novo=lead` (o
+  // "+ Criar" do cabeçalho) abre o formulário de novo lead.
   useEffect(() => {
     const leadParam = searchParams.get("lead");
-    if (leadParam) setLeadSelecionadoId(leadParam);
-  }, [searchParams]);
+    if (leadParam) router.replace(`/comercial/leads/${leadParam}`);
+    if (searchParams.get("novo") === "lead") setMostrarNovoLead(true);
+  }, [searchParams, router]);
 
   const carregarLeads = useCallback(async () => {
     setCarregandoLeads(true);
@@ -230,51 +234,39 @@ function ComercialPageConteudo() {
   const leadsAposAtrasados = soAtrasados ? leadsSemFriosOcultos.filter((l) => l.etapa_atrasada) : leadsSemFriosOcultos;
   const leadsExibidos = soComissoes ? leadsAposAtrasados.filter((l) => l.eh_comissao) : leadsAposAtrasados;
 
+  // Revisão de usabilidade: abas do módulo primeiro, depois o cabeçalho
+  // padrão (título, ação principal e menu "⋯"). A frase fica numa linha
+  // discreta, cortada com "..." no celular.
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Comercial</h1>
-          <p className="text-sm italic text-gray-400">
-            "O próprio SENHOR irá à sua frente e estará com você; ele nunca o deixará nem o abandonará. Não tenha
-            medo! Não desanime!"
-          </p>
-          <p className="text-sm text-gray-500">
+    <div className="space-y-4">
+      <TabsNavigation tabs={ABAS.map((a) => ({ valor: a.valor, label: a.label }))} activeTab={aba} onTabChange={trocarAba} />
+
+      <CabecalhoPagina
+        titulo="Comercial"
+        descricao={
+          <>
+            <span className="block truncate text-xs italic text-gray-400" title="O próprio SENHOR irá à sua frente e estará com você; ele nunca o deixará nem o abandonará. Não tenha medo! Não desanime!">
+              "O próprio SENHOR irá à sua frente e estará com você; ele nunca o deixará nem o abandonará. Não tenha medo! Não desanime!"
+            </span>
             {aba === "crm" && `${leads.length} lead${leads.length === 1 ? "" : "s"}, ${formatarMoeda(valorTotalAtivo)} em negociação ativa.`}
             {aba === "clientes" && "Cadastro de clientes e histórico de leads."}
             {aba === "configuracoes" && "Prazos de reativação, prazo máximo por etapa e responsáveis."}
-          </p>
-        </div>
-        {aba === "crm" && (
-          <div className="flex flex-wrap gap-2">
-            {/* Lixeira (migração 047): leads excluídos, recuperáveis por 30 dias — só administrador. */}
-            {acesso?.admin && (
-              <button type="button" className="btn-secondary" onClick={() => setMostrarLixeira(true)}>
-                Lixeira
-              </button>
-            )}
-            <button type="button" className="btn-primary" onClick={() => setMostrarNovoLead(true)}>
-              + Novo Lead
-            </button>
-          </div>
-        )}
-        {mostrarLixeira && (
-          <Lixeira
-            tipo="leads"
-            onFechar={() => setMostrarLixeira(false)}
-            onRestaurado={() => {
-              carregarLeads();
-              carregarLeadsFrios();
-            }}
-          />
-        )}
-      </div>
-
-      <TabsNavigation
-        tabs={ABAS.map((a) => ({ valor: a.valor, label: a.label }))}
-        activeTab={aba}
-        onTabChange={trocarAba}
+          </>
+        }
+        acaoPrincipal={aba === "crm" ? { label: "+ Novo Lead", onClick: () => setMostrarNovoLead(true) } : undefined}
+        // Lixeira (migração 047): leads excluídos, recuperáveis por 30 dias — só administrador.
+        acoes={aba === "crm" && acesso?.admin ? [{ label: "Lixeira", onClick: () => setMostrarLixeira(true) }] : []}
       />
+      {mostrarLixeira && (
+        <Lixeira
+          tipo="leads"
+          onFechar={() => setMostrarLixeira(false)}
+          onRestaurado={() => {
+            carregarLeads();
+            carregarLeadsFrios();
+          }}
+        />
+      )}
 
       {aba === "crm" && (
         <div className="space-y-4">
@@ -304,11 +296,11 @@ function ComercialPageConteudo() {
               onCancelar={cancelarFrio}
             />
           ) : carregandoLeads ? (
-            <p className="text-sm text-gray-500">Carregando...</p>
+            <EsqueletoLista />
           ) : (
             <KanbanBoard
               leads={leadsExibidos}
-              onAbrirLead={(lead) => setLeadSelecionadoId(lead.id)}
+              onAbrirLead={(lead) => router.push(`/comercial/leads/${lead.id}`)}
               onMoverLead={moverLead}
               nomesResponsaveis={nomesResponsaveis}
               mostrarPerdidos={mostrarPerdidos}
@@ -319,17 +311,6 @@ function ComercialPageConteudo() {
 
       {aba === "clientes" && <ClientesTab />}
       {aba === "configuracoes" && <ConfiguracoesTab />}
-
-      {leadSelecionadoId && (
-        <LeadDetailModal
-          leadId={leadSelecionadoId}
-          onFechar={() => setLeadSelecionadoId(null)}
-          onLeadMudou={() => {
-            carregarLeads();
-            carregarLeadsFrios();
-          }}
-        />
-      )}
 
       <ValorFechadoHost />
 
@@ -345,7 +326,7 @@ function ComercialPageConteudo() {
             // seguida, já que o próximo passo natural é adicionar o anexo.
             if (leadId) {
               toast.sucesso("Lead de comissão criado — adicione o comprovante (anexo) a seguir.");
-              setLeadSelecionadoId(leadId);
+              router.push(`/comercial/leads/${leadId}`);
             } else {
               toast.sucesso("Lead criado.");
             }

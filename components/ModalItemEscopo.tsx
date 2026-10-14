@@ -59,9 +59,9 @@ export default function ModalItemEscopo({ itemInicial, onFechar, onSalvar }: Pro
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="modal-fundo z-50">
       <FecharComEsc onFechar={onFechar} />
-      <div className="w-full max-w-lg space-y-4 rounded-card bg-white p-6 shadow-xl">
+      <div className="modal-caixa sm:max-w-2xl space-y-4">
         <h2 className="font-montserrat text-lg font-bold text-brand">{itemInicial ? "Editar Item" : "Novo Item"}</h2>
 
         <div>
@@ -202,7 +202,7 @@ export default function ModalItemEscopo({ itemInicial, onFechar, onSalvar }: Pro
           </div>
         )}
 
-        <div className="flex justify-end gap-3 pt-2">
+        <div className="rodape-modal flex justify-end gap-3">
           <button type="button" className="btn-secondary" onClick={onFechar}>
             Cancelar
           </button>

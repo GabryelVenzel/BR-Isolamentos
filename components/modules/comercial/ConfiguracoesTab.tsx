@@ -1,5 +1,6 @@
 "use client";
 
+import { Carregando } from "@/components/ui/Esqueleto";
 import { useEffect, useState } from "react";
 import { toast } from "./toast";
 import Link from "next/link";
@@ -75,7 +76,7 @@ function CardPrazos({ titulo, descricao, endpoint, labels, mensagemSucesso, padr
     }
   }
 
-  if (carregando) return <p className="text-sm text-gray-500">Carregando...</p>;
+  if (carregando) return <Carregando />;
 
   return (
     <div className="card max-w-lg space-y-4">

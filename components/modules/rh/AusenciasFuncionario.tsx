@@ -1,5 +1,6 @@
 "use client";
 
+import { Carregando } from "@/components/ui/Esqueleto";
 import { useCallback, useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 import { confirmar } from "@/components/ui/confirmar";
@@ -132,7 +133,7 @@ export default function AusenciasFuncionario({ funcionarioId }: { funcionarioId:
             )}
           </tbody>
         </table>
-        {!ausencias && <p className="p-4 text-sm text-gray-500">Carregando...</p>}
+        {!ausencias && <Carregando />}
       </div>
     </div>
   );

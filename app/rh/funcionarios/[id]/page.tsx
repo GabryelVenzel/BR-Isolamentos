@@ -1,6 +1,8 @@
 "use client";
 
+import { Carregando } from "@/components/ui/Esqueleto";
 import { Suspense, useCallback, useEffect, useState } from "react";
+import CabecalhoPagina from "@/components/ui/CabecalhoPagina";
 import Link from "next/link";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { Trash2 } from "lucide-react";
@@ -32,7 +34,7 @@ const LABEL_STATUS: Record<string, string> = { ativo: "Ativo", inativo: "Inativo
  * para dar para voltar direto nela. */
 export default function FichaFuncionarioPage() {
   return (
-    <Suspense fallback={<p className="text-sm text-gray-500">Carregando...</p>}>
+    <Suspense fallback={<Carregando />}>
       <FichaFuncionario />
     </Suspense>
   );
@@ -67,35 +69,27 @@ function FichaFuncionario() {
   }
 
   if (erro) return <p className="text-sm text-status-error">{erro}</p>;
-  if (!funcionario) return <p className="text-sm text-gray-500">Carregando...</p>;
+  if (!funcionario) return <Carregando />;
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <Link href="/rh/funcionarios" className="text-sm text-brand hover:underline">
-            ← Funcionários
-          </Link>
-          <h1 className="text-2xl font-bold">{funcionario.nome}</h1>
-          <p className="text-sm text-gray-500">
-            {[funcionario.numero_funcionario, funcionario.cargo, funcionario.vinculo ? LABEL_VINCULO[funcionario.vinculo] : null, LABEL_STATUS[funcionario.status]]
-              .filter(Boolean)
-              .join(" · ")}
-          </p>
-        </div>
-        <button type="button" className="text-sm text-status-error hover:underline" onClick={excluir}>
-          <Trash2 className="icone" aria-hidden /> Excluir funcionário
-        </button>
-      </div>
+      <CabecalhoPagina
+        titulo={funcionario.nome}
+        voltar={{ href: "/rh/funcionarios", label: "Funcionários" }}
+        descricao={[funcionario.numero_funcionario, funcionario.cargo, funcionario.vinculo ? LABEL_VINCULO[funcionario.vinculo] : null, LABEL_STATUS[funcionario.status]]
+          .filter(Boolean)
+          .join(" · ")}
+        acoes={[{ label: "Excluir funcionário", icone: <Trash2 className="icone" aria-hidden />, perigo: true, onClick: excluir }]}
+      />
 
-      <nav className="flex flex-wrap gap-1 border-b border-gray-200" aria-label="Seções da ficha">
+      <nav className="-mx-4 flex gap-1 overflow-x-auto border-b border-gray-200 px-4 [scrollbar-width:none] sm:mx-0 sm:px-0" aria-label="Seções da ficha">
         {ABAS.map((a) => (
           <Link
             key={a.valor}
             href={`/rh/funcionarios/${id}${a.valor === "dados" ? "" : `?aba=${a.valor}`}`}
             replace
             scroll={false}
-            className={`rounded-t-lg px-4 py-2 font-montserrat text-sm font-semibold ${
+            className={`shrink-0 whitespace-nowrap rounded-t-lg px-4 py-2 font-montserrat text-sm font-semibold ${
               aba === a.valor ? "border-b-2 border-brand bg-brand-light text-brand" : "text-gray-500 hover:bg-gray-50"
             }`}
             aria-current={aba === a.valor ? "page" : undefined}

@@ -1,5 +1,7 @@
 "use client";
 
+import CabecalhoPagina from "@/components/ui/CabecalhoPagina";
+import { Carregando } from "@/components/ui/Esqueleto";
 import { useCallback, useEffect, useMemo, useState, type ChangeEvent } from "react";
 import { Download, Eye, History, Pencil, RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "@/components/modules/rh/toast";
@@ -114,19 +116,11 @@ export default function RhEmpresaPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Documentos da Empresa</h1>
-        <p className="text-sm text-gray-500">
-          Checklist do que a empresa precisa ter em dia e todos os documentos por categoria. A lista de obrigatórios e os prazos ficam em
-          RH → Configurações.
-        </p>
-      </div>
-
-      <div className="flex justify-end">
-        <button type="button" className="btn-primary" onClick={() => prepararEnvio({})}>
-          + Adicionar documento
-        </button>
-      </div>
+      <CabecalhoPagina
+        titulo="Documentos da Empresa"
+        descricao="Checklist do que a empresa precisa ter em dia e todos os documentos por categoria. A lista de obrigatórios e os prazos ficam em RH → Configurações."
+        acaoPrincipal={{ label: "+ Adicionar documento", onClick: () => prepararEnvio({}) }}
+      />
 
       {/* 1. Checklist de obrigatórios */}
       {config && config.obrigatorios.length > 0 && (
@@ -178,7 +172,7 @@ export default function RhEmpresaPage() {
 
       {/* 3. Todos os documentos por categoria */}
       {carregando ? (
-        <p className="text-sm text-gray-500">Carregando...</p>
+        <Carregando />
       ) : documentos.length === 0 ? (
         <p className="text-sm text-gray-400">Nenhum documento cadastrado ainda.</p>
       ) : (
@@ -360,9 +354,9 @@ function ModalEnviarDocumento({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
+    <div className="modal-fundo z-50">
       <FecharComEsc onFechar={onFechar} />
-      <div role="dialog" aria-modal="true" aria-labelledby="titulo-enviar-doc" className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-card bg-white p-6 shadow-card-hover">
+      <div role="dialog" aria-modal="true" aria-labelledby="titulo-enviar-doc" className="modal-caixa sm:max-w-2xl">
         <h2 id="titulo-enviar-doc" className="mb-1 font-montserrat text-lg font-bold text-brand">
           {envio.substitui ? `Renovar: ${envio.substitui.nome}` : "Adicionar documento"}
         </h2>
@@ -438,7 +432,7 @@ function ModalEnviarDocumento({
 
           {erro && <p className="text-sm text-status-error">{erro}</p>}
 
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="rodape-modal flex justify-end gap-3">
             <button type="button" className="btn-secondary" onClick={onFechar} disabled={enviando}>
               Cancelar
             </button>
@@ -487,9 +481,9 @@ function ModalEditarDocumento({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
+    <div className="modal-fundo z-50">
       <FecharComEsc onFechar={onFechar} />
-      <div role="dialog" aria-modal="true" aria-labelledby="titulo-editar-doc" className="w-full max-w-md rounded-card bg-white p-6 shadow-card-hover">
+      <div role="dialog" aria-modal="true" aria-labelledby="titulo-editar-doc" className="modal-caixa sm:max-w-md">
         <h2 id="titulo-editar-doc" className="mb-4 font-montserrat text-lg font-bold text-brand">
           Editar documento
         </h2>
@@ -524,7 +518,7 @@ function ModalEditarDocumento({
             <label className="label-field">Validade</label>
             <input type="date" className="input-field" value={validade} onChange={(e) => setValidade(e.target.value)} />
           </div>
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="rodape-modal flex justify-end gap-3">
             <button type="button" className="btn-secondary" onClick={onFechar}>
               Cancelar
             </button>
@@ -549,15 +543,15 @@ function ModalVersoes({ documento, diasAviso, onFechar }: { documento: Documento
   }, [documento.id]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
+    <div className="modal-fundo z-50">
       <FecharComEsc onFechar={onFechar} />
-      <div role="dialog" aria-modal="true" aria-labelledby="titulo-versoes" className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-card bg-white p-6 shadow-card-hover">
+      <div role="dialog" aria-modal="true" aria-labelledby="titulo-versoes" className="modal-caixa sm:max-w-2xl">
         <h2 id="titulo-versoes" className="mb-1 font-montserrat text-lg font-bold text-brand">
           Versões de {documento.nome}
         </h2>
         <p className="mb-4 text-xs text-gray-500">Da mais nova para a mais antiga. Só a atual conta no checklist e nos alertas.</p>
         {!versoes ? (
-          <p className="text-sm text-gray-500">Carregando...</p>
+          <Carregando />
         ) : (
           <ul className="divide-y divide-gray-100">
             {versoes.map((v) => (

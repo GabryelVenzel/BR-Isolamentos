@@ -1,5 +1,6 @@
 "use client";
 
+import { Carregando } from "@/components/ui/Esqueleto";
 import { useCallback, useEffect, useState } from "react";
 import { CampoMoeda } from "@/components/ui/CamposDocumento";
 import type { FinanceiroDoServico } from "@/lib/contexts/financeiro-obra";
@@ -106,7 +107,7 @@ export default function FinanceiroObra({ servicoId }: Props) {
       </div>
     );
   }
-  if (!dados) return <p className="text-sm text-gray-500">Carregando...</p>;
+  if (!dados) return <Carregando />;
 
   const { resultado, lancamentos, categoriasDespesa } = dados;
   const hoje = hojeBrasilia();

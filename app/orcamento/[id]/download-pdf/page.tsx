@@ -1,4 +1,5 @@
 "use client";
+import { Carregando } from "@/components/ui/Esqueleto";
 
 import { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
@@ -143,13 +144,13 @@ export default function DownloadPdfPage() {
     );
   }
 
-  if (!orcamento) return <p className="text-sm text-gray-500">Carregando...</p>;
+  if (!orcamento) return <Carregando />;
 
   return (
     <div className="space-y-8">
       <div>
-        <Link href="/historico" className="btn-secondary inline-block text-xs">
-          ← Retornar ao Histórico
+        <Link href={`/orcamento/${orcamento.id}`} className="text-sm text-brand hover:underline">
+          ← {orcamento.numero}
         </Link>
       </div>
 

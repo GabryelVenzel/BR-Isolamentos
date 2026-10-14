@@ -48,7 +48,7 @@ export default function LeadCardKanban({ lead, nomeResponsavel, opcoesMover, onM
       } ${arrastando ? "opacity-40" : ""}`}
     >
       <div className="mb-1.5 flex items-center justify-between gap-2">
-        {lead.numero_lead && <span className="font-montserrat text-[11px] font-bold text-gray-400">{lead.numero_lead}</span>}
+        {lead.numero_lead && <span className="font-montserrat text-xs font-bold text-gray-400">{lead.numero_lead}</span>}
         <span className={`badge shrink-0 ${classesTemperatura(lead.temperatura)}`}>
           {formatarTemperatura(lead.temperatura)}
         </span>
@@ -69,11 +69,11 @@ export default function LeadCardKanban({ lead, nomeResponsavel, opcoesMover, onM
         </span>
       )}
 
-      <p className="mb-1 font-montserrat text-sm font-semibold leading-tight text-brand">{lead.cliente?.nome ?? "—"}</p>
+      <p className="mb-1 font-montserrat text-[15px] font-semibold leading-tight text-brand">{lead.cliente?.nome ?? "—"}</p>
 
       {lead.eh_comissao ? (
         <>
-          {lead.parceiro?.nome && <p className="truncate text-xs text-gray-500"><Handshake className="icone" aria-hidden /> {lead.parceiro.nome}</p>}
+          {lead.parceiro?.nome && <p className="truncate text-[13px] text-gray-500"><Handshake className="icone" aria-hidden /> {lead.parceiro.nome}</p>}
           {(lead.valor_comissao ?? 0) > 0 && (
             <p className="mb-1.5 font-montserrat text-base font-bold text-accent">{formatarMoeda(lead.valor_comissao ?? 0)}</p>
           )}
@@ -85,12 +85,12 @@ export default function LeadCardKanban({ lead, nomeResponsavel, opcoesMover, onM
       )}
 
       <div className="space-y-0.5 border-t border-gray-100 pt-1.5">
-        {lead.origem && <p className="truncate text-xs text-gray-500"><MapPin className="icone" aria-hidden /> {lead.origem}</p>}
-        {nomeResponsavel && <p className="truncate text-xs text-gray-500"><User className="icone" aria-hidden /> {nomeResponsavel}</p>}
+        {lead.origem && <p className="truncate text-[13px] text-gray-500"><MapPin className="icone" aria-hidden /> {lead.origem}</p>}
+        {nomeResponsavel && <p className="truncate text-[13px] text-gray-500"><User className="icone" aria-hidden /> {nomeResponsavel}</p>}
         <div className="flex flex-wrap items-center justify-between gap-x-2 pt-0.5">
-          <p className="whitespace-nowrap text-xs text-gray-400"><Calendar className="icone" aria-hidden /> {formatarData(lead.created_at)}</p>
+          <p className="whitespace-nowrap text-[13px] text-gray-400"><Calendar className="icone" aria-hidden /> {formatarData(lead.created_at)}</p>
           {lead.dias_na_etapa_atual !== undefined && (
-            <p className={`whitespace-nowrap text-xs font-medium ${atrasado ? "text-status-error" : "text-gray-400"}`}>
+            <p className={`whitespace-nowrap text-[13px] font-medium ${atrasado ? "text-status-error" : "text-gray-400"}`}>
               {atrasado ? <AlertTriangle className="icone mr-1" aria-hidden /> : <Timer className="icone mr-1" aria-hidden />}
               {Math.floor(lead.dias_na_etapa_atual)}d nesta etapa
             </p>

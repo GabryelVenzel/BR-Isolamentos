@@ -7,10 +7,25 @@
 
 import type { ModuleSubNavItem } from "@/components/ModuleSubNav";
 
+// Abas do Resumo e do Comercial são estado da página (?tab= / ?aba=), mas
+// aparecem também na gaveta do menu do celular (components/Navbar.tsx).
+export const RESUMO_SUBNAV: ModuleSubNavItem[] = [
+  { href: "/resumo?tab=geral", label: "Geral" },
+  { href: "/resumo?tab=operacao", label: "Operação" },
+  { href: "/resumo?tab=comercial", label: "Comercial" },
+  { href: "/resumo?tab=financeira", label: "Financeira" },
+];
+
+export const COMERCIAL_SUBNAV: ModuleSubNavItem[] = [
+  { href: "/comercial?aba=crm", label: "CRM" },
+  { href: "/comercial?aba=clientes", label: "Clientes" },
+  { href: "/comercial?aba=configuracoes", label: "Configurações" },
+];
+
 export const ORCAMENTO_SUBNAV: ModuleSubNavItem[] = [
   { href: "/novo-orcamento", label: "Novo Orçamento" },
   { href: "/historico", label: "Histórico" },
-  { href: "/config-precos", label: "Configurar Preços" },
+  { href: "/config-precos", label: "Configurações" },
 ];
 
 // Ordem pedida: Serviços primeiro (aba principal do módulo), Agenda em
@@ -33,7 +48,7 @@ export const OPERACIONAL_SUBNAV: ModuleSubNavItem[] = [
 export const FINANCEIRO_SUBNAV: ModuleSubNavItem[] = [
   { href: "/financeiro/lancamentos", label: "Lançamentos" },
   { href: "/financeiro/custos-fixos", label: "Custos Fixos" },
-  { href: "/financeiro/categorias", label: "Categorias & Config" },
+  { href: "/financeiro/categorias", label: "Configurações" },
 ];
 
 // Módulo RH (migração 033) — "Empresa" (documentos soltos da empresa) e
@@ -42,8 +57,9 @@ export const FINANCEIRO_SUBNAV: ModuleSubNavItem[] = [
 export const RH_SUBNAV: ModuleSubNavItem[] = [
   { href: "/rh", label: "Empresa" },
   { href: "/rh/funcionarios", label: "Funcionários" },
-  // Migração 052 — tipos de documento e documentos obrigatórios da empresa.
-  { href: "/rh/configuracoes", label: "Configurações" },
   // Usuários e níveis de acesso (migração 039) — só administradores veem.
   { href: "/rh/usuarios", label: "Usuários", apenasAdmin: true },
+  // Migração 052 — tipos de documento e documentos obrigatórios da empresa.
+  // "Configurações" é sempre a última aba de cada módulo (revisão de usabilidade).
+  { href: "/rh/configuracoes", label: "Configurações" },
 ];

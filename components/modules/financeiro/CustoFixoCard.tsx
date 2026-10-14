@@ -1,4 +1,5 @@
 "use client";
+import { Carregando } from "@/components/ui/Esqueleto";
 
 import { useState } from "react";
 import { toast } from "./toast";
@@ -112,7 +113,7 @@ export default function CustoFixoCard({ custoFixo, onEditar, onMudou }: Props) {
       {expandido && (
         <div className="space-y-1 border-t border-gray-100 pt-2">
           {carregandoHistorico ? (
-            <p className="text-xs text-gray-400">Carregando...</p>
+            <Carregando />
           ) : historico && historico.length > 0 ? (
             historico.map((h) => (
               <div key={h.id} className="flex items-center justify-between text-xs">

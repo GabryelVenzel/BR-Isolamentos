@@ -1,7 +1,9 @@
 "use client";
 
+import { Carregando } from "@/components/ui/Esqueleto";
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
 import { Pencil, Trash2 } from "lucide-react";
+import CabecalhoPagina from "@/components/ui/CabecalhoPagina";
 import TabsNavigation from "@/components/TabsNavigation";
 import ModalCotacao from "@/components/modules/operacional/compras/ModalCotacao";
 import ModalPedidoCompra from "@/components/modules/operacional/compras/ModalPedidoCompra";
@@ -152,22 +154,17 @@ export default function ComprasPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Compras</h1>
-          <p className="text-sm text-gray-500">Pedidos a fornecedores, cotações comparadas e o histórico do que foi pago por item.</p>
-        </div>
-        {aba === "pedidos" && (
-          <button type="button" className="btn-primary" onClick={() => setPedidoAberto("novo")}>
-            + Novo pedido
-          </button>
-        )}
-        {aba === "cotacoes" && (
-          <button type="button" className="btn-primary" onClick={() => setCotacaoAberta("nova")}>
-            + Nova cotação
-          </button>
-        )}
-      </div>
+      <CabecalhoPagina
+        titulo="Compras"
+        descricao="Pedidos a fornecedores, cotações comparadas e o histórico do que foi pago por item."
+        acaoPrincipal={
+          aba === "pedidos"
+            ? { label: "+ Novo pedido", onClick: () => setPedidoAberto("novo") }
+            : aba === "cotacoes"
+              ? { label: "+ Nova cotação", onClick: () => setCotacaoAberta("nova") }
+              : undefined
+        }
+      />
 
       <TabsNavigation tabs={ABAS} activeTab={aba} onTabChange={setAba} />
 
@@ -179,7 +176,7 @@ export default function ComprasPage() {
           </button>
         </div>
       )}
-      {carregando && <p className="text-sm text-gray-500">Carregando...</p>}
+      {carregando && <Carregando />}
 
       {/* ------------------------------------------------------------ Pedidos */}
       {aba === "pedidos" && pedidos && (

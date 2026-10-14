@@ -13,6 +13,9 @@ interface Props {
   parceiro: Parceiro | null; // null = criar novo
   onFechar: () => void;
   onSalvo: () => void;
+  /** "pagina": o formulário dentro da ficha em página própria (revisão de
+   * usabilidade); padrão: janela. */
+  modo?: "janela" | "pagina";
 }
 
 // Reaproveita a mesma lista usada no multi-select de tipos de trabalho de um
@@ -77,7 +80,8 @@ function paraForm(p: Parceiro | null): Form {
   };
 }
 
-export default function ModalParceiro({ parceiro, onFechar, onSalvo }: Props) {
+export default function ModalParceiro({ parceiro, onFechar, onSalvo, modo = "janela" }: Props) {
+  const pagina = modo === "pagina";
   const [form, setForm] = useState<Form>(paraForm(parceiro));
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
@@ -157,13 +161,13 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
-      <FecharComEsc onFechar={onFechar} />
+    <div className={pagina ? "" : "modal-fundo z-50"}>
+      {!pagina && <FecharComEsc onFechar={onFechar} />}
       <div
-        className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-card bg-white p-6 shadow-card-hover"
+        className={pagina ? "card" : "modal-caixa sm:max-w-2xl"}
         onClick={(e) => e.stopPropagation()}
       >
-        <h2 className="mb-4 font-montserrat text-lg font-bold text-brand">
+        <h2 className={pagina ? "sr-only" : "mb-4 font-montserrat text-lg font-bold text-brand"}>
           {parceiro ? "Editar Parceiro" : "Novo Parceiro"}
         </h2>
 
@@ -326,7 +330,7 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo }: Props) {
 
           {erro && <p className="text-sm text-status-error">{erro}</p>}
 
-          <div className="flex justify-end gap-3">
+          <div className={pagina ? "mt-4 flex justify-end gap-3" : "rodape-modal flex justify-end gap-3"}>
             <button type="button" className="btn-secondary" onClick={onFechar}>
               Cancelar
             </button>

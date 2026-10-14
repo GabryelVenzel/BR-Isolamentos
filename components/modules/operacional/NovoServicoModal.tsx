@@ -118,9 +118,9 @@ export default function NovoServicoModal({ leadIdInicial, onFechar, onCriado }: 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
+    <div className="modal-fundo z-50">
       <FecharComEsc onFechar={onFechar} />
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-card bg-white p-6 shadow-card-hover" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-caixa sm:max-w-2xl" onClick={(e) => e.stopPropagation()}>
         <h2 className="mb-4 font-montserrat text-lg font-bold text-brand">Novo Serviço</h2>
 
         <div className="space-y-4">
@@ -202,7 +202,7 @@ export default function NovoServicoModal({ leadIdInicial, onFechar, onCriado }: 
 
           {erro && <p className="text-sm text-status-error">{erro}</p>}
 
-          <div className="flex justify-end gap-3">
+          <div className="rodape-modal flex justify-end gap-3">
             <button type="button" className="btn-secondary" onClick={onFechar}>
               Cancelar
             </button>

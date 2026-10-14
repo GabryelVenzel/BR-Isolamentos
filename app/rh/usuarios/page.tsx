@@ -1,6 +1,8 @@
 "use client";
 
+import { Carregando } from "@/components/ui/Esqueleto";
 import { useCallback, useEffect, useState } from "react";
+import CabecalhoPagina from "@/components/ui/CabecalhoPagina";
 import TabsNavigation from "@/components/TabsNavigation";
 import { toast } from "@/components/modules/rh/toast";
 import ModalUsuario from "@/components/modules/rh/ModalUsuario";
@@ -95,17 +97,11 @@ export default function UsuariosPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Usuários e acessos</h1>
-          <p className="text-sm text-gray-500">Quem entra no sistema, quais módulos cada pessoa acessa e quem alterou o quê.</p>
-        </div>
-        {aba === "usuarios" && (
-          <button type="button" className="btn-primary" onClick={() => setEditando("novo")}>
-            + Novo usuário
-          </button>
-        )}
-      </div>
+      <CabecalhoPagina
+        titulo="Usuários e acessos"
+        descricao="Quem entra no sistema, quais módulos cada pessoa acessa e quem alterou o quê."
+        acaoPrincipal={aba === "usuarios" ? { label: "+ Novo usuário", onClick: () => setEditando("novo") } : undefined}
+      />
 
       <TabsNavigation tabs={ABAS} activeTab={aba} onTabChange={setAba} />
 
@@ -121,7 +117,7 @@ export default function UsuariosPage() {
           )}
 
           {carregando ? (
-            <p className="text-sm text-gray-500">Carregando...</p>
+            <Carregando />
           ) : (
             !erro && (
               <div className="card overflow-x-auto p-0">

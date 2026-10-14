@@ -76,9 +76,9 @@ export default function ModalReceberPedido({ pedido, onFechar, onRecebido }: Pro
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
+    <div className="modal-fundo z-50">
       <FecharComEsc onFechar={onFechar} />
-      <div role="dialog" aria-modal="true" aria-labelledby="titulo-receber" className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-card bg-white p-6 shadow-card-hover">
+      <div role="dialog" aria-modal="true" aria-labelledby="titulo-receber" className="modal-caixa sm:max-w-2xl">
         <h2 id="titulo-receber" className="mb-1 font-montserrat text-lg font-bold text-brand">
           Receber pedido {pedido.numero}
         </h2>
@@ -160,7 +160,7 @@ export default function ModalReceberPedido({ pedido, onFechar, onRecebido }: Pro
             </p>
           )}
 
-          <div className="flex justify-end gap-3">
+          <div className="rodape-modal flex justify-end gap-3">
             <button type="button" className="btn-secondary" onClick={onFechar}>
               Cancelar
             </button>

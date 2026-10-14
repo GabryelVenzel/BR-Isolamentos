@@ -97,9 +97,9 @@ export default function ModalAdicionarParceiroServico({ servicoId, onFechar, onA
   }
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-brand/60 p-4">
+    <div className="modal-fundo z-[70]">
       <FecharComEsc onFechar={onFechar} />
-      <div className="w-full max-w-md rounded-card bg-white p-6 shadow-card-hover" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-caixa sm:max-w-md" onClick={(e) => e.stopPropagation()}>
         <h2 className="mb-4 font-montserrat text-lg font-bold text-brand">Adicionar Parceiro ao Serviço</h2>
 
         <div className="space-y-4">
@@ -145,7 +145,7 @@ export default function ModalAdicionarParceiroServico({ servicoId, onFechar, onA
 
           {erro && <p className="text-sm text-status-error">{erro}</p>}
 
-          <div className="flex justify-end gap-3">
+          <div className="rodape-modal flex justify-end gap-3">
             <button type="button" className="btn-secondary" onClick={onFechar}>
               Cancelar
             </button>

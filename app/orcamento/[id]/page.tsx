@@ -1,8 +1,8 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { classesStatus, formatarData, formatarMoeda, formatarNumero, formatarStatus } from "@/lib/format";
 import TableMateriais from "@/components/TableMateriais";
+import CabecalhoPagina from "@/components/ui/CabecalhoPagina";
 import type { Orcamento } from "@/lib/types";
 import { LABEL_FUNCAO_MAO_OBRA } from "@/lib/usecases/orcamento/maoObraEquipe";
 
@@ -26,25 +26,18 @@ export default async function OrcamentoDetalhePage({ params }: { params: { id: s
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">{orcamento.numero}</h1>
-          <p className="text-sm text-gray-500">
+      <CabecalhoPagina
+        titulo={orcamento.numero}
+        voltar={{ href: "/historico", label: "Histórico" }}
+        descricao={
+          <>
+            <span className={`badge mr-2 ${classesStatus(orcamento.status)}`}>{formatarStatus(orcamento.status)}</span>
             {orcamento.cliente?.nome} · {LABEL_TIPO[orcamento.tipo_trabalho] ?? orcamento.tipo_trabalho}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <span className={`badge ${classesStatus(orcamento.status)}`}>
-            {formatarStatus(orcamento.status)}
-          </span>
-          <Link href={`/orcamento/${orcamento.id}/editar`} className="btn-secondary">
-            Editar
-          </Link>
-          <Link href={`/orcamento/${orcamento.id}/download-pdf`} className="btn-primary">
-            Baixar PDF
-          </Link>
-        </div>
-      </div>
+          </>
+        }
+        acaoPrincipal={{ label: "Baixar PDF", href: `/orcamento/${orcamento.id}/download-pdf` }}
+        acoes={[{ label: "Editar no assistente", href: `/orcamento/${orcamento.id}/editar` }]}
+      />
 
       {itens.map((item) => (
         <div key={item.id} className="card space-y-3">

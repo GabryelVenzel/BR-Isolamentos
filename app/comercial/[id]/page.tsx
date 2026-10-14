@@ -14,7 +14,7 @@ export default function LeadDetalheRedirect() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace(`/comercial?lead=${id}`);
+    router.replace(`/comercial/leads/${id}`);
   }, [id, router]);
 
   return <p className="text-sm text-gray-500">Redirecionando...</p>;

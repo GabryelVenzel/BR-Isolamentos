@@ -78,7 +78,7 @@ export default function Step2EscopoPage() {
           </span>
         </label>
         {/* Remoção do isolamento existente (migração 051) — mesma lógica da
-            altura: consome tempo de obra (fator em Configurar Preços) e, na
+            altura: consome tempo de obra (fator em Configurações do orçamento) e, na
             proposta, passa de "Não contemplado" para "O orçamento contempla". */}
         <label
           className={`flex flex-1 cursor-pointer items-center gap-3 rounded-card border px-4 py-3 ${

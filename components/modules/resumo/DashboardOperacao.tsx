@@ -1,4 +1,5 @@
 "use client";
+import { Carregando } from "@/components/ui/Esqueleto";
 
 import { useCallback, useEffect, useState } from "react";
 import FilterBar from "./FilterBar";
@@ -78,7 +79,7 @@ export default function DashboardOperacao() {
 
       <div id="resumo-operacao-export" className="space-y-6 bg-gray-50">
       {carregando ? (
-        <p className="text-sm text-gray-500">Carregando...</p>
+        <Carregando />
       ) : erro || !relatorio ? (
         <div className="card text-sm text-status-error">
           <p>{erro ?? "Não foi possível carregar o relatório."}</p>

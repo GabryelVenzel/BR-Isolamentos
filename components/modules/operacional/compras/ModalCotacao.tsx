@@ -161,9 +161,9 @@ export default function ModalCotacao({ cotacao, fornecedores, servicos, onFechar
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
+    <div className="modal-fundo z-50">
       <FecharComEsc onFechar={onFechar} />
-      <div role="dialog" aria-modal="true" aria-labelledby="titulo-modal-cotacao" className="max-h-[92vh] w-full max-w-4xl overflow-y-auto rounded-card bg-white p-6 shadow-card-hover">
+      <div role="dialog" aria-modal="true" aria-labelledby="titulo-modal-cotacao" className="modal-caixa sm:max-w-4xl">
         <h2 id="titulo-modal-cotacao" className="mb-4 font-montserrat text-lg font-bold text-brand">
           {cotacao ? `Cotação ${cotacao.numero}` : "Nova cotação"}
           {concluida && <span className="badge ml-2 bg-accent-light align-middle text-accent-dark">Concluída</span>}
@@ -213,7 +213,7 @@ export default function ModalCotacao({ cotacao, fornecedores, servicos, onFechar
             </p>
           )}
 
-          <div className="flex justify-end gap-3">
+          <div className="rodape-modal flex justify-end gap-3">
             <button type="button" className="btn-secondary" onClick={onFechar}>
               Fechar
             </button>

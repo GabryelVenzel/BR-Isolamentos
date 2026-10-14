@@ -1,5 +1,6 @@
 "use client";
 
+import { Carregando } from "@/components/ui/Esqueleto";
 import { useCallback, useEffect, useState } from "react";
 import { AlertTriangle, Trash2 } from "lucide-react";
 import { CampoMoeda } from "@/components/ui/CamposDocumento";
@@ -152,7 +153,7 @@ export default function DiariasObra({ servicoId }: Props) {
       </div>
     );
   }
-  if (!diarias || !resumo) return <p className="text-sm text-gray-500">Carregando...</p>;
+  if (!diarias || !resumo) return <Carregando />;
 
   return (
     <div className="space-y-5">

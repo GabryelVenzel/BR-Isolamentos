@@ -1,4 +1,5 @@
 "use client";
+import { Carregando } from "@/components/ui/Esqueleto";
 
 import { useCallback, useEffect, useState } from "react";
 import CashFlowChart from "./CashFlowChart";
@@ -99,7 +100,7 @@ export default function DashboardFinanceira() {
       <FilterBar filtros={filtros} onChange={setFiltros} onExportPdf={exportarPdf} onRefresh={carregar} atualizando={carregando || exportando} />
 
       {carregando ? (
-        <p className="text-sm text-gray-500">Carregando...</p>
+        <Carregando />
       ) : erro || !relatorio ? (
         <div className="card text-sm text-status-error">
           <p>{erro ?? "Não foi possível carregar o relatório."}</p>

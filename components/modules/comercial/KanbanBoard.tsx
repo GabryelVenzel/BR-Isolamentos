@@ -2,6 +2,7 @@
 
 import { useState, type DragEvent } from "react";
 import LeadCardKanban from "./LeadCardKanban";
+import SeletorEtapa, { etapaInicial } from "@/components/ui/SeletorEtapa";
 import { formatarEtapa, formatarMoeda } from "@/lib/format";
 import { valorDoLead } from "@/lib/leads";
 import type { EtapaFunil, Lead } from "@/lib/types/domain";
@@ -31,6 +32,10 @@ export default function KanbanBoard({ leads, onAbrirLead, onMoverLead, nomesResp
   const [leadArrastando, setLeadArrastando] = useState<string | null>(null);
   const [colunaEmFoco, setColunaEmFoco] = useState<EtapaFunil | null>(null);
   const etapas = mostrarPerdidos ? TODAS_ETAPAS : ETAPAS_ATIVAS;
+  // Celular: uma etapa por vez (revisão de usabilidade).
+  const [escolhida, setEscolhida] = useState<EtapaFunil | null>(null);
+  const resumoEtapas = etapas.map((etapa) => ({ valor: etapa, label: formatarEtapa(etapa), quantidade: leads.filter((l) => l.etapa === etapa).length }));
+  const etapaMovel = etapaInicial(resumoEtapas, escolhida);
 
   // O id do lead solto vem do próprio dataTransfer (fonte confiável, ver
   // LeadCardKanban.tsx#onDragStart), não do estado `leadArrastando` — que
@@ -50,7 +55,9 @@ export default function KanbanBoard({ leads, onAbrirLead, onMoverLead, nomesResp
   // dividem a largura. Cada coluna rola sozinha (cabeçalho fixo), em vez de a
   // página inteira crescer com a etapa mais cheia.
   return (
-    <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:snap-none sm:px-0">
+    <>
+    <SeletorEtapa etapas={resumoEtapas} selecionada={etapaMovel} onSelecionar={setEscolhida} />
+    <div className="flex gap-3 pb-2 md:overflow-x-auto">
       {etapas.map((etapa) => {
         const leadsDaEtapa = leads.filter((l) => l.etapa === etapa);
         // Lead de comissão guarda o valor em `valor_comissao` (campo próprio,
@@ -63,7 +70,7 @@ export default function KanbanBoard({ leads, onAbrirLead, onMoverLead, nomesResp
         return (
           <div
             key={etapa}
-            className={`flex max-h-[calc(100vh-14rem)] min-h-[12rem] w-[85vw] shrink-0 snap-center flex-col rounded-card p-3 transition-shadow sm:w-auto sm:min-w-[15rem] sm:flex-1 ${classesColuna(etapa, colunaEmFoco === etapa)}`}
+            className={`${etapa === etapaMovel ? "flex" : "hidden md:flex"} min-h-[12rem] w-full flex-col rounded-card p-3 transition-shadow md:max-h-[calc(100vh-14rem)] md:w-auto md:min-w-[15rem] md:flex-1 ${classesColuna(etapa, colunaEmFoco === etapa)}`}
             onDragOver={(e) => {
               e.preventDefault();
               e.dataTransfer.dropEffect = "move";
@@ -99,5 +106,6 @@ export default function KanbanBoard({ leads, onAbrirLead, onMoverLead, nomesResp
         );
       })}
     </div>
+    </>
   );
 }

@@ -1,4 +1,5 @@
 "use client";
+import { Carregando } from "@/components/ui/Esqueleto";
 
 import { useCallback, useEffect, useState } from "react";
 import { TIPOS_TRABALHO_OPCOES } from "@/components/modules/operacional/MultiSelectTiposTrabalho";
@@ -48,9 +49,9 @@ export default function ModalCapacidadeDia({ data, onFechar }: Props) {
   }, [carregar]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div className="modal-fundo z-50">
       <FecharComEsc onFechar={onFechar} />
-      <div className="max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-card bg-white p-6 shadow-xl">
+      <div className="modal-caixa sm:max-w-2xl">
         <div className="mb-4 flex items-center justify-between">
           <div>
             <button type="button" className="mb-1 text-xs text-brand hover:underline" onClick={onFechar}>
@@ -64,7 +65,7 @@ export default function ModalCapacidadeDia({ data, onFechar }: Props) {
         </div>
 
         {carregando ? (
-          <p className="text-sm text-gray-500">Carregando...</p>
+          <Carregando />
         ) : erro || !capacidade ? (
           <div className="text-sm text-status-error">
             <p>{erro ?? "Não foi possível calcular a capacidade."}</p>

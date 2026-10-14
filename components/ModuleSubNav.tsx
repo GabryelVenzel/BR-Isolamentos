@@ -39,14 +39,15 @@ export default function ModuleSubNav({ items: todos }: Props) {
   }, null);
 
   return (
-    <nav className="mb-6 flex flex-wrap gap-1 border-b border-gray-200">
+    // Uma linha só, que rola para o lado no celular (antes quebrava em duas).
+    <nav className="-mx-4 mb-6 flex gap-1 overflow-x-auto border-b border-gray-200 px-4 [scrollbar-width:none] sm:mx-0 sm:px-0">
       {items.map((item) => {
         const ativo = item === itemAtivo;
         return (
           <Link
             key={item.href}
             href={item.href}
-            className={`${CLASSES_ABA_BASE} ${ativo ? CLASSES_ABA_ATIVA : CLASSES_ABA_INATIVA}`}
+            className={`shrink-0 whitespace-nowrap ${CLASSES_ABA_BASE} ${ativo ? CLASSES_ABA_ATIVA : CLASSES_ABA_INATIVA}`}
           >
             {item.label}
           </Link>

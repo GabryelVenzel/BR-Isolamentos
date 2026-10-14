@@ -149,9 +149,30 @@
     content: none;
   }
 
+  /* Campos secundários: só na tabela do computador — o cartão do celular
+     fica curto, com o essencial (revisão de usabilidade). */
+  .tabela-cartoes td.so-computador {
+    display: none;
+  }
+
   /* Linha de "nenhum registro" (colSpan) e linhas expandidas: centralizadas. */
   .tabela-cartoes td:not([data-label]) {
     display: block;
     text-align: center;
+  }
+}
+
+/* Janelas (revisão de usabilidade): no celular ocupam a tela inteira; no
+ * computador, três larguras (max-w-md, max-w-2xl, max-w-4xl). O rodapé com
+ * Cancelar/Salvar fica preso no fim da janela enquanto o conteúdo rola. */
+@layer components {
+  .modal-fundo {
+    @apply fixed inset-0 flex items-stretch justify-center bg-brand/60 sm:items-center sm:p-4;
+  }
+  .modal-caixa {
+    @apply h-full w-full overflow-y-auto bg-white p-5 shadow-card-hover sm:h-auto sm:max-h-[90vh] sm:rounded-card sm:p-6;
+  }
+  .rodape-modal {
+    @apply sticky bottom-0 z-10 -mx-5 -mb-5 mt-4 border-t border-gray-100 bg-white px-5 py-3 sm:-mx-6 sm:-mb-6 sm:px-6;
   }
 }

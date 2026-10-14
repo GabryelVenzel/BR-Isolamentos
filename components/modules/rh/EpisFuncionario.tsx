@@ -1,5 +1,6 @@
 "use client";
 
+import { Carregando } from "@/components/ui/Esqueleto";
 import { useCallback, useEffect, useState } from "react";
 import { FileDown, Trash2, Undo2 } from "lucide-react";
 import { confirmar } from "@/components/ui/confirmar";
@@ -181,7 +182,7 @@ export default function EpisFuncionario({ funcionario }: Props) {
             )}
           </tbody>
         </table>
-        {!entregas && <p className="p-4 text-sm text-gray-500">Carregando...</p>}
+        {!entregas && <Carregando />}
       </div>
     </div>
   );

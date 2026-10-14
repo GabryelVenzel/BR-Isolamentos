@@ -9,6 +9,18 @@ interface Params {
   params: { id: string };
 }
 
+/** GET: um fornecedor (ficha em página própria — revisão de usabilidade). */
+export async function GET(_request: Request, { params }: Params) {
+  const ctx = createOperacionalContext(createSupabaseServerClient());
+  try {
+    return NextResponse.json(apiSuccess(await ctx.buscarFornecedor(params.id)));
+  } catch (error) {
+    logger.error("Falha ao buscar fornecedor", error, { id: params.id });
+    const { message, statusCode } = toHttpError(error);
+    return NextResponse.json(apiError(message), { status: statusCode });
+  }
+}
+
 export async function PATCH(request: Request, { params }: Params) {
   const ctx = createOperacionalContext(createSupabaseServerClient());
   const body = await request.json().catch(() => null);

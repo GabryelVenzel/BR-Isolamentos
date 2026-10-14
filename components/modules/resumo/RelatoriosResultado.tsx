@@ -1,5 +1,6 @@
 "use client";
 
+import { Carregando } from "@/components/ui/Esqueleto";
 import { useEffect, useState } from "react";
 import { formatarMoeda } from "@/lib/format";
 import type { FiltrosResumo } from "@/lib/types/resumo";
@@ -72,7 +73,7 @@ export function DreTabela({ filtros }: { filtros: FiltrosResumo }) {
       {erro ? (
         <p className="px-6 pb-6 text-sm text-status-error">{erro}</p>
       ) : !dre ? (
-        <p className="px-6 pb-6 text-sm text-gray-500">Carregando...</p>
+        <Carregando />
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -121,7 +122,7 @@ export function ResultadoObrasTabela() {
       {erro ? (
         <p className="px-6 pb-6 text-sm text-status-error">{erro}</p>
       ) : !obras ? (
-        <p className="px-6 pb-6 text-sm text-gray-500">Carregando...</p>
+        <Carregando />
       ) : obras.length === 0 ? (
         <p className="px-6 pb-6 text-sm text-gray-400">Nenhuma obra cadastrada.</p>
       ) : (

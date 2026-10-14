@@ -5,6 +5,7 @@ import { CampoMoeda } from "@/components/ui/CamposDocumento";
 import { toast } from "./toast";
 import AnexosLead from "./AnexosLead";
 import { pedirValorFechado } from "./ValorFechado";
+import { Carregando } from "@/components/ui/Esqueleto";
 import { exigeValorFechado } from "@/lib/leads";
 import NovoServicoModal from "@/components/modules/operacional/NovoServicoModal";
 import {
@@ -56,6 +57,9 @@ interface Props {
   leadId: string;
   onFechar: () => void;
   onLeadMudou: () => void;
+  /** "pagina" (padrão desde a revisão de usabilidade): ficha em página
+   * própria, /comercial/leads/[id]. "gaveta": o painel lateral de antes. */
+  modo?: "pagina" | "gaveta";
 }
 
 function descreverMudanca(h: HistoricoMudancaLead): string {
@@ -77,7 +81,8 @@ function descreverMudanca(h: HistoricoMudancaLead): string {
   }
 }
 
-export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props) {
+export default function LeadDetailModal({ leadId, onFechar, onLeadMudou, modo = "pagina" }: Props) {
+  const pagina = modo === "pagina";
   const [aba, setAba] = useState<AbaInterna>("dados");
   const [lead, setLead] = useState<Lead | null>(null);
   const [historico, setHistorico] = useState<HistoricoMudancaLead[]>([]);
@@ -359,15 +364,15 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
   }
 
   return (
-    <div className="fixed inset-0 z-[60] flex justify-end bg-brand/60">
-      <FecharComEsc onFechar={onFechar} />
+    <div className={pagina ? "" : "fixed inset-0 z-[60] flex justify-end bg-brand/60"}>
+      {!pagina && <FecharComEsc onFechar={onFechar} />}
       <div
-        className="flex h-full w-full max-w-xl flex-col overflow-y-auto bg-white shadow-card-hover"
+        className={pagina ? "flex flex-col overflow-hidden rounded-card bg-white shadow-card" : "flex h-full w-full max-w-xl flex-col overflow-y-auto bg-white shadow-card-hover"}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="border-b border-gray-100 p-4">
           <button type="button" className="text-sm text-brand hover:underline" onClick={onFechar}>
-            ← Voltar ao funil
+            ← Comercial
           </button>
 
           {lead && (
@@ -388,7 +393,9 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou }: Props
         </div>
 
         {carregando || !lead ? (
-          <p className="p-4 text-sm text-gray-500">Carregando...</p>
+          <div className="p-4">
+            <Carregando linhas={6} />
+          </div>
         ) : (
           <>
             <div className="flex gap-1 border-b border-gray-100 px-4 pt-2">

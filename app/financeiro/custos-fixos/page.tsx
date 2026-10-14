@@ -1,4 +1,6 @@
 "use client";
+import CabecalhoPagina from "@/components/ui/CabecalhoPagina";
+import { Carregando } from "@/components/ui/Esqueleto";
 
 import { useCallback, useEffect, useState } from "react";
 import ModalCustoFixo from "@/components/modules/financeiro/ModalCustoFixo";
@@ -30,21 +32,18 @@ export default function CustosFixosPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Custos Fixos</h1>
-          <p className="text-sm text-gray-500">
-            Total mensal de custos fixos: <span className="font-bold text-brand">{formatarMoeda(totalAtivo)}</span> (atualizado
-            automaticamente com custos ativos)
-          </p>
-        </div>
-        <button type="button" className="btn-primary" onClick={() => setEditando("novo")}>
-          + Novo Custo Fixo
-        </button>
-      </div>
+      <CabecalhoPagina
+        titulo="Custos Fixos"
+        descricao={
+          <>
+            Total mensal dos custos ativos: <span className="font-bold text-brand">{formatarMoeda(totalAtivo)}</span>
+          </>
+        }
+        acaoPrincipal={{ label: "+ Novo Custo Fixo", onClick: () => setEditando("novo") }}
+      />
 
       {carregando ? (
-        <p className="text-sm text-gray-500">Carregando...</p>
+        <Carregando />
       ) : custos.length === 0 ? (
         <div className="card text-center text-sm text-gray-500">Nenhum custo fixo cadastrado ainda.</div>
       ) : (

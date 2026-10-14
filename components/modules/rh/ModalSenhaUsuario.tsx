@@ -46,13 +46,13 @@ export default function ModalSenhaUsuario({ usuario, onFechar, onSalvo }: Props)
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
+    <div className="modal-fundo z-50">
       <FecharComEsc onFechar={onFechar} />
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="titulo-modal-senha"
-        className="w-full max-w-sm rounded-card bg-white p-6 shadow-card-hover"
+        className="modal-caixa sm:max-w-md"
       >
         <h2 id="titulo-modal-senha" className="mb-1 font-montserrat text-lg font-bold text-brand">
           {usuario.tem_login ? "Redefinir senha" : "Criar login"}
@@ -82,7 +82,7 @@ export default function ModalSenhaUsuario({ usuario, onFechar, onSalvo }: Props)
           </p>
         )}
 
-        <div className="mt-5 flex justify-end gap-3">
+        <div className="rodape-modal flex justify-end gap-3">
           <button type="button" className="btn-secondary" onClick={onFechar}>
             Cancelar
           </button>

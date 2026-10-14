@@ -1,5 +1,6 @@
 "use client";
 
+import { Carregando } from "@/components/ui/Esqueleto";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "./toast";
 import ModalCliente from "./ModalCliente";
@@ -7,7 +8,9 @@ import { formatarDataHora } from "@/lib/format";
 import type { Cliente } from "@/lib/types";
 import type { ClienteResumo } from "@/lib/types/domain";
 import { confirmar } from "@/components/ui/confirmar";
-import { Pencil, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import MenuAcoes from "@/components/ui/MenuAcoes";
 import Lixeira from "@/components/Lixeira";
 import { useAcesso } from "@/lib/hooks/useAcesso";
 
@@ -22,7 +25,9 @@ export default function ClientesTab() {
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState("");
   const [pagina, setPagina] = useState(1);
-  const [editando, setEditando] = useState<Cliente | ClienteResumo | null | "novo">(null);
+  const router = useRouter();
+  // Editar abre a ficha em página própria; aqui só o cadastro novo.
+  const [novo, setNovo] = useState(false);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -71,27 +76,23 @@ export default function ClientesTab() {
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <input
-          className="input-field max-w-xs"
+          className="input-field w-full sm:max-w-xs"
           placeholder="Buscar cliente por nome..."
           value={busca}
           onChange={(e) => setBusca(e.target.value)}
         />
-        <div className="flex flex-wrap gap-2">
-          {/* Lixeira (migração 047): clientes excluídos, recuperáveis por 30 dias — só administrador. */}
-          {acesso?.admin && (
-            <button type="button" className="btn-secondary" onClick={() => setMostrarLixeira(true)}>
-              Lixeira
-            </button>
-          )}
-          <button type="button" className="btn-primary" onClick={() => setEditando("novo")}>
-            + Cadastrar novo cliente
+        <div className="flex items-center gap-2">
+          <button type="button" className="btn-primary" onClick={() => setNovo(true)}>
+            + Novo cliente
           </button>
+          {/* Lixeira (migração 047): clientes excluídos, recuperáveis por 30 dias — só administrador. */}
+          <MenuAcoes acoes={acesso?.admin ? [{ label: "Lixeira", onClick: () => setMostrarLixeira(true) }] : []} />
         </div>
         {mostrarLixeira && <Lixeira tipo="clientes" onFechar={() => setMostrarLixeira(false)} onRestaurado={carregar} />}
       </div>
 
       {carregando ? (
-        <p className="text-sm text-gray-500">Carregando...</p>
+        <Carregando linhas={6} />
       ) : (
         <div className="card overflow-x-auto p-0">
           <table className="tabela-cartoes w-full text-sm">
@@ -108,22 +109,23 @@ export default function ClientesTab() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {clientesPagina.map((cliente) => (
-                <tr key={cliente.id}>
-                  <td data-label="Nome" className="px-4 py-2 font-medium">{cliente.nome}</td>
+                <tr key={cliente.id} className="cursor-pointer hover:bg-gray-50" onClick={() => router.push(`/comercial/clientes/${cliente.id}`)}>
+                  <td data-label="Nome" className="px-4 py-2 font-medium text-brand">{cliente.nome}</td>
                   <td data-label="Telefone" className="px-4 py-2 text-gray-500">{cliente.telefone ?? "—"}</td>
-                  <td data-label="Email" className="px-4 py-2 text-gray-500">{cliente.email ?? "—"}</td>
+                  <td data-label="Email" className="so-computador px-4 py-2 text-gray-500">{cliente.email ?? "—"}</td>
                   <td data-label="Cidade" className="px-4 py-2 text-gray-500">{cliente.cidade ?? "—"}</td>
-                  <td data-label="Última interação" className="px-4 py-2 text-gray-500">
+                  <td data-label="Última interação" className="so-computador px-4 py-2 text-gray-500">
                     {cliente.ultima_interacao ? formatarDataHora(cliente.ultima_interacao) : "—"}
                   </td>
                   <td data-label="Leads" className="px-4 py-2 text-gray-500">{cliente.total_leads}</td>
-                  <td data-label="Ações" className="px-4 py-2 text-right">
-                    <button type="button" className="mr-2 hover:opacity-70" title="Editar" aria-label="Editar" onClick={() => setEditando(cliente)}>
-                      <Pencil className="icone" aria-hidden />
-                    </button>
-                    <button type="button" className="hover:opacity-70" title="Excluir" aria-label="Excluir" onClick={() => excluir(cliente)}>
-                      <Trash2 className="icone" aria-hidden />
-                    </button>
+                  <td data-label="Ações" className="px-4 py-2 text-right" onClick={(e) => e.stopPropagation()}>
+                    <MenuAcoes discreto
+                      alinhar="direita"
+                      acoes={[
+                        { label: "Abrir ficha", href: `/comercial/clientes/${cliente.id}` },
+                        { label: "Excluir", icone: <Trash2 className="icone" aria-hidden />, perigo: true, onClick: () => excluir(cliente) },
+                      ]}
+                    />
                   </td>
                 </tr>
               ))}
@@ -158,12 +160,12 @@ export default function ClientesTab() {
         </div>
       )}
 
-      {editando && (
+      {novo && (
         <ModalCliente
-          cliente={editando === "novo" ? null : (editando as unknown as Cliente)}
-          onFechar={() => setEditando(null)}
+          cliente={null}
+          onFechar={() => setNovo(false)}
           onSalvo={() => {
-            setEditando(null);
+            setNovo(false);
             carregar();
           }}
         />

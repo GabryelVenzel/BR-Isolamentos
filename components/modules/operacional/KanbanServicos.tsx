@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, type DragEvent } from "react";
+import SeletorEtapa, { etapaInicial } from "@/components/ui/SeletorEtapa";
 import ServicoCard from "./ServicoCard";
 import type { EtapaServico, Servico } from "@/lib/types/domain";
 
@@ -30,6 +31,7 @@ interface Props {
 
 export default function KanbanServicos({ servicos, onAbrirServico, onMoverServico, onSoltarEmFinalizado }: Props) {
   const [servicoArrastando, setServicoArrastando] = useState<string | null>(null);
+  const [escolhida, setEscolhida] = useState<EtapaServico | null>(null);
   const [colunaEmFoco, setColunaEmFoco] = useState<EtapaServico | null>(null);
 
   function soltarEm(e: DragEvent<HTMLDivElement>, etapa: EtapaServico) {
@@ -43,15 +45,21 @@ export default function KanbanServicos({ servicos, onAbrirServico, onMoverServic
     setColunaEmFoco(null);
   }
 
+  // Celular: uma etapa por vez (revisão de usabilidade).
+  const resumoEtapas = ETAPAS.map((etapa) => ({ valor: etapa, label: LABEL_ETAPA[etapa], quantidade: servicos.filter((s) => s.etapa === etapa).length }));
+  const etapaMovel = etapaInicial(resumoEtapas, escolhida);
+
   return (
-    <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 sm:mx-0 sm:snap-none sm:px-0">
+    <>
+    <SeletorEtapa etapas={resumoEtapas} selecionada={etapaMovel} onSelecionar={setEscolhida} />
+    <div className="flex gap-3 pb-2 md:overflow-x-auto">
       {ETAPAS.map((etapa) => {
         const servicosDaEtapa = servicos.filter((s) => s.etapa === etapa);
 
         return (
           <div
             key={etapa}
-            className={`flex max-h-[calc(100vh-14rem)] min-h-[12rem] w-[85vw] shrink-0 snap-center flex-col rounded-card p-3 transition-shadow sm:w-auto sm:min-w-[16rem] sm:flex-1 ${CLASSES_COLUNA[etapa]} ${
+            className={`${etapa === etapaMovel ? "flex" : "hidden md:flex"} min-h-[12rem] w-full flex-col rounded-card p-3 transition-shadow md:max-h-[calc(100vh-14rem)] md:w-auto md:min-w-[16rem] md:flex-1 ${CLASSES_COLUNA[etapa]} ${
               colunaEmFoco === etapa ? "ring-2 ring-accent" : ""
             }`}
             onDragOver={(e) => {
@@ -85,5 +93,6 @@ export default function KanbanServicos({ servicos, onAbrirServico, onMoverServic
         );
       })}
     </div>
+    </>
   );
 }

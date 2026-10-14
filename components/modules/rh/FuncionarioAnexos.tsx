@@ -1,5 +1,6 @@
 "use client";
 
+import { Carregando } from "@/components/ui/Esqueleto";
 import { useCallback, useEffect, useState, type ChangeEvent } from "react";
 import { toast } from "./toast";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -140,7 +141,7 @@ export default function FuncionarioAnexos({ funcionarioId, tiposDocumento = [], 
       </div>
 
       {carregando ? (
-        <p className="text-sm text-gray-500">Carregando...</p>
+        <Carregando />
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {anexos.map((anexo) => (
@@ -344,9 +345,9 @@ function ModalAdicionarDocumentoFuncionario({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
+    <div className="modal-fundo z-50">
       <FecharComEsc onFechar={onFechar} />
-      <div role="dialog" aria-modal="true" aria-labelledby="titulo-add-doc-func" className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-card bg-white p-6 shadow-card-hover">
+      <div role="dialog" aria-modal="true" aria-labelledby="titulo-add-doc-func" className="modal-caixa sm:max-w-2xl">
         <h2 id="titulo-add-doc-func" className="mb-4 font-montserrat text-lg font-bold text-brand">
           Adicionar documento
         </h2>
@@ -394,7 +395,7 @@ function ModalAdicionarDocumentoFuncionario({
             </label>
           </div>
           {erro && <p className="text-sm text-status-error">{erro}</p>}
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="rodape-modal flex justify-end gap-3">
             <button type="button" className="btn-secondary" onClick={onFechar} disabled={enviando}>
               Cancelar
             </button>

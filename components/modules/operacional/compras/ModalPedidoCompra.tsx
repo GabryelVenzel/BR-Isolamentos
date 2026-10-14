@@ -86,13 +86,13 @@ export default function ModalPedidoCompra({ pedido, fornecedores, servicos, cata
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
+    <div className="modal-fundo z-50">
       <FecharComEsc onFechar={onFechar} />
       <div
         role="dialog"
         aria-modal="true"
         aria-labelledby="titulo-modal-pedido"
-        className="max-h-[92vh] w-full max-w-3xl overflow-y-auto rounded-card bg-white p-6 shadow-card-hover"
+        className="modal-caixa sm:max-w-4xl"
       >
         <h2 id="titulo-modal-pedido" className="mb-1 font-montserrat text-lg font-bold text-brand">
           {pedido ? `Pedido ${pedido.numero}` : "Novo pedido de compra"}
@@ -167,7 +167,7 @@ export default function ModalPedidoCompra({ pedido, fornecedores, servicos, cata
             </p>
           )}
 
-          <div className="flex justify-end gap-3">
+          <div className="rodape-modal flex justify-end gap-3">
             <button type="button" className="btn-secondary" onClick={onFechar}>
               {somenteLeitura ? "Fechar" : "Cancelar"}
             </button>

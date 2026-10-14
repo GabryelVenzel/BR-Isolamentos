@@ -188,7 +188,7 @@ export default function Step4PrecosPage() {
   // (decisão de escopo: são um resultado determinístico do catálogo × área,
   // diferente das quantidades estimadas pelo motor automático; pra um ajuste
   // pontual, use a caixa "Itens Adicionais" ou corrija o preço da linha
-  // específica em Configurar Preços). Cada camada cobre a metragem TOTAL do
+  // específica em Configurações do orçamento). Cada camada cobre a metragem TOTAL do
   // trecho (pedido explícito do usuário), multiplicada por quantas camadas
   // dessa espessura entram na composição.
   const linhasIsolanteComposto = usaComposicaoIsolante
@@ -535,14 +535,14 @@ export default function Step4PrecosPage() {
               {usaComposicaoIsolante && (
                 <p className="text-xs text-gray-400">
                   Espessura exigida ({formatarNumero(espessuraMm, 1)}mm) composta com as espessuras padrão da família — sem lápis
-                  aqui; ajuste o preço de cada espessura em Configurar Preços ou use "Itens Adicionais" pra uma correção pontual.
+                  aqui; ajuste o preço de cada espessura em Configurações do orçamento ou use "Itens Adicionais" pra uma correção pontual.
                 </p>
               )}
               <Explicacao titulo="De onde vêm estes números">
                 <p>
                   Quantidades calculadas a partir do Escopo e dos parâmetros de quantificação; preços do catálogo, em{" "}
                   <a href="/config-precos" className="text-brand hover:underline">
-                    Configurar Preços
+                    Configurações do orçamento
                   </a>{" "}
                   (Rebite, Parafuso, Arame e Silicone ficam em "Materiais Adicionais").
                 </p>
@@ -873,9 +873,9 @@ function ModalEditarLinha({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
+    <div className="modal-fundo z-50">
       <FecharComEsc onFechar={onFechar} />
-      <div className="w-full max-w-sm rounded-card bg-white p-6 shadow-card-hover" onClick={(e) => e.stopPropagation()}>
+      <div className="modal-caixa sm:max-w-md" onClick={(e) => e.stopPropagation()}>
         <h2 className="mb-4 font-montserrat text-lg font-bold text-brand">Editar {linha.titulo}</h2>
 
         <div className="space-y-3">
@@ -895,7 +895,7 @@ function ModalEditarLinha({
 
           {erro && <p className="text-sm text-status-error">{erro}</p>}
 
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="rodape-modal flex justify-end gap-3">
             <button type="button" className="btn-secondary" onClick={onFechar}>
               Cancelar
             </button>

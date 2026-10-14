@@ -1,5 +1,6 @@
 "use client";
 
+import { Carregando } from "@/components/ui/Esqueleto";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { toast } from "@/components/modules/operacional/toast";
 import ModalParceiro from "@/components/modules/operacional/ModalParceiro";
@@ -7,7 +8,12 @@ import { TIPOS_TRABALHO_OPCOES } from "@/components/modules/operacional/MultiSel
 import { formatarNumero } from "@/lib/format";
 import type { CategoriaParceiro, Parceiro, TipoTrabalhoOperacional } from "@/lib/types/domain";
 import { confirmar } from "@/components/ui/confirmar";
-import { Pencil, Trash2 } from "lucide-react";
+import { Trash2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import CabecalhoPagina from "@/components/ui/CabecalhoPagina";
+import MenuAcoes from "@/components/ui/MenuAcoes";
+import PainelFiltros from "@/components/ui/PainelFiltros";
+import { useEstadoLembrado } from "@/lib/hooks/useEstadoLembrado";
 
 // Lista revisada (migração 027) — 2 chaves antigas (`isolamentos_removiveis`/
 // `isolamentos_fixos`) continuam no mapa só pra parceiros já cadastrados não
@@ -38,13 +44,18 @@ const CLASSES_CATEGORIA: Record<CategoriaParceiro, string> = {
 export default function ParceirosPage() {
   const [parceiros, setParceiros] = useState<Parceiro[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const router = useRouter();
   const [busca, setBusca] = useState("");
-  const [editando, setEditando] = useState<Parceiro | "novo" | null>(null);
+  // Editar abre a ficha em página própria; aqui só o cadastro novo.
+  const [novo, setNovo] = useState(false);
   // Filtros novos (migração 027) — categoria (Prestador/Parceria/Ambos) e
   // tipo de trabalho (múltipla escolha, mostra quem tem PELO MENOS um dos
   // tipos marcados — mesmo critério de FiltroFornecedores.tsx).
-  const [categoriaFiltro, setCategoriaFiltro] = useState<CategoriaParceiro | "">("");
-  const [tiposFiltro, setTiposFiltro] = useState<TipoTrabalhoOperacional[]>([]);
+  const [filtros, setFiltros] = useEstadoLembrado<{ categoria: CategoriaParceiro | ""; tipos: TipoTrabalhoOperacional[] }>("filtros-parceiros", { categoria: "", tipos: [] });
+  const categoriaFiltro = filtros.categoria;
+  const tiposFiltro = filtros.tipos;
+  const setCategoriaFiltro = (categoria: CategoriaParceiro | "") => setFiltros((f) => ({ ...f, categoria }));
+  const setTiposFiltro = (fn: (t: TipoTrabalhoOperacional[]) => TipoTrabalhoOperacional[]) => setFiltros((f) => ({ ...f, tipos: fn(f.tipos) }));
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -88,40 +99,35 @@ export default function ParceirosPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Parceiros</h1>
-          <p className="text-sm text-gray-500">Cadastro de mão de obra parceira e parcerias de indicação.</p>
-        </div>
-      </div>
+    <div className="space-y-4">
+      <CabecalhoPagina
+        titulo="Parceiros"
+        descricao="Mão de obra parceira e parcerias de indicação — clique em um parceiro para abrir a ficha."
+        acaoPrincipal={{ label: "+ Novo Parceiro", onClick: () => setNovo(true) }}
+      />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <input className="input-field max-w-xs" placeholder="Buscar parceiro..." value={busca} onChange={(e) => setBusca(e.target.value)} />
-        <button type="button" className="btn-primary" onClick={() => setEditando("novo")}>
-          + Novo Parceiro
-        </button>
-      </div>
-
-      <div className="card space-y-3">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-4">
-          <div>
-            <label className="label-field">Categoria</label>
+      <PainelFiltros
+        busca={<input className="input-field" placeholder="Buscar parceiro..." value={busca} onChange={(e) => setBusca(e.target.value)} />}
+        ativos={[
+          ...(categoriaFiltro ? [{ label: LABEL_CATEGORIA[categoriaFiltro], limpar: () => setCategoriaFiltro("") }] : []),
+          ...tiposFiltro.map((t) => ({ label: LABEL_TIPO[t] ?? t, limpar: () => alternarTipoFiltro(t) })),
+        ]}
+      >
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-3">
+          <div className="w-full sm:w-48">
             <select
+              aria-label="Categoria"
               className="input-field"
               value={categoriaFiltro}
               onChange={(e) => setCategoriaFiltro(e.target.value as CategoriaParceiro | "")}
             >
-              <option value="">Todas</option>
+              <option value="">Todas as categorias</option>
               <option value="prestador">Prestador</option>
               <option value="parceria">Parceria</option>
               <option value="ambos">Ambos</option>
             </select>
           </div>
-        </div>
-        <div>
-          <p className="label-field mb-2">Tipo de trabalho</p>
-          <div className="flex flex-wrap gap-3">
+          <div className="flex flex-wrap gap-3" role="group" aria-label="Tipo de trabalho">
             {TIPOS_TRABALHO_OPCOES.map((t) => (
               <label key={t.valor} className="flex items-center gap-2 text-sm text-gray-700">
                 <input type="checkbox" checked={tiposFiltro.includes(t.valor)} onChange={() => alternarTipoFiltro(t.valor)} />
@@ -130,22 +136,10 @@ export default function ParceirosPage() {
             ))}
           </div>
         </div>
-        {(categoriaFiltro || tiposFiltro.length > 0) && (
-          <button
-            type="button"
-            className="btn-secondary text-xs"
-            onClick={() => {
-              setCategoriaFiltro("");
-              setTiposFiltro([]);
-            }}
-          >
-            Limpar filtros
-          </button>
-        )}
-      </div>
+      </PainelFiltros>
 
       {carregando ? (
-        <p className="text-sm text-gray-500">Carregando...</p>
+        <Carregando linhas={6} />
       ) : (
         <div className="card overflow-x-auto p-0">
           <table className="tabela-cartoes w-full text-sm">
@@ -165,19 +159,19 @@ export default function ParceirosPage() {
             </thead>
             <tbody className="divide-y divide-gray-100">
               {parceirosFiltrados.map((p) => (
-                <tr key={p.id}>
-                  <td data-label="Código" className="px-4 py-2 font-mono text-xs text-gray-500">{p.numero_parceiro ?? "—"}</td>
+                <tr key={p.id} className="cursor-pointer hover:bg-gray-50" onClick={() => router.push(`/operacional/parceiros/${p.id}`)}>
+                  <td data-label="Código" className="so-computador px-4 py-2 font-mono text-xs text-gray-500">{p.numero_parceiro ?? "—"}</td>
                   <td data-label="Nome" className="px-4 py-2 font-medium text-brand">{p.nome}</td>
                   <td data-label="Categoria" className="px-4 py-2">
                     <span className={`badge ${CLASSES_CATEGORIA[p.categoria_parceiro]}`}>{LABEL_CATEGORIA[p.categoria_parceiro]}</span>
                   </td>
-                  <td data-label="Telefone" className="px-4 py-2 text-gray-500">{p.telefone ?? "—"}</td>
-                  <td data-label="CNPJ" className="px-4 py-2 text-gray-500">{p.cnpj ?? "—"}</td>
-                  <td data-label="Estado" className="px-4 py-2 text-gray-500">{p.estado ?? "—"}</td>
+                  <td data-label="Telefone" className="so-computador px-4 py-2 text-gray-500">{p.telefone ?? "—"}</td>
+                  <td data-label="CNPJ" className="so-computador px-4 py-2 text-gray-500">{p.cnpj ?? "—"}</td>
+                  <td data-label="Estado" className="so-computador px-4 py-2 text-gray-500">{p.estado ?? "—"}</td>
                   <td data-label="Trabalhos" className="px-4 py-2 text-gray-500">
                     {(p.tipos_trabalho ?? []).length > 0 ? p.tipos_trabalho.map((t) => LABEL_TIPO[t] ?? t).join(", ") : "—"}
                   </td>
-                  <td data-label="Capacidade" className="px-4 py-2 text-right text-gray-500">
+                  <td data-label="Capacidade" className="so-computador px-4 py-2 text-right text-gray-500">
                     {p.total_pessoas != null ? `${formatarNumero(p.total_pessoas, 0)} pessoas` : "—"}
                   </td>
                   <td data-label="Status" className="px-4 py-2">
@@ -185,15 +179,14 @@ export default function ParceirosPage() {
                       {p.ativo ? "Ativo" : "Inativo"}
                     </span>
                   </td>
-                  <td data-label="Ações" className="px-4 py-2">
-                    <div className="flex items-center justify-end gap-2">
-                      <button type="button" className="p-1 hover:opacity-70" title="Editar" aria-label="Editar" onClick={() => setEditando(p)}>
-                        <Pencil className="icone" aria-hidden />
-                      </button>
-                      <button type="button" className="p-1 hover:opacity-70" title="Excluir" aria-label="Excluir" onClick={() => excluir(p)}>
-                        <Trash2 className="icone" aria-hidden />
-                      </button>
-                    </div>
+                  <td data-label="Ações" className="px-4 py-2 text-right" onClick={(e) => e.stopPropagation()}>
+                    <MenuAcoes discreto
+                      alinhar="direita"
+                      acoes={[
+                        { label: "Abrir ficha", href: `/operacional/parceiros/${p.id}` },
+                        { label: "Excluir", icone: <Trash2 className="icone" aria-hidden />, perigo: true, onClick: () => excluir(p) },
+                      ]}
+                    />
                   </td>
                 </tr>
               ))}
@@ -209,12 +202,12 @@ export default function ParceirosPage() {
         </div>
       )}
 
-      {editando && (
+      {novo && (
         <ModalParceiro
-          parceiro={editando === "novo" ? null : editando}
-          onFechar={() => setEditando(null)}
+          parceiro={null}
+          onFechar={() => setNovo(false)}
           onSalvo={() => {
-            setEditando(null);
+            setNovo(false);
             carregar();
           }}
         />

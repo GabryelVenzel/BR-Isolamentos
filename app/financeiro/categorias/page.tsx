@@ -1,5 +1,7 @@
 "use client";
 
+import CabecalhoPagina from "@/components/ui/CabecalhoPagina";
+import { Carregando } from "@/components/ui/Esqueleto";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "@/components/modules/financeiro/toast";
 import ModalCategoria from "@/components/modules/financeiro/ModalCategoria";
@@ -90,18 +92,14 @@ export default function CategoriasPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">Categorias &amp; Configurações</h1>
-          <p className="text-sm text-gray-500">Categorias de lançamentos e configurações do módulo Financeiro.</p>
-        </div>
-        <button type="button" className="btn-primary" onClick={() => setEditando("novo")}>
-          + Nova Categoria
-        </button>
-      </div>
+      <CabecalhoPagina
+        titulo="Configurações do Financeiro"
+        descricao="Categorias de lançamentos e configurações do módulo."
+        acaoPrincipal={{ label: "+ Nova Categoria", onClick: () => setEditando("novo") }}
+      />
 
       {carregando ? (
-        <p className="text-sm text-gray-500">Carregando...</p>
+        <Carregando />
       ) : (
         <div className="card overflow-x-auto p-0">
           <table className="tabela-cartoes w-full text-sm">
@@ -178,7 +176,7 @@ export default function CategoriasPage() {
       </div>
 
       {carregandoConfig ? (
-        <p className="text-sm text-gray-500">Carregando...</p>
+        <Carregando />
       ) : (
         <div className="card max-w-md space-y-4">
           <div>

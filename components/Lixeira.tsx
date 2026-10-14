@@ -1,5 +1,6 @@
 "use client";
 
+import { Carregando } from "@/components/ui/Esqueleto";
 import { useCallback, useEffect, useState } from "react";
 import { confirmar } from "@/components/ui/confirmar";
 import FecharComEsc from "@/components/ui/FecharComEsc";
@@ -74,9 +75,9 @@ export default function Lixeira({ tipo, onFechar, onRestaurado }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
+    <div className="modal-fundo z-50">
       <FecharComEsc onFechar={onFechar} />
-      <div role="dialog" aria-modal="true" aria-labelledby="titulo-lixeira" className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-card bg-white p-6 shadow-card-hover">
+      <div role="dialog" aria-modal="true" aria-labelledby="titulo-lixeira" className="modal-caixa sm:max-w-2xl">
         <h2 id="titulo-lixeira" className="mb-1 font-montserrat text-lg font-bold text-brand">
           {textos.titulo}
         </h2>
@@ -92,7 +93,7 @@ export default function Lixeira({ tipo, onFechar, onRestaurado }: Props) {
             </button>
           </div>
         ) : !itens ? (
-          <p className="text-sm text-gray-500">Carregando...</p>
+          <Carregando />
         ) : itens.length === 0 ? (
           <p className="text-sm text-gray-400">A lixeira está vazia.</p>
         ) : (
@@ -126,7 +127,7 @@ export default function Lixeira({ tipo, onFechar, onRestaurado }: Props) {
           </ul>
         )}
 
-        <div className="mt-5 flex justify-end">
+        <div className="rodape-modal flex justify-end">
           <button type="button" className="btn-secondary" onClick={onFechar}>
             Fechar
           </button>

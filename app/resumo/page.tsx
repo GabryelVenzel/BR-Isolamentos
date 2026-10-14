@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import CabecalhoPagina from "@/components/ui/CabecalhoPagina";
 import TabsNavigation from "@/components/TabsNavigation";
 import DashboardGeral from "@/components/modules/resumo/DashboardGeral";
 import DashboardOperacao from "@/components/modules/resumo/DashboardOperacao";
@@ -72,16 +73,14 @@ function ResumoPageConteudo() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Resumo</h1>
-        <p className="text-sm text-gray-500">{abaAtual.subtitulo}</p>
-      </div>
-
+      {/* Padrão das telas: abas primeiro, depois título (revisão de usabilidade). */}
       <TabsNavigation
         tabs={ABAS.map((a) => ({ valor: a.valor, label: a.label }))}
         activeTab={aba}
         onTabChange={trocarAba}
       />
+
+      <CabecalhoPagina titulo={`Resumo · ${abaAtual.label}`} descricao={abaAtual.subtitulo} />
 
       {aba === "geral" && <DashboardGeral />}
       {aba === "operacao" && <DashboardOperacao />}

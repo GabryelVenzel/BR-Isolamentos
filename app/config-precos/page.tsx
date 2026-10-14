@@ -1,4 +1,6 @@
 "use client";
+import CabecalhoPagina from "@/components/ui/CabecalhoPagina";
+import { Carregando } from "@/components/ui/Esqueleto";
 
 import { useEffect, useState } from "react";
 import FormPrecos from "@/components/FormPrecos";
@@ -44,19 +46,17 @@ export default function ConfigPrecosPage() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold">Configuração de Preços</h1>
-        <p className="text-sm text-gray-500">
-          Defina os preços dos materiais e os parâmetros financeiros usados no cálculo de orçamentos.
-        </p>
-      </div>
+      <CabecalhoPagina
+        titulo="Configurações do orçamento"
+        descricao="Preços dos materiais, mão de obra e parâmetros financeiros usados no cálculo de orçamentos."
+      />
 
-      {precos ? <FormPrecos precos={precos} onSalvar={salvarPrecos} /> : <p className="text-sm text-gray-500">Carregando...</p>}
-      {config ? <FormConfigEmpresa config={config} /> : <p className="text-sm text-gray-500">Carregando...</p>}
+      {precos ? <FormPrecos precos={precos} onSalvar={salvarPrecos} /> : <Carregando />}
+      {config ? <FormConfigEmpresa config={config} /> : <Carregando />}
       {impostos ? (
         <FormImpostos impostos={impostos} onSalvar={salvarImpostos} onRemover={removerImposto} />
       ) : (
-        <p className="text-sm text-gray-500">Carregando...</p>
+        <Carregando />
       )}
     </div>
   );

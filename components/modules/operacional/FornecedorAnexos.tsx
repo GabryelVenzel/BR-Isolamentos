@@ -1,5 +1,6 @@
 "use client";
 
+import { Carregando } from "@/components/ui/Esqueleto";
 import { useCallback, useEffect, useState, type ChangeEvent } from "react";
 import { toast } from "./toast";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
@@ -137,7 +138,7 @@ export default function FornecedorAnexos({ fornecedorId }: Props) {
       </h3>
 
       {carregando ? (
-        <p className="text-sm text-gray-500">Carregando...</p>
+        <Carregando />
       ) : (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {anexos.map((anexo) => (
