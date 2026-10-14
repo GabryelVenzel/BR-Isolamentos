@@ -13,8 +13,9 @@ import { useWizardStore } from "@/lib/store";
  * acompanha. */
 export default function Step5EquipePage() {
   const router = useRouter();
-  const { itens, custosOperacionais, setCustosOperacionais, editarItem } = useWizardStore();
-  const { config, trechos, maoObra, resultado } = useOrcamentoCalculado();
+  const { itens, custosOperacionais, setCustosOperacionais, editarItem, margemPercentual, setMargemPercentual, descontoValor, setDescontoValor } =
+    useWizardStore();
+  const { config, trechos, maoObra, resultado, erro } = useOrcamentoCalculado();
 
   // Voltar = reabrir o último trecho na Tela 4, com os ajustes dele.
   function voltarAoUltimoTrecho() {
@@ -135,6 +136,78 @@ export default function Step5EquipePage() {
           </div>
         )}
       </div>
+
+      {/* Margem e desconto deste orçamento — passam pelo mesmo motor de
+          cálculo (preço = custo ÷ (1 − impostos − margem); o imposto incide
+          sobre o valor final e o desconto sai da margem). */}
+      <div className="card space-y-4">
+        <div>
+          <h2 className="text-lg font-semibold">Margem e desconto</h2>
+          <p className="text-xs text-gray-500">Só deste orçamento. Em branco, a margem é a padrão de Configurar Preços.</p>
+        </div>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label className="label-field">Margem de lucro (% do preço de venda)</label>
+            <input
+              type="number"
+              min={0}
+              max={99}
+              step="0.01"
+              className="input-field max-w-xs"
+              placeholder={config ? `Padrão: ${formatarNumero(config.margem_lucro_padrao, 2)}%` : "—"}
+              value={margemPercentual ?? ""}
+              onChange={(e) => setMargemPercentual(e.target.value === "" ? null : Math.min(99, Math.max(0, Number(e.target.value) || 0)))}
+            />
+          </div>
+          <div>
+            <label className="label-field">Desconto (R$)</label>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              className="input-field max-w-xs"
+              value={descontoValor || ""}
+              placeholder="0,00"
+              onChange={(e) => setDescontoValor(Math.max(0, Number(e.target.value) || 0))}
+            />
+          </div>
+        </div>
+        {resultado && (
+          <div className="space-y-1 border-t border-gray-100 pt-3 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-500">Custo total</span>
+              <span>{formatarMoeda(resultado.subtotal)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Impostos ({formatarNumero(resultado.percentual_impostos, 2)}% do valor final)</span>
+              <span>{formatarMoeda(resultado.total_impostos)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">Preço cheio</span>
+              <span>{formatarMoeda(resultado.preco_cheio)}</span>
+            </div>
+            {resultado.valor_desconto > 0 && (
+              <div className="flex justify-between">
+                <span className="text-gray-500">Desconto</span>
+                <span>-{formatarMoeda(resultado.valor_desconto)}</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-gray-500">
+                Margem de lucro efetiva ({formatarNumero(resultado.percentual_margem, 2)}%{resultado.valor_desconto > 0 ? ", já com o desconto" : ""})
+              </span>
+              <span className={resultado.margem_lucro < 0 ? "font-semibold text-status-error" : ""}>{formatarMoeda(resultado.margem_lucro)}</span>
+            </div>
+            <div className="flex justify-between border-t border-gray-200 pt-2 font-semibold">
+              <span>Valor final</span>
+              <span>{formatarMoeda(resultado.valor_final)}</span>
+            </div>
+            {resultado.margem_lucro < 0 && <p className="text-xs text-status-error">O desconto é maior que a margem — este orçamento dá prejuízo.</p>}
+          </div>
+        )}
+      </div>
+
+      {erro && <p className="text-sm text-status-error">{erro}</p>}
 
       <div className="flex flex-wrap justify-between gap-3">
         <button type="button" className="btn-secondary" onClick={voltarAoUltimoTrecho}>

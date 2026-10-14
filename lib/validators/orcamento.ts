@@ -140,6 +140,10 @@ export const CreateOrcamentoSchema = z.object({
   status: StatusOrcamentoSchema.optional(),
   // Migração 021 — nota livre exibida na Proposta Comercial quando preenchida.
   observacoes_adicionais: z.string().nullable().optional(),
+  // Migração 049 — cópia do wizard, guardada à parte (não é coluna de
+  // `orcamentos`; os casos de uso separam antes de gravar). Formato livre: só
+  // o próprio wizard lê de volta (ver reabrirOrcamento.ts).
+  wizard_estado: z.unknown().optional(),
 });
 
 export const UpdateOrcamentoSchema = CreateOrcamentoSchema.partial();

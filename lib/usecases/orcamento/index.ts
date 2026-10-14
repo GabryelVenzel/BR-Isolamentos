@@ -1,6 +1,8 @@
 export { atualizarOrcamento } from "./atualizarOrcamento";
 export { calcularOrcamento } from "./calcularOrcamento";
 export { criarOrcamento } from "./criarOrcamento";
+export { estadoWizardValido, reconstruirEstadoWizard } from "./reabrirOrcamento";
+export type { EstadoWizardSalvo } from "./reabrirOrcamento";
 export type { CriarOrcamentoInput } from "./criarOrcamento";
 export {
   areaBaseIsolamentoEscopo,

@@ -2,21 +2,37 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { tipoTrabalhoAgregado, useWizardStore } from "@/lib/store";
+import { estadoParaSalvar, tipoTrabalhoAgregado, useWizardStore } from "@/lib/store";
 import { LABEL_FUNCAO_MAO_OBRA, alocarValorFinalPorTrecho, descreverItemEscopo, geometriaRepresentativa } from "@/lib/usecases/orcamento";
 import { useOrcamentoCalculado } from "@/lib/hooks/useOrcamentoCalculado";
 import { formatarMoeda, formatarNumero } from "@/lib/format";
-import type { ItemOrcamento, Orcamento } from "@/lib/types";
+import type { ItemOrcamento, Orcamento, StatusOrcamento } from "@/lib/types";
 import { confirmar } from "@/components/ui/confirmar";
 
-/** Etapa 6 — conferência final e geração da proposta. Não edita equipe nem
+const STATUS_OPCOES: StatusOrcamento[] = ["rascunho", "proposta", "enviado", "aceito", "rejeitado"];
+
+/** Etapa 6 — conferência final e geração da proposta. Quando o wizard está
+ * EDITANDO um orçamento salvo (`edicao`, ver app/orcamento/[id]/editar),
+ * salvar atualiza esse orçamento (trechos incluídos) em vez de criar outro. Não edita equipe nem
  * custos (isso é da etapa 5, "Equipe e custos"); mostra tudo já calculado —
  * o mesmo cálculo derivado usado pela barra de totais e pelas outras etapas
  * (lib/hooks/useOrcamentoCalculado.ts), então excluir um trecho aqui refaz
  * os dias de obra e o orçamento na hora, sem nada para "recalcular". */
 export default function Step6RevisaoPage() {
   const router = useRouter();
-  const { clienteSelecionado, tipoProposta, itens: itensSalvos, horasUteisDiaOverride, editarItem, removerItem, reset } = useWizardStore();
+  const {
+    clienteSelecionado,
+    tipoProposta,
+    itens: itensSalvos,
+    horasUteisDiaOverride,
+    observacoes: observacoesAdicionais,
+    setObservacoes: setObservacoesAdicionais,
+    edicao,
+    setStatusEdicao,
+    editarItem,
+    removerItem,
+    reset,
+  } = useWizardStore();
   const { trechos, maoObra: maoObraEquipe, resultado: resultadoOrcamento, erro: erroCalculo } = useOrcamentoCalculado();
 
   // Trechos com a mão de obra da equipe já repartida (horas e valor).
@@ -24,10 +40,6 @@ export default function Step6RevisaoPage() {
 
   const [salvando, setSalvando] = useState<"rascunho" | "proposta" | null>(null);
   const [erro, setErro] = useState<string | null>(null);
-  // Nota livre pro orçamento — não faz parte do estado persistido do wizard
-  // (Zustand), só existe nesta tela; vai direto no payload de salvar. Também
-  // editável depois em /orcamento/[id]/editar (migração 021).
-  const [observacoesAdicionais, setObservacoesAdicionais] = useState("");
 
   const tipoTrabalho = itens.length > 0 ? tipoTrabalhoAgregado(itens) : null;
   const completo = clienteSelecionado && itens.length > 0 && resultadoOrcamento;
@@ -49,10 +61,14 @@ export default function Step6RevisaoPage() {
       )
     : [];
 
-  async function salvar(status: Orcamento["status"], destino: "view" | "proposta") {
+  /** Orçamento novo: `status` é o do botão (rascunho/proposta). Em edição:
+   * vale o status escolhido na tela — "gerar proposta" só promove um
+   * rascunho a proposta, nunca rebaixa um orçamento já enviado/aceito. */
+  async function salvar(statusBotao: Orcamento["status"], destino: "view" | "proposta") {
     if (!completo || !tipoTrabalho) return;
     setErro(null);
-    setSalvando(status === "rascunho" ? "rascunho" : "proposta");
+    setSalvando(destino === "view" ? "rascunho" : "proposta");
+    const status = edicao ? (destino === "proposta" && edicao.status === "rascunho" ? "proposta" : edicao.status) : statusBotao;
 
     try {
       const itensPayload: Array<Omit<ItemOrcamento, "id" | "orcamento_id">> = itens.map((item, index) => {
@@ -134,10 +150,12 @@ export default function Step6RevisaoPage() {
         status,
         itens: itensPayload,
         observacoes_adicionais: observacoesAdicionais.trim() || null,
+        // Cópia do wizard, para "Editar" reabrir como foi montado (migração 049).
+        wizard_estado: estadoParaSalvar(useWizardStore.getState()),
       };
 
-      const response = await fetch("/api/orcamentos", {
-        method: "POST",
+      const response = await fetch(edicao ? `/api/orcamentos/${edicao.id}` : "/api/orcamentos", {
+        method: edicao ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
@@ -148,8 +166,9 @@ export default function Step6RevisaoPage() {
         return;
       }
 
+      const idSalvo = edicao?.id ?? data.id;
       reset();
-      router.push(destino === "proposta" ? `/orcamento/${data.id}/download-pdf` : `/orcamento/${data.id}`);
+      router.push(destino === "proposta" ? `/orcamento/${idSalvo}/download-pdf` : `/orcamento/${idSalvo}`);
     } finally {
       setSalvando(null);
     }
@@ -259,11 +278,26 @@ export default function Step6RevisaoPage() {
         </div>
       )}
 
+      {edicao && (
+        <div className="card space-y-2">
+          <h2 className="text-lg font-semibold">Status do orçamento</h2>
+          <p className="text-xs text-gray-500">
+            Enquanto o orçamento estiver vinculado a um lead (Comercial), o status muda sozinho conforme a etapa do lead. Só ajuste à
+            mão se ele não estiver vinculado a nenhum lead.
+          </p>
+          <select className="input-field max-w-xs" value={edicao.status} onChange={(e) => setStatusEdicao(e.target.value as StatusOrcamento)}>
+            {STATUS_OPCOES.map((status) => (
+              <option key={status} value={status}>
+                {status}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div className="card space-y-2">
         <h2 className="text-lg font-semibold">Observações adicionais (opcional)</h2>
-        <p className="text-xs text-gray-400">
-          Aparece numa seção própria da Proposta Comercial, quando preenchida. Editável depois em Editar Orçamento.
-        </p>
+        <p className="text-xs text-gray-400">Aparece numa seção própria da Proposta Comercial, quando preenchida.</p>
         <textarea
           className="input-field h-24"
           value={observacoesAdicionais}
@@ -293,11 +327,13 @@ export default function Step6RevisaoPage() {
             <Linha key={imposto.nome} label={`${imposto.nome} (${imposto.percentual.toFixed(2)}%)`} valor={imposto.valor} />
           ))}
           <Linha label={`Margem de lucro (${resultadoOrcamento.percentual_margem.toFixed(2)}%)`} valor={resultadoOrcamento.margem_lucro} />
-          {/* Linha "Desconto" removida (pedido explícito) — nesta tela o
-              desconto é sempre R$0,00, já que o campo "Desconto extra" saiu
-              da Tela 4 numa rodada anterior; um desconto real só existe
-              depois, aplicado em Editar Orçamento (que continua mostrando
-              essa linha normalmente). */}
+          {/* Desconto (etapa "Equipe e custos") — só aparece quando existe. */}
+          {resultadoOrcamento.valor_desconto > 0 && (
+            <>
+              <Linha label="Preço cheio" valor={resultadoOrcamento.preco_cheio} />
+              <Linha label="Desconto" valor={-resultadoOrcamento.valor_desconto} />
+            </>
+          )}
           <div className="flex justify-between border-t border-gray-200 pt-2 text-lg font-bold">
             <span>TOTAL ORÇAMENTO</span>
             <span className="text-accent">{formatarMoeda(resultadoOrcamento.valor_final)}</span>
@@ -329,7 +365,7 @@ export default function Step6RevisaoPage() {
             disabled={!completo || salvando !== null}
             onClick={() => salvar("rascunho", "view")}
           >
-            {salvando === "rascunho" ? "Salvando..." : "Salvar rascunho"}
+            {salvando === "rascunho" ? "Salvando..." : edicao ? "Salvar alterações" : "Salvar rascunho"}
           </button>
           <button
             type="button"
@@ -337,7 +373,7 @@ export default function Step6RevisaoPage() {
             disabled={!completo || salvando !== null}
             onClick={() => salvar("proposta", "proposta")}
           >
-            {salvando === "proposta" ? "Salvando..." : "Gerar Proposta PDF/Word →"}
+            {salvando === "proposta" ? "Salvando..." : edicao ? "Salvar e gerar proposta →" : "Gerar Proposta PDF/Word →"}
           </button>
         </div>
       </div>

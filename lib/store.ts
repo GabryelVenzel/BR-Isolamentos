@@ -24,9 +24,11 @@ import type {
   FuncaoMaoObra,
   ItemEscopo,
   MaoObraEquipe,
+  StatusOrcamento,
   TipoTrabalho,
 } from "./types";
 import type { PrecificacaoTrecho } from "./usecases/orcamento";
+import type { EstadoWizardSalvo } from "./usecases/orcamento/reabrirOrcamento";
 import {
   EQUIPE_PADRAO,
   calcularMaoObraEquipe,
@@ -166,7 +168,7 @@ export interface WizardCustosOperacionais {
   desconto_percentual_extra: number | null;
 }
 
-interface WizardState {
+export interface WizardState {
   clienteSelecionado: Cliente | null;
   /** Escolhido na Tela 1 (migração 019) — vale pro orçamento inteiro, não
    * por trecho. "somente_mo" esconde quantificação/preço de material nas
@@ -204,6 +206,17 @@ interface WizardState {
 
   resultadoOrcamento: CalcularOrcamentoResultado | null;
 
+  /** Margem de lucro só deste orçamento (%); `null` = a de Configurar Preços. */
+  margemPercentual: number | null;
+  /** Desconto em R$ sobre o preço cheio (0 = sem desconto). */
+  descontoValor: number;
+  /** "Observações adicionais" da Proposta Comercial. */
+  observacoes: string;
+  /** Preenchido quando o wizard está EDITANDO um orçamento já salvo (ver
+   * app/orcamento/[id]/editar): salvar atualiza esse orçamento em vez de
+   * criar outro. `avisos` = o que não pôde ser recuperado ao reabrir. */
+  edicao: { id: number; numero: string; status: StatusOrcamento; avisos: string[] } | null;
+
   setCliente: (cliente: Cliente | null) => void;
   setTipoProposta: (tipo: "material_mo" | "somente_mo") => void;
   setEscopoAtual: (itens: ItemEscopo[]) => void;
@@ -228,6 +241,12 @@ interface WizardState {
   setValorDiariaOverride: (funcao: FuncaoMaoObra, valor: number | null) => void;
   setDiasMaoObraManual: (dias: number | null) => void;
   setAjustesAtual: (dados: Partial<AjustesTrecho>) => void;
+  setMargemPercentual: (percentual: number | null) => void;
+  setDescontoValor: (valor: number) => void;
+  setObservacoes: (texto: string) => void;
+  setStatusEdicao: (status: StatusOrcamento) => void;
+  /** Troca tudo o que está no wizard pelo orçamento informado, para editá-lo. */
+  carregarParaEdicao: (dados: { cliente: Cliente; estado: EstadoWizardSalvo; edicao: NonNullable<WizardState["edicao"]> }) => void;
   setResultadoOrcamento: (resultado: CalcularOrcamentoResultado | null) => void;
   reset: () => void;
 }
@@ -291,6 +310,10 @@ export const useWizardStore = create<WizardState>()(
       valoresDiariaOverride: {},
       diasMaoObraManual: null,
       resultadoOrcamento: null,
+      margemPercentual: null,
+      descontoValor: 0,
+      observacoes: "",
+      edicao: null,
 
       setCliente: (cliente) => set({ clienteSelecionado: cliente }),
       setTipoProposta: (tipo) => set({ tipoProposta: tipo }),
@@ -347,6 +370,31 @@ export const useWizardStore = create<WizardState>()(
         set((state) => ({ valoresDiariaOverride: { ...state.valoresDiariaOverride, [funcao]: valor } })),
       setDiasMaoObraManual: (dias) => set({ diasMaoObraManual: dias }),
       setAjustesAtual: (dados) => set((state) => ({ ajustesAtual: { ...state.ajustesAtual, ...dados } })),
+      setMargemPercentual: (percentual) => set({ margemPercentual: percentual }),
+      setDescontoValor: (valor) => set({ descontoValor: valor }),
+      setObservacoes: (texto) => set({ observacoes: texto }),
+      setStatusEdicao: (status) => set((state) => ({ edicao: state.edicao ? { ...state.edicao, status } : null })),
+      carregarParaEdicao: ({ cliente, estado, edicao }) =>
+        set({
+          clienteSelecionado: cliente,
+          tipoProposta: estado.tipoProposta,
+          itens: estado.itens,
+          escopoAtual: [],
+          itemAtual: itemAtualInicial,
+          resultadoTermicoQuenteAtual: null,
+          resultadoTermicoFrioAtual: null,
+          ajustesAtual: ajustesVazios,
+          custosOperacionais: { ...custosOperacionaisIniciais, ...estado.custosOperacionais },
+          horasUteisDiaOverride: estado.horasUteisDiaOverride ?? null,
+          equipe: { ...EQUIPE_PADRAO, ...estado.equipe },
+          valoresDiariaOverride: { ...estado.valoresDiariaOverride },
+          diasMaoObraManual: estado.diasMaoObraManual ?? null,
+          resultadoOrcamento: null,
+          margemPercentual: estado.margemPercentual ?? null,
+          descontoValor: estado.descontoValor ?? 0,
+          observacoes: estado.observacoes ?? "",
+          edicao,
+        }),
       setResultadoOrcamento: (resultado) => set({ resultadoOrcamento: resultado }),
 
       reset: () =>
@@ -365,6 +413,10 @@ export const useWizardStore = create<WizardState>()(
           valoresDiariaOverride: {},
           diasMaoObraManual: null,
           resultadoOrcamento: null,
+          margemPercentual: null,
+          descontoValor: 0,
+          observacoes: "",
+          edicao: null,
         }),
     }),
     {
@@ -395,6 +447,24 @@ export const useWizardStore = create<WizardState>()(
     }
   )
 );
+
+/** A cópia do wizard que vai guardada junto do orçamento (migração 049) —
+ * o que `carregarParaEdicao` recebe de volta ao editar. */
+export function estadoParaSalvar(state: WizardState): EstadoWizardSalvo {
+  return {
+    versao: 1,
+    tipoProposta: state.tipoProposta,
+    itens: state.itens,
+    custosOperacionais: state.custosOperacionais,
+    horasUteisDiaOverride: state.horasUteisDiaOverride,
+    equipe: state.equipe,
+    valoresDiariaOverride: state.valoresDiariaOverride,
+    diasMaoObraManual: state.diasMaoObraManual,
+    margemPercentual: state.margemPercentual,
+    descontoValor: state.descontoValor,
+    observacoes: state.observacoes,
+  };
+}
 
 /** Tipo de trabalho do orçamento inteiro, derivado dos itens: todos iguais → esse tipo,
  * senão "misto". */

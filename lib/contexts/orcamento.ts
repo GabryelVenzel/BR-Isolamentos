@@ -41,6 +41,14 @@ export function createOrcamentoContext(supabase: SupabaseClient) {
       return atualizarOrcamento(id, dados, { orcamentoRepo });
     },
 
+    /** O orçamento + a cópia do wizard guardada ao salvar (`null` nos
+     * anteriores à migração 049) — o que a tela de edição precisa para
+     * reabri-lo no wizard. */
+    async buscarParaEditar(id: number | string): Promise<{ orcamento: Orcamento; estado: unknown | null }> {
+      const orcamento = await orcamentoRepo.findByIdOrThrow(id);
+      return { orcamento, estado: await orcamentoRepo.buscarEstadoWizard(id) };
+    },
+
     /** "Excluir" um orçamento = mandar pra lixeira (migração 047), com os
      * itens preservados; restaurar ou remover de vez é do administrador
      * (lib/contexts/lixeira.ts). */

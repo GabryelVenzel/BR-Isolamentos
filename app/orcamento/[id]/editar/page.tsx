@@ -1,208 +1,92 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { formatarMoeda, formatarNumero } from "@/lib/format";
-import type { Orcamento, StatusOrcamento } from "@/lib/types";
+import { confirmar } from "@/components/ui/confirmar";
+import { useWizardStore } from "@/lib/store";
+import { estadoWizardValido, reconstruirEstadoWizard } from "@/lib/usecases/orcamento";
+import type { ConfigEmpresa, Orcamento, PrecoConfig } from "@/lib/types";
 
-const STATUS_OPCOES: StatusOrcamento[] = ["rascunho", "proposta", "enviado", "aceito", "rejeitado"];
-
-const LABEL_TIPO_TRABALHO: Record<string, string> = { quente: "Quente", frio: "Frio", misto: "Misto" };
-
-/** Editar Orçamento (refinada — pedido explícito: "o popup de margem não
- * deixa ver o orçamento completo"). Mostra os trechos do orçamento (lidos
- * via join `itens_orcamento`, já disponível em GET /api/orcamentos/[id]) pra
- * dar contexto — mas continua editando só os campos financeiros do
- * ORÇAMENTO (status/margem/desconto), não os trechos em si.
+/** Editar Orçamento — reabre o orçamento no wizard completo (cliente, escopo,
+ * especificações, preços, equipe e custos, revisão), como se estivesse sendo
+ * orçado do zero; salvar na Revisão ATUALIZA este orçamento (mesmo número).
  *
- * NÃO reconstrói o wizard de 5 telas pra reeditar escopo/materiais de um
- * trecho existente: os dados salvos em `itens_orcamento` não cobrem todos os
- * campos que o wizard usa durante a criação (ex.: combustível/horas de
- * operação usados só no cálculo de economia, nunca persistidos) — recarregar
- * isso de volta no wizard recalcularia números que já foram cobrados/
- * propostos ao cliente de um jeito que pode não bater com o que foi salvo.
- * Pra mudar material/escopo de um trecho, o caminho é criar um novo
- * orçamento — o que já existe. */
+ * Esta página só carrega e redireciona. Se o orçamento tem a cópia do wizard
+ * guardada ao salvar (migração 049), volta exatamente como foi montado;
+ * senão é reconstruído a partir do que foi persistido, com avisos do que
+ * precisa ser conferido (ver lib/usecases/orcamento/reabrirOrcamento.ts).
+ *
+ * Substitui a tela antiga, que só mudava status, margem e desconto — e
+ * calculava a margem errado (aplicava o percentual sobre o valor final antigo
+ * e não refazia os impostos). Margem e desconto agora ficam na etapa "Equipe
+ * e custos" e passam pelo mesmo motor de cálculo do orçamento novo. */
 export default function EditarOrcamentoPage() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
-  const [orcamento, setOrcamento] = useState<Orcamento | null>(null);
-  const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
+  const iniciado = useRef(false);
 
   useEffect(() => {
-    fetch(`/api/orcamentos/${id}`)
-      .then((r) => r.json())
-      .then(setOrcamento);
-  }, [id]);
+    if (iniciado.current) return;
+    iniciado.current = true;
 
-  if (!orcamento) return <p className="text-sm text-gray-500">Carregando...</p>;
+    (async () => {
+      try {
+        const [resposta, config, precos] = await Promise.all([
+          fetch(`/api/orcamentos/${id}/wizard`).then(async (r) => ({ ok: r.ok, corpo: await r.json() })),
+          fetch("/api/config-empresa").then((r) => r.json() as Promise<ConfigEmpresa>),
+          fetch("/api/precos-config").then((r) => r.json() as Promise<PrecoConfig[]>),
+        ]);
+        if (!resposta.ok) {
+          setErro(resposta.corpo?.error ?? "Não foi possível abrir o orçamento.");
+          return;
+        }
+        const orcamento = resposta.corpo.orcamento as Orcamento;
+        if (!orcamento.cliente) {
+          setErro("Este orçamento está sem cliente — não dá para reabri-lo.");
+          return;
+        }
 
-  function atualizarCampo<K extends keyof Orcamento>(campo: K, valor: Orcamento[K]) {
-    setOrcamento((prev) => (prev ? { ...prev, [campo]: valor } : prev));
-  }
+        // Já existe outro orçamento em andamento no wizard? Reabrir este
+        // apaga o que está lá.
+        const atual = useWizardStore.getState();
+        const outroEmAndamento = atual.edicao?.id !== orcamento.id && (atual.itens.length > 0 || atual.escopoAtual.length > 0);
+        if (outroEmAndamento) {
+          const seguir = await confirmar(
+            `Há ${atual.edicao ? `uma edição do ${atual.edicao.numero}` : "um orçamento novo"} em andamento no wizard. Abrir o ${orcamento.numero} para editar descarta o que está lá.`,
+            { titulo: "Substituir o orçamento em andamento?", confirmarLabel: `Editar ${orcamento.numero}` }
+          );
+          if (!seguir) {
+            router.push("/historico");
+            return;
+          }
+        }
 
-  function recalcularValorFinal(atual: Orcamento): Orcamento {
-    const preco_cheio = Number((atual.subtotal + atual.total_impostos + atual.margem_lucro).toFixed(2));
-    const valor_final = Number((preco_cheio - atual.valor_desconto).toFixed(2));
-    return { ...atual, preco_cheio, valor_final };
-  }
+        const reaberto = estadoWizardValido(resposta.corpo.estado)
+          ? { estado: resposta.corpo.estado, avisos: [] as string[] }
+          : reconstruirEstadoWizard(orcamento, config, Array.isArray(precos) ? precos : []);
 
-  // Pedido explícito: editar a margem em % (igual a proposta mostra), não em
-  // R$ direto. A base da conversão %→R$ é o `valor_final` ORIGINAL do
-  // orçamento (o que já estava salvo antes de abrir esta tela) — evita um
-  // cálculo circular, já que o próprio valor final muda conforme a margem
-  // muda. Mesma fórmula de `percentual_margem` em
-  // lib/orcamento.ts#calcularOrcamento (margem_lucro ÷ valor_final × 100).
-  // Capturado numa variável própria (não `orcamento.valor_final` direto) pra
-  // o TypeScript não perder a garantia de "não nulo" dentro da função abaixo.
-  const valorFinalOriginal = orcamento.valor_final;
-  const margemPercentual = valorFinalOriginal > 0 ? (orcamento.margem_lucro / valorFinalOriginal) * 100 : 0;
-
-  function alterarMargemPercentual(valorDigitado: string) {
-    const percentual = valorDigitado === "" ? 0 : Number(valorDigitado);
-    const novaMargem = Number(((percentual / 100) * valorFinalOriginal).toFixed(2));
-    atualizarCampo("margem_lucro", novaMargem);
-  }
-
-  async function salvar() {
-    if (!orcamento) return;
-    setErro(null);
-    setSalvando(true);
-    const atualizado = recalcularValorFinal(orcamento);
-
-    try {
-      const response = await fetch(`/api/orcamentos/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(atualizado),
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        setErro(data.error ?? "Erro ao salvar alterações.");
-        return;
+        useWizardStore.getState().carregarParaEdicao({
+          cliente: orcamento.cliente,
+          estado: reaberto.estado,
+          edicao: { id: orcamento.id, numero: orcamento.numero, status: orcamento.status, avisos: reaberto.avisos },
+        });
+        router.replace("/novo-orcamento/step-6-revisao");
+      } catch {
+        setErro("Erro de conexão ao abrir o orçamento.");
       }
+    })();
+  }, [id, router]);
 
-      // Volta pro Histórico de Orçamentos (de onde "Editar" é acionado — ver
-      // components/TableOrcamentos.tsx), não pra tela de resumo/detalhe do
-      // orçamento (bug reportado: usuário editava e caía num lugar que não
-      // era de onde tinha vindo).
-      router.push("/historico");
-    } finally {
-      setSalvando(false);
-    }
-  }
-
-  const itensOrdenados = [...(orcamento.itens ?? [])].sort((a, b) => a.ordem - b.ordem);
-
-  return (
-    <div className="max-w-3xl space-y-6">
-      <div>
-        <h1 className="text-xl font-bold">Editar {orcamento.numero}</h1>
-        <p className="text-sm text-gray-500">
-          Confira os trechos deste orçamento abaixo e ajuste status, margem de lucro ou desconto. Para alterar
-          especificações técnicas ou materiais de um trecho, gere um novo orçamento.
-        </p>
-      </div>
-
-      {itensOrdenados.length > 0 && (
-        <div className="card space-y-3">
-          <h2 className="text-lg font-semibold">Trechos deste orçamento ({itensOrdenados.length})</h2>
-          <div className="space-y-2">
-            {itensOrdenados.map((item, index) => (
-              <div key={item.id} className="rounded-lg border border-gray-200 p-3 text-sm">
-                <p className="font-medium text-gray-800">
-                  Trecho {index + 1} — {LABEL_TIPO_TRABALHO[item.tipo_trabalho] ?? item.tipo_trabalho}
-                </p>
-                <div className="mt-1 grid grid-cols-1 gap-1 text-gray-500 sm:grid-cols-2">
-                  <p>Material: {item.material}</p>
-                  {item.acabamento && <p>Acabamento: {item.acabamento}</p>}
-                  <p>Metragem: {formatarNumero(item.area_m2, 2)} m²</p>
-                  <p>Mão de obra: {formatarNumero(item.horas_mao_obra, 1)} h</p>
-                </div>
-                <div className="mt-2 flex justify-between border-t border-gray-100 pt-1.5 text-xs text-gray-500">
-                  <span>Material: {formatarMoeda(item.subtotal_material)}</span>
-                  <span>Mão de obra: {formatarMoeda(item.subtotal_mao_obra)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="card space-y-4">
-        <div>
-          <label className="label-field">Status</label>
-          <p className="mb-1 text-xs text-gray-400">
-            Enquanto este orçamento estiver vinculado a um lead (Comercial), o status muda
-            sozinho conforme a etapa do lead (Proposta/Negociação → Enviado, Fechado → Aceito,
-            Perdido → Rejeitado). Só ajuste manualmente se este orçamento não estiver vinculado
-            a nenhum lead.
-          </p>
-          <select
-            className="input-field"
-            value={orcamento.status}
-            onChange={(e) => atualizarCampo("status", e.target.value as StatusOrcamento)}
-          >
-            {STATUS_OPCOES.map((status) => (
-              <option key={status} value={status}>
-                {status}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div>
-            <label className="label-field">Margem de lucro (%)</label>
-            <input
-              type="number"
-              step="0.01"
-              className="input-field"
-              value={Math.round(margemPercentual * 100) / 100}
-              onChange={(e) => alterarMargemPercentual(e.target.value)}
-            />
-            <p className="mt-1 text-xs text-gray-400">Equivale a {formatarMoeda(orcamento.margem_lucro)}.</p>
-          </div>
-          <div>
-            <label className="label-field">Desconto (R$)</label>
-            <input
-              type="number"
-              step="0.01"
-              className="input-field"
-              value={orcamento.valor_desconto}
-              onChange={(e) => atualizarCampo("valor_desconto", Number(e.target.value))}
-            />
-          </div>
-        </div>
-
-        <p className="text-sm text-gray-500">
-          Novo valor final: <span className="font-semibold text-gray-900">{formatarMoeda(recalcularValorFinal(orcamento).valor_final)}</span>
-        </p>
-      </div>
-
-      <div className="card space-y-2">
-        <label className="label-field">Observações adicionais</label>
-        <p className="text-xs text-gray-400">Aparece numa seção própria da Proposta Comercial, quando preenchida.</p>
-        <textarea
-          className="input-field h-24"
-          value={orcamento.observacoes_adicionais ?? ""}
-          onChange={(e) => atualizarCampo("observacoes_adicionais", e.target.value || null)}
-          placeholder="Ex.: Cliente optou por isolante com melhor custo-benefício..."
-        />
-      </div>
-
-      {erro && <p className="text-sm text-red-600">{erro}</p>}
-
-      <div className="flex justify-end gap-3">
+  if (erro) {
+    return (
+      <div className="space-y-4">
+        <p className="text-sm text-status-error">{erro}</p>
         <button type="button" className="btn-secondary" onClick={() => router.push("/historico")}>
-          Cancelar
-        </button>
-        <button type="button" className="btn-primary" onClick={salvar} disabled={salvando}>
-          {salvando ? "Salvando..." : "Salvar alterações"}
+          ← Voltar ao Histórico
         </button>
       </div>
-    </div>
-  );
+    );
+  }
+  return <p className="text-sm text-gray-500">Abrindo o orçamento para edição...</p>;
 }

@@ -22,7 +22,7 @@ const STEPS = [
 export default function NovoOrcamentoLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { clienteSelecionado, itens, escopoAtual, reset } = useWizardStore();
+  const { clienteSelecionado, itens, escopoAtual, edicao, reset } = useWizardStore();
   const stepAtual = STEPS.findIndex((step) => pathname.includes(step.path));
 
   // Até onde dá para pular clicando: as etapas do trecho pedem um cliente;
@@ -39,13 +39,18 @@ export default function NovoOrcamentoLayout({ children }: { children: React.Reac
   const emAndamento = !!clienteSelecionado || itens.length > 0 || escopoAtual.length > 0;
 
   async function descartar() {
-    const seguir = await confirmar("Descartar este orçamento em andamento? Cliente, trechos, equipe e custos preenchidos até aqui são apagados.", {
-      titulo: "Descartar orçamento",
-      confirmarLabel: "Descartar",
-    });
+    const seguir = edicao
+      ? await confirmar(`Cancelar a edição do ${edicao.numero}? As mudanças feitas aqui são descartadas; o orçamento salvo continua como estava.`, {
+          titulo: "Cancelar edição",
+          confirmarLabel: "Cancelar edição",
+        })
+      : await confirmar("Descartar este orçamento em andamento? Cliente, trechos, equipe e custos preenchidos até aqui são apagados.", {
+          titulo: "Descartar orçamento",
+          confirmarLabel: "Descartar",
+        });
     if (!seguir) return;
     reset();
-    router.push("/novo-orcamento/step-1-cliente");
+    router.push(edicao ? "/historico" : "/novo-orcamento/step-1-cliente");
   }
 
   return (
@@ -89,10 +94,27 @@ export default function NovoOrcamentoLayout({ children }: { children: React.Reac
 
         {emAndamento && (
           <button type="button" className="text-sm text-status-error hover:underline" onClick={descartar}>
-            Descartar orçamento
+            {edicao ? "Cancelar edição" : "Descartar orçamento"}
           </button>
         )}
       </div>
+
+      {/* Editando um orçamento já salvo: salvar na Revisão atualiza ele. */}
+      {edicao && (
+        <div className="space-y-2 rounded-lg border border-brand/20 bg-brand-light/40 px-4 py-3 text-sm text-brand">
+          <p>
+            Editando o orçamento <strong>{edicao.numero}</strong> — navegue pelas etapas e altere o que precisar. Ao salvar na Revisão, este
+            orçamento é atualizado (o número não muda).
+          </p>
+          {edicao.avisos.length > 0 && (
+            <ul className="list-disc space-y-1 pl-5 text-amber-800">
+              {edicao.avisos.map((aviso) => (
+                <li key={aviso}>{aviso}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
 
       {children}
 

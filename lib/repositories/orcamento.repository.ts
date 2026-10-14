@@ -95,6 +95,46 @@ export class OrcamentoRepository extends BaseRepository<Orcamento> {
     return this.findByIdOrThrow(orcamento.id);
   }
 
+  /** Atualiza o cabeçalho e TROCA os trechos de um orçamento (edição pelo
+   * wizard). Os trechos novos entram antes de os antigos saírem: se a
+   * inclusão falhar, o orçamento continua com os trechos que tinha. */
+  async atualizarComItens(id: number | string, cabecalho: Partial<Orcamento>, itens: Array<Partial<ItemOrcamento>>): Promise<Orcamento> {
+    const { data: antigos, error: erroAntigos } = await this.supabase.from("itens_orcamento").select("id").eq("orcamento_id", id);
+    if (erroAntigos) throw erroAntigos;
+
+    const { error: erroItens } = await this.supabase.from("itens_orcamento").insert(itens.map((item) => ({ ...item, orcamento_id: id })));
+    if (erroItens) throw erroItens;
+
+    const idsAntigos = (antigos ?? []).map((i: { id: number }) => i.id);
+    if (idsAntigos.length > 0) {
+      const { error: erroRemocao } = await this.supabase.from("itens_orcamento").delete().in("id", idsAntigos);
+      if (erroRemocao) throw erroRemocao;
+    }
+
+    return this.update(id, cabecalho);
+  }
+
+  // --- Cópia do wizard guardada junto do orçamento (migração 049) — o que
+  // permite reabri-lo para editar exatamente como foi montado. Tabela à
+  // parte, fora do `select` padrão, para não pesar as listagens. ---
+
+  /** `null` quando o orçamento não tem a cópia (anterior à migração 049) ou
+   * a tabela ainda não existe. */
+  async buscarEstadoWizard(id: number | string): Promise<unknown | null> {
+    const { data, error } = await this.supabase.from("orcamento_wizard_estado").select("estado").eq("orcamento_id", id).maybeSingle();
+    if (error) return null;
+    return (data as { estado: unknown } | null)?.estado ?? null;
+  }
+
+  /** Guarda (ou substitui) a cópia. Falhar aqui não pode derrubar o
+   * salvamento do orçamento em si — devolve `false` e quem chama segue. */
+  async salvarEstadoWizard(id: number | string, estado: unknown): Promise<boolean> {
+    const { error } = await this.supabase
+      .from("orcamento_wizard_estado")
+      .upsert({ orcamento_id: id, estado, atualizado_em: new Date().toISOString() }, { onConflict: "orcamento_id" });
+    return !error;
+  }
+
   /** Orçamentos aceitos num intervalo (por `data_criacao`), só as colunas
    * usadas pra "Distribuição de Receita por Tipo" do dashboard (Resumo) —
    * soma `valor_final` agrupado por `tipo_trabalho` no use case chamador.

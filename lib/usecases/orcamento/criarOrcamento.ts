@@ -15,6 +15,9 @@ export async function criarOrcamento(
   input: CriarOrcamentoInput,
   repos: { orcamentoRepo: OrcamentoRepository }
 ): Promise<Orcamento> {
-  const { itens, ...cabecalho } = parseOrThrow(CreateOrcamentoSchema, input.cabecalho);
-  return repos.orcamentoRepo.criarComItens(cabecalho, itens, input.criadoPor);
+  const { itens, wizard_estado, ...cabecalho } = parseOrThrow(CreateOrcamentoSchema, input.cabecalho);
+  const orcamento = await repos.orcamentoRepo.criarComItens(cabecalho, itens, input.criadoPor);
+  // Cópia do wizard, para "Editar" reabrir como foi montado (migração 049).
+  if (wizard_estado != null) await repos.orcamentoRepo.salvarEstadoWizard(orcamento.id, wizard_estado);
+  return orcamento;
 }
