@@ -58,8 +58,8 @@ export default function RhEmpresaPage() {
   const { config } = useConfigRh();
   const [documentos, setDocumentos] = useState<DocumentoEmpresa[]>([]);
   const [carregando, setCarregando] = useState(true);
-  const [envio, setEnvio] = useState<Envio>(ENVIO_VAZIO);
-  const [enviando, setEnviando] = useState(false);
+  // Popup de envio aberto (novo, de um obrigatório ou renovação); null = fechado.
+  const [envio, setEnvio] = useState<Envio | null>(null);
   const [editando, setEditando] = useState<DocumentoEmpresa | null>(null);
   const [versoesDe, setVersoesDe] = useState<DocumentoEmpresa | null>(null);
   const hoje = hojeBrasilia();
@@ -85,58 +85,10 @@ export default function RhEmpresaPage() {
 
   function prepararEnvio(dados: Partial<Envio>) {
     setEnvio({ ...ENVIO_VAZIO, ...dados });
-    document.getElementById("envio-documento")?.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
   function enviarObrigatorio(o: DocumentoObrigatorioEmpresa, atual: DocumentoEmpresa | null) {
     prepararEnvio({ nome: o.nome, categoria: o.categoria, tipo_id: o.id, substitui: atual, emissao: hoje, validade: validadePadrao(o, hoje) ?? "" });
-  }
-
-  function mudarEmissao(data: string) {
-    setEnvio((e) => ({ ...e, emissao: data, validade: validadePadrao(obrigatorioPorId(e.tipo_id), data) ?? e.validade }));
-  }
-
-  async function enviarArquivo(event: ChangeEvent<HTMLInputElement>) {
-    const arquivo = event.target.files?.[0];
-    event.target.value = "";
-    if (!arquivo) return;
-    if (!envio.nome.trim()) return toast.erro("Informe o nome do documento antes de anexar o arquivo.");
-    if (arquivo.size > LIMITE_BYTES) return toast.erro("Arquivo maior que 20 MB — escolha um arquivo menor.");
-
-    setEnviando(true);
-    try {
-      const supabase = createSupabaseBrowserClient();
-      const caminho = `${Date.now()}-${arquivo.name}`;
-      const { error: erroUpload } = await supabase.storage.from(BUCKET).upload(caminho, arquivo);
-      if (erroUpload) return toast.erro(`Erro ao enviar arquivo: ${erroUpload.message}`);
-      const { data: publicUrl } = supabase.storage.from(BUCKET).getPublicUrl(caminho);
-
-      const payload = await fetch("/api/rh/documentos", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          nome: envio.nome.trim(),
-          validade: envio.validade || null,
-          categoria: envio.categoria || null,
-          tipo_id: envio.tipo_id || null,
-          substitui_id: envio.substitui?.id ?? null,
-          nome_arquivo: arquivo.name,
-          tipo_arquivo: arquivo.name.split(".").pop()?.toLowerCase() ?? "",
-          tamanho_bytes: arquivo.size,
-          storage_path: caminho,
-          url: publicUrl.publicUrl,
-        }),
-      }).then((r) => r.json());
-      if (!payload.success) return toast.erro(payload.error ?? "Não foi possível salvar o documento.");
-
-      toast.sucesso(envio.substitui ? "Documento renovado — a versão anterior ficou no histórico." : "Documento adicionado.");
-      setEnvio(ENVIO_VAZIO);
-      carregar();
-    } catch (error) {
-      toast.erro(error instanceof Error ? `Erro ao enviar arquivo: ${error.message}` : "Erro ao enviar arquivo.");
-    } finally {
-      setEnviando(false);
-    }
   }
 
   async function remover(documento: DocumentoEmpresa) {
@@ -168,6 +120,12 @@ export default function RhEmpresaPage() {
           Checklist do que a empresa precisa ter em dia e todos os documentos por categoria. A lista de obrigatórios e os prazos ficam em
           RH → Configurações.
         </p>
+      </div>
+
+      <div className="flex justify-end">
+        <button type="button" className="btn-primary" onClick={() => prepararEnvio({})}>
+          + Adicionar documento
+        </button>
       </div>
 
       {/* 1. Checklist de obrigatórios */}
@@ -217,74 +175,6 @@ export default function RhEmpresaPage() {
           })}
         </section>
       )}
-
-      {/* 2. Envio */}
-      <section id="envio-documento" className="card space-y-3">
-        <div className="flex flex-wrap items-baseline justify-between gap-2">
-          <h2 className="text-lg font-semibold">{envio.substitui ? `Renovar: ${envio.substitui.nome}` : "Enviar documento"}</h2>
-          {(envio.substitui || envio.tipo_id) && (
-            <button type="button" className="text-xs text-gray-500 hover:underline" onClick={() => setEnvio(ENVIO_VAZIO)}>
-              Cancelar
-            </button>
-          )}
-        </div>
-        {envio.substitui && <p className="text-xs text-gray-500">A versão atual vai para o histórico deste documento — nada é apagado.</p>}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-[2fr_1.2fr_1.4fr_auto_auto_auto] lg:items-end">
-          <div>
-            <label className="label-field">Nome do documento</label>
-            <input className="input-field" placeholder='Ex.: "Contrato Social", "PGR 2026"...' value={envio.nome} onChange={(e) => setEnvio((x) => ({ ...x, nome: e.target.value }))} />
-          </div>
-          <div>
-            <label className="label-field">Categoria</label>
-            <select className="input-field" value={envio.categoria} onChange={(e) => setEnvio((x) => ({ ...x, categoria: e.target.value as CategoriaDocumentoEmpresa | "" }))}>
-              <option value="">Outros</option>
-              {CATEGORIAS_DOCUMENTO_EMPRESA.filter((c) => c !== "outros").map((c) => (
-                <option key={c} value={c}>
-                  {LABEL_CATEGORIA_DOCUMENTO[c]}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="label-field">Cumpre o obrigatório</label>
-            <select
-              className="input-field"
-              value={envio.tipo_id}
-              onChange={(e) => {
-                const o = obrigatorioPorId(e.target.value);
-                setEnvio((x) => ({ ...x, tipo_id: e.target.value, categoria: o?.categoria ?? x.categoria, nome: x.nome || o?.nome || "", validade: validadePadrao(o, x.emissao) ?? x.validade }));
-              }}
-            >
-              <option value="">Nenhum</option>
-              {(config?.obrigatorios ?? []).map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.nome}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="label-field">Emissão</label>
-            <input type="date" className="input-field" value={envio.emissao} onChange={(e) => mudarEmissao(e.target.value)} />
-          </div>
-          <div>
-            <label className="label-field">Validade</label>
-            <input type="date" className="input-field" value={envio.validade} onChange={(e) => setEnvio((x) => ({ ...x, validade: e.target.value }))} />
-          </div>
-          <label
-            className={`flex cursor-pointer items-center justify-center whitespace-nowrap rounded-lg border-2 border-dashed p-2 px-4 text-sm ${
-              envio.nome.trim() ? "border-brand text-brand hover:bg-brand-light/40" : "border-gray-300 text-gray-400"
-            }`}
-          >
-            <input type="file" className="hidden" disabled={enviando || !envio.nome.trim()} onChange={enviarArquivo} />
-            {enviando ? "Enviando..." : "+ Anexar arquivo"}
-          </label>
-        </div>
-        <p className="text-xs text-gray-400">
-          Ligando a um obrigatório, a validade é calculada pelo prazo dele a partir da emissão (ajustável). PDF, Word, Excel ou imagem — até 20
-          MB.
-        </p>
-      </section>
 
       {/* 3. Todos os documentos por categoria */}
       {carregando ? (
@@ -367,6 +257,17 @@ export default function RhEmpresaPage() {
         ))
       )}
 
+      {envio && (
+        <ModalEnviarDocumento
+          inicial={envio}
+          obrigatorios={config?.obrigatorios ?? []}
+          onFechar={() => setEnvio(null)}
+          onSalvo={() => {
+            setEnvio(null);
+            carregar();
+          }}
+        />
+      )}
       {editando && (
         <ModalEditarDocumento
           documento={editando}
@@ -379,6 +280,174 @@ export default function RhEmpresaPage() {
         />
       )}
       {versoesDe && <ModalVersoes documento={versoesDe} diasAviso={diasAviso} onFechar={() => setVersoesDe(null)} />}
+    </div>
+  );
+}
+
+/** Popup "Adicionar documento" / "Renovar": preenche nome, categoria,
+ * obrigatório, emissão e validade, escolhe o arquivo e só então "Adicionar"
+ * envia — antes o arquivo subia no instante em que era escolhido. */
+function ModalEnviarDocumento({
+  inicial,
+  obrigatorios,
+  onFechar,
+  onSalvo,
+}: {
+  inicial: Envio;
+  obrigatorios: DocumentoObrigatorioEmpresa[];
+  onFechar: () => void;
+  onSalvo: () => void;
+}) {
+  const [envio, setEnvio] = useState<Envio>(inicial);
+  const [arquivo, setArquivo] = useState<File | null>(null);
+  const [enviando, setEnviando] = useState(false);
+  const [erro, setErro] = useState<string | null>(null);
+  const obrigatorioPorId = (id: string | null | undefined) => obrigatorios.find((o) => o.id === id);
+  const prazo = obrigatorioPorId(envio.tipo_id)?.validade_meses ?? null;
+
+  function escolherArquivo(event: ChangeEvent<HTMLInputElement>) {
+    const escolhido = event.target.files?.[0] ?? null;
+    event.target.value = "";
+    if (escolhido && escolhido.size > LIMITE_BYTES) {
+      setErro("Arquivo maior que 20 MB — escolha um arquivo menor.");
+      return;
+    }
+    setErro(null);
+    setArquivo(escolhido);
+  }
+
+  async function adicionar() {
+    if (!envio.nome.trim()) return setErro("Informe o nome do documento.");
+    if (!arquivo) return setErro("Escolha o arquivo do documento.");
+    setErro(null);
+    setEnviando(true);
+    try {
+      const supabase = createSupabaseBrowserClient();
+      const caminho = `${Date.now()}-${arquivo.name}`;
+      const { error: erroUpload } = await supabase.storage.from(BUCKET).upload(caminho, arquivo);
+      if (erroUpload) return setErro(`Erro ao enviar arquivo: ${erroUpload.message}`);
+      const { data: publicUrl } = supabase.storage.from(BUCKET).getPublicUrl(caminho);
+
+      const payload = await fetch("/api/rh/documentos", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          nome: envio.nome.trim(),
+          validade: envio.validade || null,
+          categoria: envio.categoria || null,
+          tipo_id: envio.tipo_id || null,
+          substitui_id: envio.substitui?.id ?? null,
+          nome_arquivo: arquivo.name,
+          tipo_arquivo: arquivo.name.split(".").pop()?.toLowerCase() ?? "",
+          tamanho_bytes: arquivo.size,
+          storage_path: caminho,
+          url: publicUrl.publicUrl,
+        }),
+      }).then((r) => r.json());
+      if (!payload.success) {
+        // O registro não foi gravado: o arquivo enviado não serve para nada.
+        await supabase.storage.from(BUCKET).remove([caminho]).catch(() => undefined);
+        return setErro(payload.error ?? "Não foi possível salvar o documento.");
+      }
+
+      toast.sucesso(envio.substitui ? "Documento renovado — a versão anterior ficou no histórico." : "Documento adicionado.");
+      onSalvo();
+    } catch (error) {
+      setErro(error instanceof Error ? `Erro ao enviar arquivo: ${error.message}` : "Erro ao enviar arquivo.");
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-brand/60 p-4">
+      <FecharComEsc onFechar={onFechar} />
+      <div role="dialog" aria-modal="true" aria-labelledby="titulo-enviar-doc" className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-card bg-white p-6 shadow-card-hover">
+        <h2 id="titulo-enviar-doc" className="mb-1 font-montserrat text-lg font-bold text-brand">
+          {envio.substitui ? `Renovar: ${envio.substitui.nome}` : "Adicionar documento"}
+        </h2>
+        {envio.substitui && <p className="mb-3 text-xs text-gray-500">A versão atual vai para o histórico deste documento — nada é apagado.</p>}
+
+        <div className="space-y-3">
+          <div>
+            <label className="label-field">
+              Nome do documento<span className="text-status-error"> *</span>
+            </label>
+            <input className="input-field" placeholder='Ex.: "Contrato Social", "PGR 2026"...' value={envio.nome} onChange={(e) => setEnvio((x) => ({ ...x, nome: e.target.value }))} />
+          </div>
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="label-field">Cumpre o obrigatório</label>
+              <select
+                className="input-field"
+                value={envio.tipo_id}
+                onChange={(e) => {
+                  const o = obrigatorioPorId(e.target.value);
+                  setEnvio((x) => ({ ...x, tipo_id: e.target.value, categoria: o?.categoria ?? x.categoria, nome: x.nome || o?.nome || "", validade: validadePadrao(o, x.emissao) ?? x.validade }));
+                }}
+              >
+                <option value="">Nenhum</option>
+                {obrigatorios.map((o) => (
+                  <option key={o.id} value={o.id}>
+                    {o.nome}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label-field">Categoria</label>
+              <select className="input-field" value={envio.categoria} onChange={(e) => setEnvio((x) => ({ ...x, categoria: e.target.value as CategoriaDocumentoEmpresa | "" }))}>
+                <option value="">Outros</option>
+                {CATEGORIAS_DOCUMENTO_EMPRESA.filter((c) => c !== "outros").map((c) => (
+                  <option key={c} value={c}>
+                    {LABEL_CATEGORIA_DOCUMENTO[c]}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="label-field">Emissão</label>
+              <input
+                type="date"
+                className="input-field"
+                value={envio.emissao}
+                onChange={(e) => setEnvio((x) => ({ ...x, emissao: e.target.value, validade: validadePadrao(obrigatorioPorId(x.tipo_id), e.target.value) ?? x.validade }))}
+              />
+            </div>
+            <div>
+              <label className="label-field">Validade</label>
+              <input type="date" className="input-field" value={envio.validade} onChange={(e) => setEnvio((x) => ({ ...x, validade: e.target.value }))} />
+            </div>
+          </div>
+          <p className="text-xs text-gray-500">
+            {prazo
+              ? `A validade é preenchida com a emissão + ${prazo} ${prazo === 1 ? "mês" : "meses"} (prazo padrão deste obrigatório). Se o documento traz outra data, troque aqui — vale a data deste campo.`
+              : "Informe a validade que consta no documento; em branco, o documento não vence."}
+          </p>
+
+          <div>
+            <label className="label-field">
+              Arquivo<span className="text-status-error"> *</span>
+            </label>
+            <label className="flex cursor-pointer items-center justify-between gap-3 rounded-lg border-2 border-dashed border-brand px-4 py-3 text-sm text-brand hover:bg-brand-light/40">
+              <input type="file" className="hidden" disabled={enviando} onChange={escolherArquivo} />
+              <span className="truncate">{arquivo ? arquivo.name : "Escolher arquivo..."}</span>
+              <span className="shrink-0 text-xs text-gray-500">{arquivo ? "trocar" : "PDF, Word, Excel ou imagem — até 20 MB"}</span>
+            </label>
+          </div>
+
+          {erro && <p className="text-sm text-status-error">{erro}</p>}
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" className="btn-secondary" onClick={onFechar} disabled={enviando}>
+              Cancelar
+            </button>
+            <button type="button" className="btn-primary" onClick={adicionar} disabled={enviando}>
+              {enviando ? "Enviando..." : envio.substitui ? "Renovar" : "Adicionar"}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
