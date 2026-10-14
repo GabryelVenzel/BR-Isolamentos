@@ -101,7 +101,7 @@ describe("reconstruirEstadoWizard — reabrir um orçamento salvo no wizard", ()
   it("recupera equipe, diária ajustada, custos (valor → quantidade), margem usada, desconto e observações", () => {
     const { estado } = reconstruirEstadoWizard(orcamento(), config, []);
 
-    expect(estado.equipe).toEqual({ funileiro: 2, isolador: 1, ajudante: 0 });
+    expect(estado.equipe).toEqual({ funileiro: 2, isolador: 1, ajudante: 0, tst: 0 });
     // só a diária que difere da configuração vira ajuste do orçamento
     expect(estado.valoresDiariaOverride).toEqual({ isolador: 600 });
     expect(estado.diasMaoObraManual).toBeNull();
@@ -146,7 +146,7 @@ describe("reconstruirEstadoWizard — reabrir um orçamento salvo no wizard", ()
   it("orçamento anterior à equipe e diárias: vira a dupla equivalente, mantendo o valor de mão de obra salvo", () => {
     // 14.400 salvos, dos quais 1.200 são andaime → 13.200 de mão de obra; 50 h em dias de 10 h = 5 dias
     const { estado, avisos } = reconstruirEstadoWizard(orcamento({ mao_obra_equipe: null, horas_uteis_dia: 10 }), config, []);
-    expect(estado.equipe).toEqual({ funileiro: 1, isolador: 1, ajudante: 0 });
+    expect(estado.equipe).toEqual({ funileiro: 1, isolador: 1, ajudante: 0, tst: 0 });
     expect(estado.diasMaoObraManual).toBe(5);
     expect(estado.valoresDiariaOverride).toEqual({ funileiro: 1320, isolador: 1320 });
     // 2 pessoas × 5 dias × 1.320 = 13.200 — o mesmo valor salvo
@@ -159,7 +159,7 @@ describe("reconstruirEstadoWizard — reabrir um orçamento salvo no wizard", ()
   it("orçamento antigo sem mão de obra volta com a equipe zerada", () => {
     const semMaoObra = orcamento({ mao_obra_equipe: null, valor_mao_obra: 1200, itens: [item({ horas_mao_obra: 0, subtotal_mao_obra: 1200 })] });
     const { estado } = reconstruirEstadoWizard(semMaoObra, config, []);
-    expect(estado.equipe).toEqual({ funileiro: 0, isolador: 0, ajudante: 0 });
+    expect(estado.equipe).toEqual({ funileiro: 0, isolador: 0, ajudante: 0, tst: 0 });
     expect(estado.diasMaoObraManual).toBeNull();
   });
 

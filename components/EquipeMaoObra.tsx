@@ -4,7 +4,7 @@ import { useWizardStore } from "@/lib/store";
 import { formatarMoeda, formatarNumero } from "@/lib/format";
 import type { ConfigEmpresa, MaoObraEquipe } from "@/lib/types";
 import Explicacao from "@/components/ui/Explicacao";
-import { FUNCOES_MAO_OBRA, LABEL_FUNCAO_MAO_OBRA, rendimentoM2Dia, valorDiariaPadrao } from "@/lib/usecases/orcamento";
+import { FUNCOES_MAO_OBRA, LABEL_FUNCAO_MAO_OBRA, funcaoProduz, rendimentoM2Dia, valorDiariaPadrao } from "@/lib/usecases/orcamento";
 
 interface Props {
   config: ConfigEmpresa;
@@ -87,7 +87,9 @@ export default function EquipeMaoObra({ config, maoObra }: Props) {
                       onChange={(e) => setEquipe({ [funcao]: Math.max(0, Math.floor(Number(e.target.value) || 0)) })}
                     />
                   </td>
-                  <td className="py-1.5 pr-4 text-right text-gray-500">{formatarNumero(rendimentoM2Dia(funcao, config), 2)} m²/dia</td>
+                  <td className="py-1.5 pr-4 text-right text-gray-500">
+                    {funcaoProduz(funcao) ? `${formatarNumero(rendimentoM2Dia(funcao, config), 2)} m²/dia` : "não produz"}
+                  </td>
                   <td className="py-1.5 pr-4">
                     <input
                       type="number"
@@ -139,13 +141,13 @@ export default function EquipeMaoObra({ config, maoObra }: Props) {
 
       {semEquipe && (
         <p className="rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-700">
-          Nenhuma pessoa na equipe — o orçamento está sem mão de obra. Informe quantos funileiros, isoladores e ajudantes.
+          Nenhuma pessoa na equipe — o orçamento está sem mão de obra. Informe quantas pessoas de cada cargo.
         </p>
       )}
       {semRendimento && (
         <p className="rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-700">
-          As funções escolhidas estão com rendimento zerado em Configurar Preços — não dá para calcular os dias de obra.
-          Cadastre o rendimento ou informe os dias à mão.
+          A equipe não tem ninguém que produza (só cargos sem rendimento, ou com rendimento zerado em Configurar Preços) — não dá
+          para calcular os dias de obra. Inclua quem executa, cadastre o rendimento ou informe os dias à mão.
         </p>
       )}
 
@@ -155,7 +157,7 @@ export default function EquipeMaoObra({ config, maoObra }: Props) {
           valor={`${formatarNumero(maoObra.m2_equivalente, 2)} m² equivalentes`}
         />
         <LinhaResumo
-          label={`Produção da equipe (${maoObra.pessoas} ${maoObra.pessoas === 1 ? "pessoa" : "pessoas"})`}
+          label={`Produção da equipe (${maoObra.pessoas} ${maoObra.pessoas === 1 ? "pessoa" : "pessoas"}${maoObra.funcoes.some((f) => !funcaoProduz(f.funcao)) ? ", TST não produz" : ""})`}
           valor={`${formatarNumero(maoObra.producao_m2_dia, 2)} m²/dia`}
         />
         <LinhaResumo label="Horas de obra" valor={`${formatarNumero(maoObra.horas_obra, 1)} h`} />

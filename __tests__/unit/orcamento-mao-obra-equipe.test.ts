@@ -104,6 +104,32 @@ describe("calcularMaoObraEquipe", () => {
     expect(r.valor_total).toBe(15 * 750);
   });
 
+  it("TST (migração 050): cobrado pelos mesmos dias da equipe, mas não produz nem reduz os dias", () => {
+    const comTst = { ...parametros, valor_diaria_tst: 450 };
+    const semTst = calcularMaoObraEquipe({ m2Equivalente: 164, equipe: { funileiro: 1, isolador: 1 }, parametros: comTst });
+    const r = calcularMaoObraEquipe({ m2Equivalente: 164, equipe: { funileiro: 1, isolador: 1, tst: 1 }, parametros: comTst });
+
+    // produção, horas e dias iguais aos da equipe sem o TST
+    expect(r.producao_m2_dia).toBe(semTst.producao_m2_dia);
+    expect(r.horas_obra).toBe(82);
+    expect(r.dias).toBe(12);
+    expect(r.pessoas).toBe(3);
+    expect(r.funcoes.find((f) => f.funcao === "tst")).toEqual({ funcao: "tst", pessoas: 1, m2_dia: 0, valor_diaria: 450, diarias: 12, subtotal: 5400 });
+    expect(r.valor_total).toBe(semTst.valor_total + 5400);
+  });
+
+  it("equipe só com TST não tem quem produza: sem dias calculados (só com dias à mão)", () => {
+    const comTst = { ...parametros, valor_diaria_tst: 450 };
+    expect(calcularMaoObraEquipe({ m2Equivalente: 100, equipe: { tst: 1 }, parametros: comTst })).toMatchObject({ pessoas: 1, producao_m2_dia: 0, dias: 0, valor_total: 0 });
+    expect(calcularMaoObraEquipe({ m2Equivalente: 100, equipe: { tst: 1 }, parametros: comTst, diasManual: 3 }).valor_total).toBe(1350);
+  });
+
+  it("diária do TST ainda não cadastrada (migração 050 não rodada) vale zero, sem quebrar", () => {
+    const r = calcularMaoObraEquipe({ m2Equivalente: 14, equipe: { funileiro: 1, isolador: 1, tst: 1 }, parametros });
+    expect(r.funcoes.find((f) => f.funcao === "tst")?.subtotal).toBe(0);
+    expect(r.valor_total).toBe(750);
+  });
+
   it("sem equipe (ou com rendimento zerado) não há horas, dias nem valor — e nada quebra", () => {
     const semEquipe = calcularMaoObraEquipe({ m2Equivalente: 100, equipe: { funileiro: 0, isolador: 0, ajudante: 0 }, parametros });
     expect(semEquipe).toMatchObject({ pessoas: 0, producao_m2_dia: 0, horas_obra: 0, dias: 0, valor_total: 0, funcoes: [] });

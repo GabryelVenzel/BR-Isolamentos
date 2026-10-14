@@ -19,7 +19,7 @@
 
 import type { ConfigEmpresa, FuncaoMaoObra, ItemEscopo, ItemOrcamento, Orcamento, PrecoConfig } from "../../types";
 import type { AjustesTrecho, ChaveLinhaAjuste, ItemAdicional, WizardCustosOperacionais, WizardEspecificacoes, WizardItem } from "../../store";
-import { EQUIPE_PADRAO, valorDiariaPadrao, type EquipeMaoObra } from "./maoObraEquipe";
+import { EQUIPE_PADRAO, EQUIPE_VAZIA, funcaoProduz, rendimentoM2Dia, valorDiariaPadrao, type EquipeMaoObra } from "./maoObraEquipe";
 
 /** O que o wizard guarda de um orçamento — a cópia salva junto dele e o que
  * `carregarEstado` (lib/store.ts) recebe de volta. */
@@ -171,14 +171,14 @@ export function reconstruirEstadoWizard(orcamento: Orcamento, config: ConfigEmpr
   let horasUteisDiaOverride: number | null = null;
   const salva = orcamento.mao_obra_equipe;
   if (salva) {
-    equipe = { funileiro: 0, isolador: 0, ajudante: 0 };
+    equipe = { ...EQUIPE_VAZIA };
     for (const f of salva.funcoes) {
       equipe[f.funcao] = f.pessoas;
       if (Math.abs(f.valor_diaria - valorDiariaPadrao(f.funcao, config)) > 0.004) valoresDiariaOverride[f.funcao] = f.valor_diaria;
     }
     diasMaoObraManual = salva.dias_manual ? salva.dias : null;
     horasUteisDiaOverride = orcamento.horas_uteis_dia ?? null;
-    const mudou = salva.funcoes.some((f) => Math.abs(f.m2_dia - (Number(config[`m2_dia_${f.funcao}`]) || 0)) > 0.004);
+    const mudou = salva.funcoes.some((f) => funcaoProduz(f.funcao) && Math.abs(f.m2_dia - rendimentoM2Dia(f.funcao, config)) > 0.004);
     if (mudou && !salva.dias_manual) {
       avisos.push("O rendimento das funções em Configurar Preços mudou desde que este orçamento foi criado — os dias de obra e a mão de obra são recalculados com os valores atuais.");
     }
@@ -196,7 +196,7 @@ export function reconstruirEstadoWizard(orcamento: Orcamento, config: ConfigEmpr
     if (maoObraSalva > 0) {
       const dias = Math.max(1, Math.ceil(Number((horas / horasDia).toFixed(6))));
       const diaria = round2(maoObraSalva / (2 * dias));
-      equipe = { funileiro: 1, isolador: 1, ajudante: 0 };
+      equipe = { ...EQUIPE_VAZIA, funileiro: 1, isolador: 1 };
       valoresDiariaOverride.funileiro = diaria;
       valoresDiariaOverride.isolador = diaria;
       diasMaoObraManual = dias;
@@ -204,7 +204,7 @@ export function reconstruirEstadoWizard(orcamento: Orcamento, config: ConfigEmpr
         `Este orçamento é anterior ao formato de equipe e diárias. Para manter o valor de mão de obra que estava salvo (${formatar(maoObraSalva)}), ele foi convertido em 1 funileiro + 1 isolador por ${dias} ${dias === 1 ? "dia" : "dias"}, com a diária ajustada para ${formatar(diaria)}. Para recalcular pela equipe real, vá em "Equipe e custos", informe as pessoas e apague as diárias ajustadas e os dias manuais.`
       );
     } else {
-      equipe = { funileiro: 0, isolador: 0, ajudante: 0 };
+      equipe = { ...EQUIPE_VAZIA };
       avisos.push("Este orçamento é anterior ao formato de equipe e diárias e estava sem mão de obra — a equipe volta zerada. Informe as pessoas em \"Equipe e custos\" se quiser incluir.");
     }
   }

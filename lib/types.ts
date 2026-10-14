@@ -177,8 +177,10 @@ export interface LinhaDetalhamentoMaterial {
   subtotal: number;
 }
 
-/** Funções de mão de obra orçadas por diária (migração 048). */
-export type FuncaoMaoObra = "funileiro" | "isolador" | "ajudante";
+/** Cargos de mão de obra orçados por diária (migração 048). "tst" —
+ * Técnico de Segurança do Trabalho (migração 050) — entra na equipe e no
+ * custo, mas não produz: não tem rendimento e não reduz os dias de obra. */
+export type FuncaoMaoObra = "funileiro" | "isolador" | "ajudante" | "tst";
 
 /** Mão de obra de uma proposta por EQUIPE e DIÁRIAS (migração 048) — o
  * resultado de lib/usecases/orcamento/maoObraEquipe.ts, guardado junto do
@@ -395,6 +397,9 @@ export interface ConfigEmpresa {
   valor_diaria_funileiro: number;
   valor_diaria_isolador: number;
   valor_diaria_ajudante: number;
+  /** Migração 050 — diária do Técnico de Segurança do Trabalho. Ausente
+   * enquanto a migração não foi rodada. */
+  valor_diaria_tst?: number;
   valor_km_deslocamento: number;
   valor_noite_hospedagem: number;
   /** @deprecated Sem uso — o frete não tem mais preço configurável por

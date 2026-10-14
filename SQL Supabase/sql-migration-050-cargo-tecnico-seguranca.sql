@@ -1,0 +1,32 @@
+-- ============================================================================
+-- Migração 050 — Cargo "Técnico de Segurança do Trabalho (TST)" no orçamento
+-- ============================================================================
+-- A mão de obra do orçamento é por equipe e diárias (migração 048), com três
+-- cargos: funileiro, isolador e ajudante. Esta migração acrescenta o quarto:
+-- o Técnico de Segurança do Trabalho.
+--
+-- O TST acompanha a obra e é cobrado por diária, pelos mesmos dias fechados
+-- da equipe, mas NÃO produz: não tem rendimento (m² por dia), não soma na
+-- produção da equipe e não reduz os dias de obra. Por isso só ganha a coluna
+-- do valor da diária.
+--
+-- O valor nasce ZERADO — cadastre em Configurar Preços → Mão de Obra → Cargos.
+--
+-- NADA é alterado nos dados existentes.
+--
+-- ORDEM: pode rodar antes ou depois de publicar o código. Sem a coluna, o
+-- cargo já aparece no orçamento (com diária R$ 0,00, ajustável em cada
+-- orçamento) e só não aparece em Configurar Preços.
+--
+-- Idempotente — pode rodar mais de uma vez.
+-- ============================================================================
+
+alter table config_empresa add column if not exists valor_diaria_tst numeric(10, 2) not null default 0;
+
+-- ============================================================================
+-- VERIFICAÇÃO
+--
+--   select valor_diaria_funileiro, valor_diaria_isolador, valor_diaria_ajudante, valor_diaria_tst
+--     from config_empresa;
+--   -- valor_diaria_tst = 0 até você cadastrar.
+-- ============================================================================

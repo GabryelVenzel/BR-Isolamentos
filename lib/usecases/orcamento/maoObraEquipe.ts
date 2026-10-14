@@ -3,7 +3,8 @@
 // Substitui o modelo "horas de uma dupla × valor/hora". Agora:
 //
 //   - a equipe da proposta é escolhida por função: quantos funileiros,
-//     isoladores e ajudantes;
+//     isoladores e ajudantes — e, se a obra pedir, Técnico de Segurança do
+//     Trabalho (TST), que é cobrado pelos mesmos dias mas não produz;
 //   - cada função tem o seu rendimento (m² por pessoa por dia) e o seu valor
 //     de diária, configurados em Configurar Preços;
 //   - o trabalho de cada trecho continua saindo dos mesmos fatores de
@@ -28,24 +29,36 @@
 
 import type { ConfigEmpresa, FuncaoMaoObra, MaoObraEquipe } from "../../types";
 
-export const FUNCOES_MAO_OBRA: readonly FuncaoMaoObra[] = ["funileiro", "isolador", "ajudante"];
+export const FUNCOES_MAO_OBRA: readonly FuncaoMaoObra[] = ["funileiro", "isolador", "ajudante", "tst"];
 
 export const LABEL_FUNCAO_MAO_OBRA: Record<FuncaoMaoObra, string> = {
   funileiro: "Funileiro",
   isolador: "Isolador",
   ajudante: "Ajudante",
+  tst: "Técnico de Segurança do Trabalho",
 };
+
+/** Cargos que não executam o isolamento (migração 050): acompanham a obra
+ * pelos mesmos dias e são cobrados por diária, mas não têm rendimento — não
+ * somam na produção da equipe nem reduzem os dias. */
+export const FUNCOES_SEM_RENDIMENTO: readonly FuncaoMaoObra[] = ["tst"];
+
+export function funcaoProduz(funcao: FuncaoMaoObra): boolean {
+  return !FUNCOES_SEM_RENDIMENTO.includes(funcao);
+}
 
 /** Quantas pessoas de cada função. */
 export type EquipeMaoObra = Record<FuncaoMaoObra, number>;
 
-export const EQUIPE_PADRAO: EquipeMaoObra = { funileiro: 1, isolador: 1, ajudante: 0 };
+export const EQUIPE_PADRAO: EquipeMaoObra = { funileiro: 1, isolador: 1, ajudante: 0, tst: 0 };
+export const EQUIPE_VAZIA: EquipeMaoObra = { funileiro: 0, isolador: 0, ajudante: 0, tst: 0 };
 
 export type ParametrosEquipe = Pick<
   ConfigEmpresa,
   | "valor_diaria_funileiro"
   | "valor_diaria_isolador"
   | "valor_diaria_ajudante"
+  | "valor_diaria_tst"
   | "m2_dia_funileiro"
   | "m2_dia_isolador"
   | "m2_dia_ajudante"
@@ -57,6 +70,7 @@ export function valorDiariaPadrao(funcao: FuncaoMaoObra, parametros: ParametrosE
 }
 
 export function rendimentoM2Dia(funcao: FuncaoMaoObra, parametros: ParametrosEquipe): number {
+  if (funcao === "tst") return 0;
   return Number(parametros[`m2_dia_${funcao}`]) || 0;
 }
 

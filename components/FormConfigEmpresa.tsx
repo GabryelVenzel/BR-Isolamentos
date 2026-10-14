@@ -12,9 +12,6 @@ interface Props {
 // orçamento o frete é digitado direto em R$ (não depende de nenhum preço
 // configurado aqui).
 const CAMPOS_CUSTOS: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo: string }> = [
-  { nome: "valor_diaria_funileiro", label: "Diária — Funileiro", sufixo: "R$/dia" },
-  { nome: "valor_diaria_isolador", label: "Diária — Isolador", sufixo: "R$/dia" },
-  { nome: "valor_diaria_ajudante", label: "Diária — Ajudante", sufixo: "R$/dia" },
   { nome: "valor_km_deslocamento", label: "Deslocamento", sufixo: "R$/km" },
   { nome: "valor_noite_hospedagem", label: "Hospedagem", sufixo: "R$/noite" },
   { nome: "valor_diaria_aluguel_carro", label: "Aluguel de carro", sufixo: "R$/diária" },
@@ -51,10 +48,18 @@ const CAMPOS_QUANTIFICACAO: Array<{ nome: keyof ConfigEmpresa; label: string; su
   { nome: "silicone_intervalo_m2", label: "1 frasco de silicone a cada", sufixo: "m²" },
 ];
 
+// Cargos da mão de obra (migrações 048 e 050) — cada um com a sua diária e,
+// quando executa o isolamento, o seu rendimento. O TST só tem diária: é
+// cobrado pelos mesmos dias da equipe, mas não produz. Um cargo cuja coluna
+// ainda não existe no banco (migração não rodada) não aparece.
+const CARGOS: Array<{ label: string; diaria: keyof ConfigEmpresa; rendimento: keyof ConfigEmpresa | null }> = [
+  { label: "Funileiro", diaria: "valor_diaria_funileiro", rendimento: "m2_dia_funileiro" },
+  { label: "Isolador", diaria: "valor_diaria_isolador", rendimento: "m2_dia_isolador" },
+  { label: "Ajudante", diaria: "valor_diaria_ajudante", rendimento: "m2_dia_ajudante" },
+  { label: "Técnico de Segurança do Trabalho (TST)", diaria: "valor_diaria_tst", rendimento: null },
+];
+
 const CAMPOS_MAO_OBRA: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo: string }> = [
-  { nome: "m2_dia_funileiro", label: "Rendimento — Funileiro", sufixo: "m²/pessoa/dia" },
-  { nome: "m2_dia_isolador", label: "Rendimento — Isolador", sufixo: "m²/pessoa/dia" },
-  { nome: "m2_dia_ajudante", label: "Rendimento — Ajudante", sufixo: "m²/pessoa/dia" },
   { nome: "eficiencia_tubulacao_pequena", label: 'Eficiência tubulação < 3"', sufixo: "× (ex.: 0.75)" },
   { nome: "eficiencia_tubulacao_media", label: 'Eficiência tubulação 3"–6"', sufixo: "× (ex.: 0.85)" },
   { nome: "eficiencia_curva", label: "Eficiência curva", sufixo: "× (ex.: 0.75)" },
@@ -268,6 +273,63 @@ export default function FormConfigEmpresa({ config }: Props) {
         </div>
       </div>
 
+      {/* Mão de obra — seção própria (pedido explícito): só o que é de mão
+          de obra, cargos com diária e rendimento + eficiência e jornada. */}
+      <div className="space-y-6 border-t border-gray-100 pt-8">
+        <div>
+          <h2 className="text-lg font-semibold">Mão de Obra</h2>
+          <p className="text-sm text-gray-500">
+            A mão de obra do orçamento é por equipe e por diária: em cada orçamento você escolhe quantas pessoas de cada cargo, e todos
+            são cobrados pelos mesmos dias fechados de obra.
+          </p>
+        </div>
+
+        <div>
+          <h3 className="mb-2 text-sm font-semibold text-gray-600">Cargos</h3>
+          <p className="mb-3 text-xs text-gray-500">
+            "Diária" é o valor de UMA pessoa do cargo por dia. "Rendimento" é quanto UMA pessoa produz em um dia de trabalho, a 100% de
+            eficiência — a produção da equipe é a soma das pessoas escolhidas. O Técnico de Segurança do Trabalho acompanha a obra e
+            entra no custo, mas não produz: não tem rendimento e não reduz os dias.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200 text-sm">
+              <thead className="table-header">
+                <tr>
+                  <th className="py-2 pr-4 text-left">Cargo</th>
+                  <th className="py-2 pr-4 text-left">Diária (R$ por pessoa por dia)</th>
+                  <th className="py-2 text-left">Rendimento (m² por pessoa por dia)</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {CARGOS.filter((cargo) => config[cargo.diaria] !== undefined).map((cargo) => (
+                  <tr key={cargo.diaria}>
+                    <td className="py-2 pr-4 font-medium">{cargo.label}</td>
+                    <td className="py-2 pr-4">
+                      <div className="max-w-[12rem]">{numero(cargo.diaria)}</div>
+                    </td>
+                    <td className="py-2">
+                      {cargo.rendimento ? <div className="max-w-[12rem]">{numero(cargo.rendimento)}</div> : <span className="text-gray-400">Não produz</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <div>
+          <h3 className="mb-2 text-sm font-semibold text-gray-600">Eficiência e jornada</h3>
+          <p className="mb-3 text-xs text-gray-500">
+            A metragem de cada trecho é dividida pela eficiência (diâmetro da tubulação × curva × altura × fator BR — acima de 6" a
+            eficiência de diâmetro é 1, entre 3" e 6" usa "Eficiência tubulação 3"–6"", abaixo de 3" usa "Eficiência tubulação &lt; 3"")
+            e o resultado vira horas de obra. As horas são sempre arredondadas para cima em dias fechados de "Horas úteis por dia".
+            Cada orçamento pode ajustar as horas úteis na etapa "Equipe e custos", quando deslocamento ou liberação de acesso reduzem
+            o tempo produtivo.
+          </p>
+          {camposGrid(CAMPOS_MAO_OBRA, "sm:grid-cols-2 lg:grid-cols-3")}
+        </div>
+      </div>
+
       <div className="space-y-6 border-t border-gray-100 pt-8">
         <h2 className="text-lg font-semibold">Parâmetros de Quantificação</h2>
 
@@ -284,21 +346,6 @@ export default function FormConfigEmpresa({ config }: Props) {
             .
           </p>
           {camposGrid(CAMPOS_QUANTIFICACAO, "sm:grid-cols-2 lg:grid-cols-3")}
-        </div>
-
-        <div>
-          <h3 className="mb-2 text-sm font-semibold text-gray-600">Mão de obra automática</h3>
-          <p className="mb-3 text-xs text-gray-500">
-            A mão de obra é orçada por equipe e por diária. "Rendimento" é quanto UMA pessoa de cada função produz
-            em um dia de trabalho, a 100% de eficiência; a produção da equipe é a soma das pessoas escolhidas no
-            orçamento. A metragem de cada trecho é dividida pela eficiência (diâmetro da tubulação × curva × altura ×
-            fator BR — acima de 6" a eficiência de diâmetro é 1, entre 3" e 6" usa "Eficiência tubulação 3"–6"",
-            abaixo de 3" usa "Eficiência tubulação &lt; 3"") e o resultado vira horas de obra. As horas são sempre
-            arredondadas para cima em dias fechados de "Horas úteis por dia", e cada pessoa da equipe é cobrada por
-            esses dias, pelo valor da diária da função (em "Custos operacionais", acima). Cada orçamento pode ajustar
-            as horas úteis do dia na etapa "Equipe e custos", quando deslocamento ou liberação de acesso reduzem o tempo produtivo.
-          </p>
-          {camposGrid(CAMPOS_MAO_OBRA, "sm:grid-cols-2 lg:grid-cols-3")}
         </div>
 
         <div>

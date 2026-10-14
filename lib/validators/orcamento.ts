@@ -118,7 +118,7 @@ export const CreateOrcamentoSchema = z.object({
       pessoas: z.number().int().nonnegative(),
       funcoes: z.array(
         z.object({
-          funcao: z.enum(["funileiro", "isolador", "ajudante"]),
+          funcao: z.enum(["funileiro", "isolador", "ajudante", "tst"]),
           pessoas: z.number().int().positive(),
           m2_dia: z.number().nonnegative(),
           valor_diaria: z.number().nonnegative(),

@@ -30,7 +30,9 @@ export type { ParametrosQuantificacao, QuantificacaoMateriais } from "./quantifi
 export { calcularMaoObraAutomatica, calcularMaoObraPorItens } from "./calcularMaoObraAutomatica";
 export {
   EQUIPE_PADRAO,
+  EQUIPE_VAZIA,
   FUNCOES_MAO_OBRA,
+  funcaoProduz,
   LABEL_FUNCAO_MAO_OBRA,
   calcularMaoObraEquipe,
   diasFechados,
