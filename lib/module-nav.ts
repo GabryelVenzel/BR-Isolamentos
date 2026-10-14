@@ -42,6 +42,8 @@ export const FINANCEIRO_SUBNAV: ModuleSubNavItem[] = [
 export const RH_SUBNAV: ModuleSubNavItem[] = [
   { href: "/rh", label: "Empresa" },
   { href: "/rh/funcionarios", label: "Funcionários" },
+  // Migração 052 — tipos de documento e documentos obrigatórios da empresa.
+  { href: "/rh/configuracoes", label: "Configurações" },
   // Usuários e níveis de acesso (migração 039) — só administradores veem.
   { href: "/rh/usuarios", label: "Usuários", apenasAdmin: true },
 ];

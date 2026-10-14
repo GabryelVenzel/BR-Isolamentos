@@ -5,6 +5,7 @@ import { toast } from "./toast";
 import { createSupabaseBrowserClient } from "@/lib/supabase/client";
 import { urlArquivo } from "@/lib/arquivos";
 import SeloValidade from "@/components/ui/SeloValidade";
+import { documentosVigentes, validadePadrao, type TipoDocumentoRh } from "@/lib/rh";
 import { formatarData } from "@/lib/format";
 import type { FuncionarioAnexo } from "@/lib/types/domain";
 import { confirmar } from "@/components/ui/confirmar";
@@ -29,6 +30,9 @@ function formatarTamanho(bytes: number): string {
 
 interface Props {
   funcionarioId: string;
+  /** Tipos padrão (RH → Configurações, migração 052). */
+  tiposDocumento?: TipoDocumentoRh[];
+  diasAviso?: number;
 }
 
 /** Documentações do funcionário (ASO, NRs, certificações, contratos...) — só
@@ -37,13 +41,33 @@ interface Props {
  * próprio (digitado antes do upload, igual DocumentosEmpresa.tsx), não só o
  * nome cru do arquivo — pedido explícito ("ASO NRs etc"), e pode ser
  * renomeado depois. */
-export default function FuncionarioAnexos({ funcionarioId }: Props) {
+export default function FuncionarioAnexos({ funcionarioId, tiposDocumento = [], diasAviso = 30 }: Props) {
   const [anexos, setAnexos] = useState<FuncionarioAnexo[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [enviando, setEnviando] = useState(false);
   const [novoNome, setNovoNome] = useState("");
   const [novaValidade, setNovaValidade] = useState("");
+  // Migração 052 — tipo padrão e emissão: a validade é calculada pelo tipo.
+  const [novoTipo, setNovoTipo] = useState("");
+  const [novaEmissao, setNovaEmissao] = useState("");
   const [validadeEditada, setValidadeEditada] = useState("");
+  const [tipoEditado, setTipoEditado] = useState("");
+  const [emissaoEditada, setEmissaoEditada] = useState("");
+  const tipoPorId = (id: string | null | undefined) => tiposDocumento.find((t) => t.id === id);
+
+  // Escolher o tipo preenche o nome; emissão + tipo preenchem a validade.
+  function escolherTipo(id: string) {
+    setNovoTipo(id);
+    const tipo = tipoPorId(id);
+    if (tipo) setNovoNome(tipo.nome);
+    const validade = validadePadrao(tipo, novaEmissao);
+    if (validade) setNovaValidade(validade);
+  }
+  function mudarEmissao(data: string) {
+    setNovaEmissao(data);
+    const validade = validadePadrao(tipoPorId(novoTipo), data);
+    if (validade) setNovaValidade(validade);
+  }
   const [editandoId, setEditandoId] = useState<string | null>(null);
   const [nomeEditado, setNomeEditado] = useState("");
 
@@ -101,6 +125,8 @@ export default function FuncionarioAnexos({ funcionarioId }: Props) {
         body: JSON.stringify({
           nome: novoNome.trim(),
           validade: novaValidade || null,
+          tipo_id: novoTipo || null,
+          data_emissao: novaEmissao || null,
           nome_arquivo: arquivo.name,
           tipo_arquivo: extensao(arquivo.name),
           tamanho_bytes: arquivo.size,
@@ -118,6 +144,8 @@ export default function FuncionarioAnexos({ funcionarioId }: Props) {
       setAnexos((prev) => [payload.data, ...prev]);
       setNovoNome("");
       setNovaValidade("");
+      setNovoTipo("");
+      setNovaEmissao("");
     } catch (error) {
       // Bug relatado em AnexosLead.tsx (mesmo padrão aqui): faltava este
       // `catch`. Sem ele, qualquer exceção (rede, CORS, SDK do Supabase
@@ -134,6 +162,8 @@ export default function FuncionarioAnexos({ funcionarioId }: Props) {
     setEditandoId(anexo.id);
     setNomeEditado(anexo.nome);
     setValidadeEditada(anexo.validade ?? "");
+    setTipoEditado(anexo.tipo_id ?? "");
+    setEmissaoEditada(anexo.data_emissao ?? "");
   }
 
   async function salvarEdicao(id: string) {
@@ -145,14 +175,14 @@ export default function FuncionarioAnexos({ funcionarioId }: Props) {
       const response = await fetch(`/api/rh/funcionarios/${funcionarioId}/anexos/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nome: nomeEditado.trim(), validade: validadeEditada || null }),
+        body: JSON.stringify({ nome: nomeEditado.trim(), validade: validadeEditada || null, tipo_id: tipoEditado || null, data_emissao: emissaoEditada || null }),
       });
       const payload = await response.json();
       if (!response.ok || !payload.success) {
         toast.erro(payload.error ?? "Não foi possível renomear o documento.");
         return;
       }
-      toast.sucesso("Documento renomeado.");
+      toast.sucesso("Documento atualizado.");
       setAnexos((prev) => prev.map((a) => (a.id === id ? payload.data : a)));
       setEditandoId(null);
     } catch {
@@ -179,6 +209,11 @@ export default function FuncionarioAnexos({ funcionarioId }: Props) {
     }
   }
 
+  // Renovado (migração 052): de cada tipo só o mais novo vale; os demais
+  // aparecem como substituídos.
+  const vigentes = new Set(documentosVigentes(anexos).map((a) => a.id));
+  const substituidos = new Set(anexos.filter((a) => a.tipo_id && !vigentes.has(a.id)).map((a) => a.id));
+
   return (
     <div className="rounded-card border border-gray-200 p-4">
       <h3 className="mb-3 font-montserrat text-xs font-bold uppercase text-brand">
@@ -203,9 +238,30 @@ export default function FuncionarioAnexos({ funcionarioId }: Props) {
                         onChange={(e) => setNomeEditado(e.target.value)}
                         autoFocus
                       />
+                      <select aria-label="Tipo" className="input-field py-1 text-sm" value={tipoEditado} onChange={(e) => setTipoEditado(e.target.value)}>
+                        <option value="">Sem tipo</option>
+                        {tiposDocumento.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.nome}
+                          </option>
+                        ))}
+                      </select>
+                      <input
+                        type="date"
+                        aria-label="Emissão"
+                        title="Emissão"
+                        className="input-field py-1 text-sm"
+                        value={emissaoEditada}
+                        onChange={(e) => {
+                          setEmissaoEditada(e.target.value);
+                          const validade = validadePadrao(tipoPorId(tipoEditado), e.target.value);
+                          if (validade) setValidadeEditada(validade);
+                        }}
+                      />
                       <input
                         type="date"
                         aria-label="Validade"
+                        title="Validade"
                         className="input-field py-1 text-sm"
                         value={validadeEditada}
                         onChange={(e) => setValidadeEditada(e.target.value)}
@@ -223,9 +279,24 @@ export default function FuncionarioAnexos({ funcionarioId }: Props) {
                     {anexo.nome_arquivo} · {formatarTamanho(anexo.tamanho_bytes)} · {formatarData(anexo.data_adicao)}
                   </p>
                   {editandoId !== anexo.id && (
-                    <p className="mt-1 text-xs text-gray-600">
-                      Validade: <SeloValidade validade={anexo.validade} />
-                    </p>
+                    <>
+                      {(tipoPorId(anexo.tipo_id) || anexo.data_emissao) && (
+                        <p className="mt-1 text-xs text-gray-500">
+                          {tipoPorId(anexo.tipo_id)?.nome}
+                          {tipoPorId(anexo.tipo_id) && anexo.data_emissao ? " · " : ""}
+                          {anexo.data_emissao ? `emitido em ${formatarData(anexo.data_emissao)}` : ""}
+                        </p>
+                      )}
+                      <p className="mt-1 text-xs text-gray-600">
+                        {substituidos.has(anexo.id) ? (
+                          <span className="text-gray-400">Substituído por um documento mais novo do mesmo tipo — não conta como pendência.</span>
+                        ) : (
+                          <>
+                            Validade: <SeloValidade validade={anexo.validade} diasAviso={diasAviso} />
+                          </>
+                        )}
+                      </p>
+                    </>
                   )}
                 </div>
               </div>
@@ -250,23 +321,33 @@ export default function FuncionarioAnexos({ funcionarioId }: Props) {
       )}
 
       {anexos.length < LIMITE_ANEXOS && (
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-          <input
-            className="input-field flex-1"
-            placeholder='Nome do documento (ex.: "ASO", "NR-35"...)'
-            value={novoNome}
-            onChange={(e) => setNovoNome(e.target.value)}
-          />
-          <input
-            type="date"
-            aria-label="Validade do documento (opcional)"
-            title="Validade (opcional)"
-            className="input-field sm:w-44"
-            value={novaValidade}
-            onChange={(e) => setNovaValidade(e.target.value)}
-          />
+        <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-[1.2fr_1.4fr_auto_auto_auto]">
+          <div>
+            <label className="label-field">Tipo</label>
+            <select className="input-field" aria-label="Tipo do documento" value={novoTipo} onChange={(e) => escolherTipo(e.target.value)}>
+              <option value="">Outro (sem tipo)</option>
+              {tiposDocumento.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.nome}
+                  {t.validade_meses ? ` — vale ${t.validade_meses} ${t.validade_meses === 1 ? "mês" : "meses"}` : ""}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="label-field">Nome</label>
+            <input className="input-field" placeholder='Ex.: "ASO", "NR-35"...' value={novoNome} onChange={(e) => setNovoNome(e.target.value)} />
+          </div>
+          <div>
+            <label className="label-field">Emissão</label>
+            <input type="date" aria-label="Data de emissão" className="input-field" value={novaEmissao} onChange={(e) => mudarEmissao(e.target.value)} />
+          </div>
+          <div>
+            <label className="label-field">Validade</label>
+            <input type="date" aria-label="Validade do documento (opcional)" className="input-field" value={novaValidade} onChange={(e) => setNovaValidade(e.target.value)} />
+          </div>
           <label
-            className={`flex cursor-pointer items-center justify-center whitespace-nowrap rounded-lg border-2 border-dashed p-2 px-4 text-sm ${
+            className={`flex cursor-pointer items-center justify-center self-end whitespace-nowrap rounded-lg border-2 border-dashed px-4 py-2.5 text-sm ${
               novoNome.trim() ? "border-brand text-brand hover:bg-brand-light/40" : "border-gray-300 text-gray-400"
             }`}
           >
@@ -275,7 +356,11 @@ export default function FuncionarioAnexos({ funcionarioId }: Props) {
           </label>
         </div>
       )}
-      <p className="mt-1 text-xs text-gray-400">PDF, Word, Excel ou imagem — até 20 MB por arquivo, até {LIMITE_ANEXOS} documentos.</p>
+      <p className="mt-1 text-xs text-gray-400">
+        Escolha o tipo e a data de emissão: a validade é calculada pelo prazo padrão do tipo (ajustável). Ao renovar um documento, anexe o novo
+        do mesmo tipo — o antigo fica guardado e deixa de contar como pendência. PDF, Word, Excel ou imagem — até 20 MB, até {LIMITE_ANEXOS}{" "}
+        documentos.
+      </p>
     </div>
   );
 }

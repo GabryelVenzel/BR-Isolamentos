@@ -6,6 +6,8 @@ import { confirmar } from "@/components/ui/confirmar";
 import FecharComEsc from "@/components/ui/FecharComEsc";
 import type { DocumentoVencidoDeFuncionario, FuncionarioParaObra } from "@/lib/contexts/compras";
 import { formatarData } from "@/lib/format";
+import { hojeBrasilia } from "@/lib/financeiro";
+import { LABEL_AUSENCIA, ausenciasNoPeriodo, type TipoAusencia } from "@/lib/rh";
 import type { ServicoFuncionarioExecucao, TipoTrabalhoOperacional } from "@/lib/types/domain";
 import MultiSelectTiposTrabalho, { TIPOS_TRABALHO_OPCOES } from "./MultiSelectTiposTrabalho";
 import { toast } from "./toast";
@@ -15,6 +17,9 @@ const LABEL_TIPO: Record<string, string> = Object.fromEntries(TIPOS_TRABALHO_OPC
 interface Props {
   servicoId: string;
   execucoes: ServicoFuncionarioExecucao[];
+  /** Período da obra — para avisar de férias/afastamento que caiam nele
+   * (migração 052). Sem início, avisa de qualquer ausência de hoje em diante. */
+  periodo?: { inicio: string | null; fim: string | null };
   /** Recarrega o serviço depois de alocar ou remover alguém. */
   onMudou: () => void;
 }
@@ -23,7 +28,7 @@ interface Props {
  * obra e as funções que exercem nela — o equivalente, para funcionários, da
  * seção de Parceiros (migração 044). Cada funcionário alocado conta como
  * uma pessoa mobilizada na Agenda. */
-export default function EquipePropriaObra({ servicoId, execucoes, onMudou }: Props) {
+export default function EquipePropriaObra({ servicoId, execucoes, periodo, onMudou }: Props) {
   const [adicionando, setAdicionando] = useState(false);
 
   async function remover(execucao: ServicoFuncionarioExecucao) {
@@ -72,6 +77,7 @@ export default function EquipePropriaObra({ servicoId, execucoes, onMudou }: Pro
       {adicionando && (
         <ModalAdicionarFuncionario
           servicoId={servicoId}
+          periodo={periodo}
           jaAlocados={execucoes.map((e) => e.funcionario_id)}
           onFechar={() => setAdicionando(false)}
           onAdicionado={() => {
@@ -86,17 +92,20 @@ export default function EquipePropriaObra({ servicoId, execucoes, onMudou }: Pro
 
 function ModalAdicionarFuncionario({
   servicoId,
+  periodo,
   jaAlocados,
   onFechar,
   onAdicionado,
 }: {
   servicoId: string;
+  periodo?: { inicio: string | null; fim: string | null };
   jaAlocados: string[];
   onFechar: () => void;
   onAdicionado: () => void;
 }) {
   const [funcionarios, setFuncionarios] = useState<FuncionarioParaObra[]>([]);
   const [vencidos, setVencidos] = useState<DocumentoVencidoDeFuncionario[]>([]);
+  const [ausencias, setAusencias] = useState<Array<{ funcionario_id: string; tipo: string; inicio: string; fim: string }>>([]);
   const [funcionarioId, setFuncionarioId] = useState("");
   const [tipos, setTipos] = useState<TipoTrabalhoOperacional[]>([]);
   const [salvando, setSalvando] = useState(false);
@@ -109,12 +118,20 @@ function ModalAdicionarFuncionario({
         if (!p.success) return;
         setFuncionarios(p.data.funcionarios);
         setVencidos(p.data.documentosVencidos);
+        setAusencias(p.data.ausencias ?? []);
       })
       .catch(() => undefined);
   }, []);
 
   const disponiveis = funcionarios.filter((f) => !jaAlocados.includes(f.id));
   const vencidosDoFuncionario = vencidos.filter((d) => d.funcionarioId === funcionarioId);
+  // Férias/atestado/afastamento que caem no período da obra (migração 052).
+  const ausenciasNaObra = funcionarioId
+    ? ausenciasNoPeriodo(ausencias, funcionarioId, periodo?.inicio ?? hojeBrasilia(), periodo?.inicio ? periodo.fim : null)
+    : [];
+  const textoAusencias = ausenciasNaObra
+    .map((a) => `${LABEL_AUSENCIA[a.tipo as TipoAusencia] ?? a.tipo} de ${formatarData(a.inicio)} a ${formatarData(a.fim)}`)
+    .join("; ");
 
   // Ao escolher a pessoa, as funções já vêm marcadas com as do cadastro dela.
   function escolher(id: string) {
@@ -126,6 +143,16 @@ function ModalAdicionarFuncionario({
     if (!funcionarioId) return setErro("Selecione o funcionário.");
     if (tipos.length === 0) return setErro("Selecione pelo menos uma função.");
     setErro(null);
+
+    // Ausência no período da obra: avisa e pede confirmação.
+    if (ausenciasNaObra.length > 0) {
+      const seguir = await confirmar(`Este funcionário estará ausente durante a obra: ${textoAusencias}. Alocar mesmo assim?`, {
+        titulo: "Funcionário ausente no período",
+        confirmarLabel: "Alocar mesmo assim",
+        perigo: false,
+      });
+      if (!seguir) return;
+    }
 
     // Documentação vencida: avisa e pede confirmação, como para parceiros.
     if (vencidosDoFuncionario.length > 0) {
@@ -183,6 +210,11 @@ function ModalAdicionarFuncionario({
             </select>
             {funcionarios.length === 0 && (
               <p className="mt-1 text-xs text-gray-500">Nenhum funcionário ativo cadastrado. O cadastro fica em RH → Funcionários.</p>
+            )}
+            {ausenciasNaObra.length > 0 && (
+              <p role="alert" className="mt-2 rounded-input bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                Ausente no período da obra: {textoAusencias}.
+              </p>
             )}
             {vencidosDoFuncionario.length > 0 && (
               <p role="alert" className="mt-2 rounded-input bg-red-50 px-3 py-2 text-xs text-status-error">

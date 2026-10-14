@@ -495,7 +495,12 @@ export default function ServicoDetailModal({ servicoId, onFechar, onServicoMudou
                     </div>
                   </div>
 
-                  <EquipePropriaObra servicoId={servicoId} execucoes={servico.funcionarios_execucao ?? []} onMudou={carregar} />
+                  <EquipePropriaObra
+                    servicoId={servicoId}
+                    execucoes={servico.funcionarios_execucao ?? []}
+                    periodo={{ inicio: servico.data_inicio, fim: servico.data_fim_prevista }}
+                    onMudou={carregar}
+                  />
 
                   <div className="space-y-4 border-t border-gray-100 pt-4">
                     <h3 className="font-montserrat text-xs font-bold uppercase text-brand">

@@ -514,6 +514,11 @@ export interface ConfigEmpresa {
    * isolamento existente (ex.: 0,80 = o trecho rende 80% do normal). Ausente
    * enquanto a migração não foi rodada (vale 1, sem efeito). */
   eficiencia_remocao?: number;
+  /** Migração 052 — tipos de documento de funcionário e documentos
+   * obrigatórios da empresa (listas editáveis em RH → Configurações; ver
+   * lib/rh.ts). */
+  rh_tipos_documento?: unknown;
+  rh_documentos_obrigatorios?: unknown;
   /** Migração 051 — catálogo de itens de execução padrão. */
   itens_execucao_padrao?: ItemExecucaoPadrao[] | null;
   /** Fator de rendimento da dupla brasileira — sempre aplicado. */

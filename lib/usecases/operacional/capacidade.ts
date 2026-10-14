@@ -1,6 +1,8 @@
 import type { Funcionario, Parceiro, Servico } from "../../types/domain";
 
 /** Identificador da linha "Equipe própria" na capacidade (não é um parceiro). */
+import { ausenteNoDia } from "../../rh";
+
 export const ID_EQUIPE_PROPRIA = "equipe-propria";
 
 // Cálculo de capacidade (mobilizado/disponível) por dia — função pura, sem
@@ -57,7 +59,10 @@ export function calcularCapacidadeDia(
   data: string,
   parceiros: Parceiro[],
   servicosAtivos: Servico[],
-  funcionarios: Array<Pick<Funcionario, "id" | "status" | "tipos_trabalho">> = []
+  funcionarios: Array<Pick<Funcionario, "id" | "status" | "tipos_trabalho">> = [],
+  /** Férias, atestados, afastamentos (migração 052): quem está ausente no
+   * dia não conta como disponível. */
+  ausencias: Array<{ funcionario_id: string; inicio: string; fim: string }> = []
 ): CapacidadeDia {
   const porParceiro: CapacidadeParceiroDia[] = parceiros
     // Migração 027 — só parceiros que fornecem mão de obra (prestador/ambos)
@@ -94,10 +99,11 @@ export function calcularCapacidadeDia(
       };
     });
 
-  // Equipe própria (migração 044): cada funcionário ATIVO é uma pessoa de
+  // Equipe própria (migração 044): cada funcionário ATIVO e não ausente no
+  // dia (férias, atestado... — migração 052) é uma pessoa de
   // capacidade; está mobilizado no dia se estiver alocado em algum serviço
   // ativo (a mesma pessoa em duas obras no mesmo dia conta uma vez só).
-  const ativos = funcionarios.filter((f) => f.status === "ativo");
+  const ativos = funcionarios.filter((f) => f.status === "ativo" && !ausenteNoDia(ausencias, f.id, data));
   if (ativos.length > 0) {
     const idsAtivos = new Set(ativos.map((f) => f.id));
     const alocacoes = servicosAtivos.flatMap((s) =>
@@ -177,7 +183,8 @@ export function calcularCapacidadeMes(
   mes: number,
   parceiros: Parceiro[],
   servicosDoMes: Servico[],
-  funcionarios: Array<Pick<Funcionario, "id" | "status" | "tipos_trabalho">> = []
+  funcionarios: Array<Pick<Funcionario, "id" | "status" | "tipos_trabalho">> = [],
+  ausencias: Array<{ funcionario_id: string; inicio: string; fim: string }> = []
 ): CapacidadeResumoDia[] {
   const ultimoDia = new Date(ano, mes, 0).getDate();
   const resultado: CapacidadeResumoDia[] = [];
@@ -187,7 +194,7 @@ export function calcularCapacidadeMes(
     const servicosAtivosNoDia = servicosDoMes.filter(
       (s) => s.data_inicio && s.data_inicio <= dataIso && (!s.data_fim_prevista || s.data_fim_prevista >= dataIso)
     );
-    const { totalDisponivel, totalMobilizado, totalLivre } = calcularCapacidadeDia(dataIso, parceiros, servicosAtivosNoDia, funcionarios);
+    const { totalDisponivel, totalMobilizado, totalLivre } = calcularCapacidadeDia(dataIso, parceiros, servicosAtivosNoDia, funcionarios, ausencias);
     resultado.push({
       data: dataIso,
       totalDisponivel,

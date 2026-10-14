@@ -9,6 +9,19 @@ interface Params {
   params: { id: string };
 }
 
+/** GET: ficha completa (cadastro + dados sensíveis, migração 052). */
+export async function GET(_request: Request, { params }: Params) {
+  const ctx = createRhContext(createSupabaseServerClient());
+
+  try {
+    return NextResponse.json(apiSuccess(await ctx.buscarFuncionario(params.id)));
+  } catch (error) {
+    logger.error("Falha ao buscar funcionário", error, { id: params.id });
+    const { message, statusCode } = toHttpError(error);
+    return NextResponse.json(apiError(message), { status: statusCode });
+  }
+}
+
 export async function PATCH(request: Request, { params }: Params) {
   const ctx = createRhContext(createSupabaseServerClient());
   const body = await request.json().catch(() => null);

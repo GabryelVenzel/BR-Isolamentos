@@ -10,6 +10,7 @@ import {
   AgendamentoRepository,
   FornecedorAnexoRepository,
   FornecedorRepository,
+  FuncionarioAusenciaRepository,
   FuncionarioRepository,
   HistoricoServicoRepository,
   InteracaoServicoRepository,
@@ -81,6 +82,9 @@ export function createOperacionalContext(supabase: SupabaseClient) {
   // de funcionários (sem RH nem Operacional) simplesmente não os vê na conta.
   const funcionarioRepo = new FuncionarioRepository(supabase);
   const funcionariosAtivos = () => funcionarioRepo.listar({ status: "ativo" }).catch(() => []);
+  // Férias/afastamentos (migração 052) a partir de uma data — tira da
+  // capacidade quem está fora no dia.
+  const ausenciasDesde = (data: string) => new FuncionarioAusenciaRepository(supabase).listarAPartirDe(data);
 
   return {
     parceiroRepo,
@@ -259,12 +263,13 @@ export function createOperacionalContext(supabase: SupabaseClient) {
     // --- Capacidade ---
 
     async obterCapacidadeDia(data: string): Promise<CapacidadeDia> {
-      const [parceiros, servicosAtivos, funcionarios] = await Promise.all([
+      const [parceiros, servicosAtivos, funcionarios, ausencias] = await Promise.all([
         parceiroRepo.listar({ ativo: true }),
         servicoRepo.listarAtivosNoDia(data),
         funcionariosAtivos(),
+        ausenciasDesde(data),
       ]);
-      return calcularCapacidadeDia(data, parceiros, servicosAtivos, funcionarios);
+      return calcularCapacidadeDia(data, parceiros, servicosAtivos, funcionarios, ausencias);
     },
 
     /** Resumo dia-a-dia do mês inteiro (grid de cor do calendário da Agenda) —
@@ -274,12 +279,13 @@ export function createOperacionalContext(supabase: SupabaseClient) {
       const dataInicio = `${ano}-${String(mes).padStart(2, "0")}-01`;
       const dataFim = `${ano}-${String(mes).padStart(2, "0")}-${String(ultimoDia).padStart(2, "0")}`;
 
-      const [parceiros, servicosDoMes, funcionarios] = await Promise.all([
+      const [parceiros, servicosDoMes, funcionarios, ausencias] = await Promise.all([
         parceiroRepo.listar({ ativo: true }),
         servicoRepo.listarAtivosNoIntervalo(dataInicio, dataFim),
         funcionariosAtivos(),
+        ausenciasDesde(`${ano}-${String(mes).padStart(2, "0")}-01`),
       ]);
-      return calcularCapacidadeMes(ano, mes, parceiros, servicosDoMes, funcionarios);
+      return calcularCapacidadeMes(ano, mes, parceiros, servicosDoMes, funcionarios, ausencias);
     },
 
     // --- Relatórios ---

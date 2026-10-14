@@ -1,12 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { toast } from "@/components/modules/rh/toast";
-import ModalFuncionario from "@/components/modules/rh/ModalFuncionario";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { formatarData } from "@/lib/format";
+import { LABEL_AUSENCIA, LABEL_SITUACAO_DOCUMENTACAO, LABEL_VINCULO, type TipoAusencia } from "@/lib/rh";
 import type { Funcionario } from "@/lib/types/domain";
-import { confirmar } from "@/components/ui/confirmar";
-import { Pencil, Trash2 } from "lucide-react";
 
 const LABEL_STATUS: Record<string, string> = { ativo: "Ativo", inativo: "Inativo", desligado: "Desligado" };
 const CLASSE_STATUS: Record<string, string> = {
@@ -14,55 +13,62 @@ const CLASSE_STATUS: Record<string, string> = {
   inativo: "bg-secondary-light text-brand",
   desligado: "bg-gray-100 text-gray-500",
 };
+const CLASSE_DOCUMENTACAO: Record<string, string> = {
+  em_dia: "bg-accent-light text-accent-dark",
+  vencendo: "bg-secondary-light text-brand",
+  vencido: "bg-red-100 text-status-error",
+  sem_documentos: "bg-gray-100 text-gray-500",
+};
 
+/** Lista de funcionários (migração 052): situação da documentação de cada
+ * um (em dia, vencendo, vencido, sem documentos — só conta o documento mais
+ * novo de cada tipo), vínculo e quem está ausente hoje. A ficha completa
+ * abre em página própria. */
 export default function FuncionariosPage() {
+  const router = useRouter();
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [busca, setBusca] = useState("");
-  const [editando, setEditando] = useState<Funcionario | "novo" | null>(null);
+  const [status, setStatus] = useState("ativo");
 
   const carregar = useCallback(async () => {
     setCarregando(true);
     try {
       const params = new URLSearchParams();
       if (busca) params.set("busca", busca);
-      const response = await fetch(`/api/rh/funcionarios?${params.toString()}`);
-      const payload = await response.json();
+      if (status) params.set("status", status);
+      const payload = await fetch(`/api/rh/funcionarios?${params.toString()}`).then((r) => r.json());
       if (payload.success) setFuncionarios(payload.data);
     } finally {
       setCarregando(false);
     }
-  }, [busca]);
+  }, [busca, status]);
 
   useEffect(() => {
     const timeout = setTimeout(carregar, 300);
     return () => clearTimeout(timeout);
   }, [carregar]);
 
-  async function excluir(funcionario: Funcionario) {
-    if (!(await confirmar(`Excluir o funcionário "${funcionario.nome}"? Todos os documentos anexados dele também serão removidos.`))) return;
-    const response = await fetch(`/api/rh/funcionarios/${funcionario.id}`, { method: "DELETE" });
-    const data = await response.json();
-    if (!response.ok || !data.success) {
-      toast.erro(data.error ?? "Não foi possível excluir o funcionário.");
-      return;
-    }
-    toast.sucesso("Funcionário excluído.");
-    carregar();
-  }
-
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold">Funcionários</h1>
-        <p className="text-sm text-gray-500">Cadastro de colaboradores e documentação de cada um (ASO, NRs, certificações...).</p>
+        <p className="text-sm text-gray-500">Cadastro dos colaboradores, documentação, EPI, férias e pagamentos — clique em um nome para abrir a ficha.</p>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <input className="input-field max-w-xs" placeholder="Buscar funcionário..." value={busca} onChange={(e) => setBusca(e.target.value)} />
-        <button type="button" className="btn-primary" onClick={() => setEditando("novo")}>
+        <div className="flex flex-wrap gap-3">
+          <input className="input-field max-w-xs" placeholder="Buscar funcionário..." value={busca} onChange={(e) => setBusca(e.target.value)} />
+          <select className="input-field w-auto" aria-label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
+            <option value="ativo">Ativos</option>
+            <option value="inativo">Inativos</option>
+            <option value="desligado">Desligados</option>
+            <option value="">Todos</option>
+          </select>
+        </div>
+        <Link href="/rh/funcionarios/novo" className="btn-primary">
           + Novo Colaborador
-        </button>
+        </Link>
       </div>
 
       {carregando ? (
@@ -75,39 +81,57 @@ export default function FuncionariosPage() {
                 <th className="px-4 py-2 text-left">Código</th>
                 <th className="px-4 py-2 text-left">Nome</th>
                 <th className="px-4 py-2 text-left">Cargo</th>
-                <th className="px-4 py-2 text-left">Telefone</th>
+                <th className="px-4 py-2 text-left">Vínculo</th>
                 <th className="px-4 py-2 text-left">Admissão</th>
+                <th className="px-4 py-2 text-left">Documentação</th>
                 <th className="px-4 py-2 text-left">Status</th>
-                <th className="px-4 py-2 text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
-              {funcionarios.map((f) => (
-                <tr key={f.id}>
-                  <td data-label="Código" className="px-4 py-2 font-mono text-xs text-gray-500">{f.numero_funcionario ?? "—"}</td>
-                  <td data-label="Nome" className="px-4 py-2 font-medium text-brand">{f.nome}</td>
-                  <td data-label="Cargo" className="px-4 py-2 text-gray-500">{f.cargo ?? "—"}</td>
-                  <td data-label="Telefone" className="px-4 py-2 text-gray-500">{f.telefone ?? "—"}</td>
-                  <td data-label="Admissão" className="px-4 py-2 text-gray-500">{f.data_admissao ? formatarData(f.data_admissao) : "—"}</td>
-                  <td data-label="Status" className="px-4 py-2">
-                    <span className={`badge ${CLASSE_STATUS[f.status] ?? "bg-gray-100 text-gray-500"}`}>{LABEL_STATUS[f.status] ?? f.status}</span>
-                  </td>
-                  <td data-label="Ações" className="px-4 py-2">
-                    <div className="flex items-center justify-end gap-2">
-                      <button type="button" className="p-1 hover:opacity-70" title="Editar" aria-label="Editar" onClick={() => setEditando(f)}>
-                        <Pencil className="icone" aria-hidden />
-                      </button>
-                      <button type="button" className="p-1 hover:opacity-70" title="Excluir" aria-label="Excluir" onClick={() => excluir(f)}>
-                        <Trash2 className="icone" aria-hidden />
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {funcionarios.map((f) => {
+                const doc = f.documentacao;
+                return (
+                  <tr key={f.id} className="cursor-pointer hover:bg-gray-50" onClick={() => router.push(`/rh/funcionarios/${f.id}`)}>
+                    <td data-label="Código" className="px-4 py-2 font-mono text-xs text-gray-500">{f.numero_funcionario ?? "—"}</td>
+                    <td data-label="Nome" className="px-4 py-2 font-medium text-brand">
+                      <Link href={`/rh/funcionarios/${f.id}`} className="hover:underline" onClick={(e) => e.stopPropagation()}>
+                        {f.nome}
+                      </Link>
+                    </td>
+                    <td data-label="Cargo" className="px-4 py-2 text-gray-500">{f.cargo ?? "—"}</td>
+                    <td data-label="Vínculo" className="px-4 py-2 text-gray-500">{f.vinculo ? LABEL_VINCULO[f.vinculo] : "—"}</td>
+                    <td data-label="Admissão" className="px-4 py-2 text-gray-500">{f.data_admissao ? formatarData(f.data_admissao) : "—"}</td>
+                    <td data-label="Documentação" className="px-4 py-2">
+                      {doc && (
+                        <Link
+                          href={`/rh/funcionarios/${f.id}?aba=documentos`}
+                          onClick={(e) => e.stopPropagation()}
+                          className={`badge ${CLASSE_DOCUMENTACAO[doc.situacao]}`}
+                          title={doc.vencidos + doc.vencendo > 0 ? `${doc.vencidos} vencido(s), ${doc.vencendo} vencendo` : undefined}
+                        >
+                          {doc.situacao === "vencido" && doc.vencidos > 1
+                            ? `${doc.vencidos} documentos vencidos`
+                            : doc.situacao === "vencendo" && doc.vencendo > 1
+                              ? `${doc.vencendo} documentos vencendo`
+                              : LABEL_SITUACAO_DOCUMENTACAO[doc.situacao]}
+                        </Link>
+                      )}
+                    </td>
+                    <td data-label="Status" className="px-4 py-2">
+                      <span className={`badge ${CLASSE_STATUS[f.status] ?? "bg-gray-100 text-gray-500"}`}>{LABEL_STATUS[f.status] ?? f.status}</span>
+                      {f.ausente_hoje && (
+                        <span className="badge ml-1 bg-secondary-light text-brand">
+                          {LABEL_AUSENCIA[f.ausente_hoje.tipo as TipoAusencia] ?? "Ausente"} até {formatarData(f.ausente_hoje.fim)}
+                        </span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
               {funcionarios.length === 0 && (
                 <tr>
                   <td colSpan={7} className="px-4 py-6 text-center text-gray-400">
-                    Nenhum funcionário cadastrado.
+                    Nenhum funcionário encontrado.
                   </td>
                 </tr>
               )}
@@ -120,17 +144,6 @@ export default function FuncionariosPage() {
         <p className="text-xs text-gray-400">
           {funcionarios.length} funcionário{funcionarios.length === 1 ? "" : "s"} encontrado{funcionarios.length === 1 ? "" : "s"}.
         </p>
-      )}
-
-      {editando && (
-        <ModalFuncionario
-          funcionario={editando === "novo" ? null : editando}
-          onFechar={() => setEditando(null)}
-          onSalvo={() => {
-            setEditando(null);
-            carregar();
-          }}
-        />
       )}
     </div>
   );

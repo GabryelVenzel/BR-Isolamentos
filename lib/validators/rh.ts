@@ -14,9 +14,22 @@ const Validade = z
 
 // --- Documentos da empresa (lista solta) ---
 
+const Data = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Data inválida.")
+  .nullable()
+  .optional();
+const TextoOpcional = z.string().trim().nullable().optional();
+const CategoriaDocumento = z.enum(["juridico", "fiscal", "sst", "contratos", "outros"]).nullable().optional();
+
 export const CreateDocumentoEmpresaSchema = z.object({
   nome: z.string().trim().min(1, "Informe o nome do documento."),
   validade: Validade,
+  // Migração 052 — categoria, item da lista de obrigatórios e, ao RENOVAR, o
+  // documento que esta versão substitui (vira histórico).
+  categoria: CategoriaDocumento,
+  tipo_id: TextoOpcional,
+  substitui_id: z.string().uuid().nullable().optional(),
   nome_arquivo: z.string().trim().min(1),
   tipo_arquivo: z.string().trim().min(1),
   tamanho_bytes: z.number().int().positive().max(LIMITE_ANEXO_RH_BYTES, "Arquivo maior que 20 MB."),
@@ -31,6 +44,8 @@ export const CreateDocumentoEmpresaSchema = z.object({
 export const UpdateDocumentoEmpresaSchema = z.object({
   nome: z.string().trim().min(1, "Informe o nome do documento."),
   validade: Validade,
+  categoria: CategoriaDocumento,
+  tipo_id: TextoOpcional,
 });
 
 // --- Funcionários ---
@@ -55,6 +70,37 @@ export const CreateFuncionarioSchema = z.object({
   data_admissao: z.string().trim().nullable().optional(),
   status: StatusFuncionarioSchema.optional(),
   notas: z.string().trim().nullable().optional(),
+  // Migração 052.
+  vinculo: z.enum(["clt", "pj", "socio", "diarista", "outro"]).nullable().optional(),
+  data_desligamento: Data,
+  tamanho_camisa: TextoOpcional,
+  tamanho_calca: TextoOpcional,
+  tamanho_botina: TextoOpcional,
+  tamanho_luva: TextoOpcional,
+  // Dados sensíveis (tabela funcionario_dados) — vêm junto no mesmo
+  // formulário e são gravados à parte.
+  dados: z
+    .object({
+      rg: TextoOpcional,
+      data_nascimento: Data,
+      cep: TextoOpcional,
+      endereco: TextoOpcional,
+      cidade: TextoOpcional,
+      estado: TextoOpcional,
+      contato_emergencia_nome: TextoOpcional,
+      contato_emergencia_telefone: TextoOpcional,
+      contato_emergencia_parentesco: TextoOpcional,
+      salario: z.number().nonnegative().nullable().optional(),
+      valor_diaria: z.number().nonnegative().nullable().optional(),
+      pis: TextoOpcional,
+      ctps: TextoOpcional,
+      banco: TextoOpcional,
+      agencia: TextoOpcional,
+      conta: TextoOpcional,
+      tipo_conta: TextoOpcional,
+      chave_pix: TextoOpcional,
+    })
+    .optional(),
 });
 
 export const UpdateFuncionarioSchema = CreateFuncionarioSchema.partial();
@@ -65,6 +111,9 @@ export const CreateFuncionarioAnexoSchema = z.object({
   funcionario_id: z.string().min(1),
   nome: z.string().trim().min(1, "Informe o nome do documento."),
   validade: Validade,
+  // Migração 052 — tipo padrão e data de emissão.
+  tipo_id: TextoOpcional,
+  data_emissao: Data,
   nome_arquivo: z.string().trim().min(1),
   tipo_arquivo: z.string().trim().min(1),
   tamanho_bytes: z.number().int().positive().max(LIMITE_ANEXO_RH_BYTES, "Arquivo maior que 20 MB."),
@@ -78,6 +127,8 @@ export const CreateFuncionarioAnexoSchema = z.object({
 export const UpdateFuncionarioAnexoSchema = z.object({
   nome: z.string().trim().min(1, "Informe o nome do documento."),
   validade: Validade,
+  tipo_id: TextoOpcional,
+  data_emissao: Data,
 });
 
 export type CreateDocumentoEmpresaInput = z.infer<typeof CreateDocumentoEmpresaSchema>;
@@ -86,3 +137,44 @@ export type CreateFuncionarioInput = z.infer<typeof CreateFuncionarioSchema>;
 export type UpdateFuncionarioInput = z.infer<typeof UpdateFuncionarioSchema>;
 export type CreateFuncionarioAnexoInput = z.infer<typeof CreateFuncionarioAnexoSchema>;
 export type UpdateFuncionarioAnexoInput = z.infer<typeof UpdateFuncionarioAnexoSchema>;
+
+// --- EPI e ausências (migração 052) ---
+
+export const CreateEpiSchema = z.object({
+  item: z.string().trim().min(1, "Informe o EPI."),
+  ca: TextoOpcional,
+  quantidade: z.number().positive("Quantidade precisa ser maior que zero.").optional().default(1),
+  data_entrega: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe a data de entrega."),
+  data_devolucao: Data,
+  observacao: TextoOpcional,
+});
+export const UpdateEpiSchema = CreateEpiSchema.partial();
+
+export const CreateAusenciaSchema = z
+  .object({
+    tipo: z.enum(["ferias", "atestado", "afastamento", "folga", "outro"]),
+    inicio: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe o início."),
+    fim: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Informe o fim."),
+    observacao: TextoOpcional,
+  })
+  .refine((a) => a.fim >= a.inicio, { message: "O fim não pode ser antes do início.", path: ["fim"] });
+
+// --- Listas do RH (Configurações) ---
+
+const IdLista = z.string().trim().min(1);
+const Meses = z.number().int().positive().max(240).nullable();
+export const ConfigRhSchema = z.object({
+  rh_tipos_documento: z
+    .array(z.object({ id: IdLista, nome: z.string().trim().min(1, "Todo tipo de documento precisa de nome."), validade_meses: Meses }))
+    .optional(),
+  rh_documentos_obrigatorios: z
+    .array(
+      z.object({
+        id: IdLista,
+        nome: z.string().trim().min(1, "Todo documento obrigatório precisa de nome."),
+        categoria: z.enum(["juridico", "fiscal", "sst", "contratos", "outros"]),
+        validade_meses: Meses,
+      })
+    )
+    .optional(),
+});

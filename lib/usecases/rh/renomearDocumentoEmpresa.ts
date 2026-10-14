@@ -3,9 +3,9 @@ import type { DocumentoEmpresaRepository } from "../../repositories";
 import type { DocumentoEmpresa } from "../../types/domain";
 import { UpdateDocumentoEmpresaSchema, parseOrThrow } from "../../validators";
 
-/** Renomeia um documento da empresa (pedido explícito: "gerando uma lista
- * que pode ser excluída ou editada") — só o nome muda, o arquivo em si se
- * troca excluindo e reanexando. */
+/** Edita nome, validade, categoria e tipo de um documento da empresa — o
+ * arquivo em si se troca por "Renovar" (nova versão, a anterior vira
+ * histórico) ou excluindo e reanexando. */
 export async function renomearDocumentoEmpresa(
   id: string,
   dados: unknown,

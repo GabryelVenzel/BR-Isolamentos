@@ -27,6 +27,7 @@ export { DocumentoEmpresaRepository } from "./documento-empresa.repository";
 export { FuncionarioRepository } from "./funcionario.repository";
 export type { FiltrosFuncionario } from "./funcionario.repository";
 export { FuncionarioAnexoRepository } from "./funcionario-anexo.repository";
+export { FuncionarioAusenciaRepository, FuncionarioDadosRepository, FuncionarioEpiRepository } from "./funcionario-rh.repository";
 export { AgendamentoRepository } from "./agendamento.repository";
 export type { FiltrosAgendamento } from "./agendamento.repository";
 export { LancamentoFinanceiroRepository } from "./lancamento-financeiro.repository";

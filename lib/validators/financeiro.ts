@@ -28,6 +28,8 @@ const CamposLancamento = {
   forma_pagamento: FormaPagamentoSchema.nullable().optional(),
   fornecedor_id: z.string().uuid().nullable().optional(),
   parceiro_id: z.string().uuid().nullable().optional(),
+  // Migração 052 — salário, pró-labore ou adiantamento de um funcionário.
+  funcionario_id: z.string().uuid().nullable().optional(),
   descricao: z.string().trim().min(1, "Descreva o lançamento."),
   valor: z.number().positive("O valor precisa ser maior que zero."),
   pago: z.boolean().optional(),

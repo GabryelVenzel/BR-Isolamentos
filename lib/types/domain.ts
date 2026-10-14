@@ -625,6 +625,8 @@ export interface LancamentoFinanceiro {
   forma_pagamento: FormaPagamento | null;
   fornecedor_id: string | null;
   parceiro_id: string | null;
+  /** Migração 052 — salário, pró-labore ou adiantamento de um funcionário. */
+  funcionario_id?: string | null;
   /** Liga os lançamentos gerados juntos por "parcelado em N" ou "repetir
    * por N meses" (`grupo_tipo`); `parcela_numero`/`parcela_total` = "2/6". */
   grupo_id: string | null;
@@ -741,6 +743,17 @@ export interface NotaFiscal {
 export interface DocumentoEmpresa {
   id: string;
   nome: string;
+  /** Migração 052 — Jurídico, Fiscal/certidões, SST, Contratos/seguros, Outros. */
+  categoria?: string | null;
+  /** Migração 052 — item da lista de documentos obrigatórios que este
+   * documento cumpre (ver `DocumentoObrigatorioEmpresa` em lib/rh.ts). */
+  tipo_id?: string | null;
+  /** Migração 052 — todas as versões de um mesmo documento compartilham o
+   * grupo; a atual tem `arquivado_em` nulo. */
+  grupo_id?: string;
+  arquivado_em?: string | null;
+  /** Quantas versões anteriores este documento tem (calculado na listagem). */
+  versoes_anteriores?: number;
   /** Migração 042 — data de validade (YYYY-MM-DD); `null` = não vence. */
   validade: string | null;
   nome_arquivo: string;
@@ -772,6 +785,17 @@ export interface Funcionario {
   data_admissao: string | null;
   status: StatusFuncionario;
   notas: string | null;
+  /** Migração 052 — CLT, PJ, sócio, diarista, outro. */
+  vinculo?: "clt" | "pj" | "socio" | "diarista" | "outro" | null;
+  data_desligamento?: string | null;
+  tamanho_camisa?: string | null;
+  tamanho_calca?: string | null;
+  tamanho_botina?: string | null;
+  tamanho_luva?: string | null;
+  /** Calculado na listagem do RH (não é coluna): situação dos documentos. */
+  documentacao?: { situacao: "em_dia" | "vencendo" | "vencido" | "sem_documentos"; vencidos: number; vencendo: number };
+  /** Calculado na listagem do RH: ausência em curso hoje, se houver. */
+  ausente_hoje?: { tipo: string; fim: string } | null;
   created_at: string;
   updated_at: string;
 }
@@ -783,6 +807,9 @@ export interface FuncionarioAnexo {
   id: string;
   funcionario_id: string;
   nome: string;
+  /** Migração 052 — tipo padrão (ASO, NR-35...), ver lib/rh.ts. */
+  tipo_id?: string | null;
+  data_emissao?: string | null;
   /** Migração 042 — data de validade (YYYY-MM-DD); `null` = não vence. */
   validade: string | null;
   nome_arquivo: string;
@@ -792,6 +819,56 @@ export interface FuncionarioAnexo {
   url: string;
   data_adicao: string;
   adicionado_por: string | null;
+}
+
+/** Dados sensíveis do funcionário (migração 052) — tabela à parte, só o
+ * módulo RH lê. */
+export interface FuncionarioDados {
+  funcionario_id: string;
+  rg: string | null;
+  data_nascimento: string | null;
+  cep: string | null;
+  endereco: string | null;
+  cidade: string | null;
+  estado: string | null;
+  contato_emergencia_nome: string | null;
+  contato_emergencia_telefone: string | null;
+  contato_emergencia_parentesco: string | null;
+  salario: number | null;
+  valor_diaria: number | null;
+  pis: string | null;
+  ctps: string | null;
+  banco: string | null;
+  agencia: string | null;
+  conta: string | null;
+  tipo_conta: string | null;
+  chave_pix: string | null;
+}
+
+/** Entrega de EPI a um funcionário (migração 052) — base da ficha da NR-6. */
+export interface FuncionarioEpi {
+  id: string;
+  funcionario_id: string;
+  item: string;
+  ca: string | null;
+  quantidade: number;
+  data_entrega: string;
+  data_devolucao: string | null;
+  observacao: string | null;
+  registrado_por: string | null;
+  created_at: string;
+}
+
+/** Férias, atestado, afastamento... (migração 052). */
+export interface FuncionarioAusencia {
+  id: string;
+  funcionario_id: string;
+  tipo: "ferias" | "atestado" | "afastamento" | "folga" | "outro";
+  inicio: string;
+  fim: string;
+  observacao: string | null;
+  registrado_por: string | null;
+  created_at: string;
 }
 
 // ---------------------------------------------------------------------------

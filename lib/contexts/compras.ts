@@ -12,6 +12,7 @@ import {
   LancamentoFinanceiroRepository,
   PedidoCompraRepository,
   ServicoRepository,
+  FuncionarioAusenciaRepository,
   FuncionarioRepository,
   alocarFuncionarioNoServico,
   atualizarPrecoDoCatalogo,
@@ -343,14 +344,21 @@ export function createComprasContext(supabase: SupabaseClient) {
 
     /** Funcionários ativos e os documentos vencidos deles — para alocar numa
      * obra ou apontar diária. */
-    async funcionariosParaObra(): Promise<{ funcionarios: FuncionarioParaObra[]; documentosVencidos: DocumentoVencidoDeFuncionario[] }> {
-      const [ativos, documentosVencidos] = await Promise.all([
+    async funcionariosParaObra(): Promise<{
+      funcionarios: FuncionarioParaObra[];
+      documentosVencidos: DocumentoVencidoDeFuncionario[];
+      ausencias: Array<{ funcionario_id: string; tipo: string; inicio: string; fim: string }>;
+    }> {
+      const [ativos, documentosVencidos, ausencias] = await Promise.all([
         new FuncionarioRepository(supabase).listar({ status: "ativo" }),
         listarDocumentosVencidosDeFuncionarios(supabase),
+        // Férias/afastamentos de hoje em diante (migração 052) — aviso ao alocar.
+        new FuncionarioAusenciaRepository(supabase).listarAPartirDe(hojeBrasilia()),
       ]);
       return {
         funcionarios: ativos.map((f) => ({ id: f.id, nome: f.nome, cargo: f.cargo, tipos_trabalho: f.tipos_trabalho ?? [] })),
         documentosVencidos,
+        ausencias: ausencias.map((a) => ({ funcionario_id: a.funcionario_id, tipo: a.tipo, inicio: a.inicio, fim: a.fim })),
       };
     },
 

@@ -55,6 +55,8 @@ export default function ModalLancamento({ lancamento, onFechar, onSalvo }: Props
   const [servicoId, setServicoId] = useState(lancamento?.servico_id ?? "");
   const [fornecedorId, setFornecedorId] = useState(lancamento?.fornecedor_id ?? "");
   const [parceiroId, setParceiroId] = useState(lancamento?.parceiro_id ?? "");
+  // Migração 052 — salário, pró-labore ou adiantamento de um funcionário.
+  const [funcionarioId, setFuncionarioId] = useState(lancamento?.funcionario_id ?? "");
   const [pago, setPago] = useState(lancamento?.pago ?? false);
   const [dataPagamento, setDataPagamento] = useState(lancamento?.data_pagamento ?? hojeBrasilia());
   const [anexos, setAnexos] = useState<AnexoLancamento[]>(lancamento?.anexos ?? []);
@@ -67,6 +69,13 @@ export default function ModalLancamento({ lancamento, onFechar, onSalvo }: Props
   const servicos = useLista<Servico>("/api/operacional/servicos");
   const fornecedores = useLista<Fornecedor>("/api/operacional/fornecedores");
   const parceiros = useLista<Parceiro>("/api/operacional/parceiros");
+  const [funcionarios, setFuncionarios] = useState<Array<{ id: string; nome: string }>>([]);
+  useEffect(() => {
+    fetch("/api/operacional/funcionarios")
+      .then((r) => r.json())
+      .then((p) => setFuncionarios(p?.data?.funcionarios ?? []))
+      .catch(() => undefined);
+  }, []);
 
   const despesa = tipo === "despesa";
   const n = Number(quantidade);
@@ -109,6 +118,7 @@ export default function ModalLancamento({ lancamento, onFechar, onSalvo }: Props
       // Fornecedor e parceiro só fazem sentido em despesa.
       fornecedor_id: despesa ? fornecedorId || null : null,
       parceiro_id: despesa ? parceiroId || null : null,
+      funcionario_id: despesa ? funcionarioId || null : null,
       pago,
       data_pagamento: pago ? dataPagamento : null,
       anexos,
@@ -300,6 +310,21 @@ export default function ModalLancamento({ lancamento, onFechar, onSalvo }: Props
                       {parceiros.map((p) => (
                         <option key={p.id} value={p.id}>
                           {p.nome}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {/* Migração 052 — salário, pró-labore, adiantamento: aparece na
+                      ficha do funcionário (RH → Funcionários → Pagamentos). */}
+                  <div>
+                    <label className="label-field" htmlFor="lanc-funcionario">
+                      Funcionário
+                    </label>
+                    <select id="lanc-funcionario" className="input-field" value={funcionarioId} onChange={(e) => setFuncionarioId(e.target.value)}>
+                      <option value="">Nenhum</option>
+                      {funcionarios.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.nome}
                         </option>
                       ))}
                     </select>

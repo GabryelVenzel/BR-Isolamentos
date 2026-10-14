@@ -16,6 +16,7 @@ import {
   type ConfigAlertas,
 } from "../alertas";
 import { hojeBrasilia } from "../financeiro";
+import { documentosVigentes } from "../rh";
 import { logger } from "../logger";
 import {
   DocumentoEmpresaRepository,
@@ -88,7 +89,9 @@ export function createAlertasContext(supabase: SupabaseClient) {
           ? tentar("rh", async () => {
               const [deFuncionarios, daEmpresa] = await Promise.all([funcionarioAnexoRepo.listarComValidade(), documentoEmpresaRepo.listar()]);
               return alertasDocumentos(
-                [...deFuncionarios, ...daEmpresa.map((d) => ({ nome: d.nome, validade: d.validade, funcionario: null }))],
+                // Empresa: só a versão atual de cada documento (as renovadas ficam no
+                // histórico) e, entre dois do mesmo obrigatório, o mais novo (migração 052).
+                [...deFuncionarios, ...documentosVigentes(daEmpresa).map((d) => ({ nome: d.nome, validade: d.validade, funcionario: null }))],
                 hoje,
                 cfg.dias_documentos_a_vencer
               );
