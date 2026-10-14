@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import type { AnexoSimplesNacional, ConfigEmpresa, RegimeTributario } from "@/lib/types";
+import type { AnexoSimplesNacional, ConfigEmpresa, ItemExecucaoPadrao, RegimeTributario } from "@/lib/types";
+import { ITENS_EXECUCAO_SUGERIDOS } from "@/lib/usecases/orcamento/itensExecucao";
 import { AlertTriangle } from "lucide-react";
 
 interface Props {
@@ -64,6 +65,7 @@ const CAMPOS_MAO_OBRA: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo:
   { nome: "eficiencia_tubulacao_media", label: 'Eficiência tubulação 3"–6"', sufixo: "× (ex.: 0.85)" },
   { nome: "eficiencia_curva", label: "Eficiência curva", sufixo: "× (ex.: 0.75)" },
   { nome: "eficiencia_altura", label: "Eficiência altura (> 2m)", sufixo: "× (ex.: 0.50)" },
+  { nome: "eficiencia_remocao", label: "Eficiência com remoção do isolamento existente", sufixo: "× (ex.: 0.80)" },
   { nome: "eficiencia_fator_br", label: "Fator de rendimento (BR)", sufixo: "× (ex.: 0.80)" },
   { nome: "horas_uteis_dia", label: "Horas úteis por dia (dia de trabalho)", sufixo: "h" },
 ];
@@ -113,6 +115,20 @@ export default function FormConfigEmpresa({ config }: Props) {
     }
   }
 
+  // Catálogo de itens de execução padrão (migração 051) — lista dentro da
+  // própria configuração; salva junto com o resto no botão do fim da tela.
+  const itensExecucao: ItemExecucaoPadrao[] = Array.isArray(valores.itens_execucao_padrao) ? valores.itens_execucao_padrao : [];
+  function alterarItemExecucao(index: number, dados: Partial<ItemExecucaoPadrao>) {
+    setValores((prev) => ({ ...prev, itens_execucao_padrao: itensExecucao.map((item, i) => (i === index ? { ...item, ...dados } : item)) }));
+  }
+  function removerItemExecucao(index: number) {
+    setValores((prev) => ({ ...prev, itens_execucao_padrao: itensExecucao.filter((_, i) => i !== index) }));
+  }
+  function adicionarItemExecucao() {
+    // O id não muda ao renomear — é por ele que um orçamento em andamento sabe o que estava marcado.
+    setValores((prev) => ({ ...prev, itens_execucao_padrao: [...itensExecucao, { id: `item_${Date.now()}`, nome: "", unidade: "diária", preco: 0 }] }));
+  }
+
   function numero(nome: keyof ConfigEmpresa) {
     return (
       <input
@@ -128,7 +144,9 @@ export default function FormConfigEmpresa({ config }: Props) {
   function camposGrid(campos: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo: string }>, colunas: string) {
     return (
       <div className={`grid grid-cols-1 gap-4 ${colunas}`}>
-        {campos.map((campo) => (
+        {campos
+          .filter((campo) => config[campo.nome] !== undefined)
+          .map((campo) => (
           <div key={campo.nome}>
             <label className="label-field">
               {campo.label} <span className="text-gray-400">({campo.sufixo})</span>
@@ -322,12 +340,81 @@ export default function FormConfigEmpresa({ config }: Props) {
           <p className="mb-3 text-xs text-gray-500">
             A metragem de cada trecho é dividida pela eficiência (diâmetro da tubulação × curva × altura × fator BR — acima de 6" a
             eficiência de diâmetro é 1, entre 3" e 6" usa "Eficiência tubulação 3"–6"", abaixo de 3" usa "Eficiência tubulação &lt; 3"")
-            e o resultado vira horas de obra. As horas são sempre arredondadas para cima em dias fechados de "Horas úteis por dia".
+            e o resultado vira horas de obra. Um trecho marcado com remoção do isolamento existente também é multiplicado pelo fator de
+            remoção. As horas são sempre arredondadas para cima em dias fechados de "Horas úteis por dia".
             Cada orçamento pode ajustar as horas úteis na etapa "Equipe e custos", quando deslocamento ou liberação de acesso reduzem
             o tempo produtivo.
           </p>
           {camposGrid(CAMPOS_MAO_OBRA, "sm:grid-cols-2 lg:grid-cols-3")}
         </div>
+
+        {/* Catálogo de itens de execução padrão (migração 051). */}
+        {config.itens_execucao_padrao !== undefined && (
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-gray-600">Itens de execução padrão</h3>
+            <p className="mb-3 text-xs text-gray-500">
+              Equipamentos e serviços de apoio que se repetem de obra em obra. Em cada orçamento (etapa "Equipe e custos") basta marcar o
+              que a obra inclui: os marcados entram no custo e em "O orçamento contempla" na proposta; os não marcados são citados em
+              "Não contemplado". O preço aqui é o padrão — dá para ajustar em cada orçamento.
+            </p>
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="table-header">
+                  <tr>
+                    <th className="py-2 pr-4 text-left">Item</th>
+                    <th className="py-2 pr-4 text-left">Unidade</th>
+                    <th className="py-2 pr-4 text-left">Preço padrão (R$)</th>
+                    <th className="py-2 text-right">Ações</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {itensExecucao.map((item, index) => (
+                    <tr key={item.id}>
+                      <td className="py-1.5 pr-4">
+                        <input className="input-field" aria-label="Nome do item" value={item.nome} onChange={(e) => alterarItemExecucao(index, { nome: e.target.value })} />
+                      </td>
+                      <td className="py-1.5 pr-4">
+                        <input
+                          className="input-field w-28"
+                          aria-label="Unidade"
+                          placeholder="diária, un., verba"
+                          value={item.unidade}
+                          onChange={(e) => alterarItemExecucao(index, { unidade: e.target.value })}
+                        />
+                      </td>
+                      <td className="py-1.5 pr-4">
+                        <input
+                          type="number"
+                          min={0}
+                          step="0.01"
+                          className="input-field w-32"
+                          aria-label="Preço padrão"
+                          value={item.preco}
+                          onChange={(e) => alterarItemExecucao(index, { preco: Math.max(0, Number(e.target.value) || 0) })}
+                        />
+                      </td>
+                      <td className="py-1.5 text-right">
+                        <button type="button" className="text-status-error hover:underline" onClick={() => removerItemExecucao(index)}>
+                          Remover
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            <div className="mt-3 flex flex-wrap gap-3">
+              <button type="button" className="btn-secondary" onClick={adicionarItemExecucao}>
+                + Adicionar item
+              </button>
+              {itensExecucao.length === 0 && (
+                <button type="button" className="btn-secondary" onClick={() => setValores((prev) => ({ ...prev, itens_execucao_padrao: ITENS_EXECUCAO_SUGERIDOS }))}>
+                  Usar a lista sugerida
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="space-y-6 border-t border-gray-100 pt-8">

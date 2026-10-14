@@ -33,7 +33,8 @@ export default function Step6RevisaoPage() {
     removerItem,
     reset,
   } = useWizardStore();
-  const { trechos, maoObra: maoObraEquipe, resultado: resultadoOrcamento, erro: erroCalculo } = useOrcamentoCalculado();
+  const { trechos, maoObra: maoObraEquipe, itensExecucao, resultado: resultadoOrcamento, erro: erroCalculo } = useOrcamentoCalculado();
+  const execucaoIncluida = itensExecucao.filter((i) => i.incluido);
 
   // Trechos com a mão de obra da equipe já repartida (horas e valor).
   const itens = itensSalvos.map((item, index) => ({ ...item, precificacao: trechos[index]?.precificacao ?? item.precificacao }));
@@ -97,6 +98,7 @@ export default function Step6RevisaoPage() {
           perimetro_m: null,
 
           trabalho_altura: item.especificacoes.trabalho_altura,
+          remocao_isolamento: !!item.especificacoes.remocao_isolamento,
           eficiencia_global: item.precificacao.eficiencia_global,
 
           espessura_necessaria_mm: espessuraNecessaria,
@@ -139,6 +141,7 @@ export default function Step6RevisaoPage() {
         valor_alimentacao: resultadoOrcamento!.valor_alimentacao,
         horas_uteis_dia: horasUteisDiaOverride,
         mao_obra_equipe: maoObraEquipe,
+        itens_execucao: itensExecucao,
         subtotal: resultadoOrcamento!.subtotal,
         detalhamento_impostos: resultadoOrcamento!.detalhamento_impostos,
         total_impostos: resultadoOrcamento!.total_impostos,
@@ -212,6 +215,13 @@ export default function Step6RevisaoPage() {
             <p>Material: {item.materialNome}</p>
             {item.acabamentoNome && <p>Acabamento: {item.acabamentoNome}</p>}
             <p>Metragem: {formatarNumero(item.precificacao.metragem_m2, 2)} m²</p>
+            {(item.especificacoes.trabalho_altura || item.especificacoes.remocao_isolamento) && (
+              <p className="text-amber-700">
+                {[item.especificacoes.trabalho_altura && "Trabalho em altura", item.especificacoes.remocao_isolamento && "Remoção do isolamento existente"]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </p>
+            )}
             <p>Mão de obra: {formatarNumero(item.precificacao.horas_mao_obra, 1)} h de obra da equipe</p>
           </div>
 
@@ -275,6 +285,22 @@ export default function Step6RevisaoPage() {
               </p>
             </>
           )}
+        </div>
+      )}
+
+      {/* Itens de execução padrão incluídos — só leitura; quem edita é a etapa 5. */}
+      {execucaoIncluida.length > 0 && (
+        <div className="card space-y-2 text-sm">
+          <h2 className="text-lg font-semibold">Itens de execução incluídos</h2>
+          {execucaoIncluida.map((i) => (
+            <div key={i.id} className="flex justify-between gap-4">
+              <span>
+                {i.nome}: {formatarNumero(i.quantidade, 2)} {i.unidade} × {formatarMoeda(i.preco_unitario)}
+              </span>
+              <span>{formatarMoeda(i.subtotal)}</span>
+            </div>
+          ))}
+          <p className="text-xs text-gray-500">Entram em "Execução" no resumo financeiro e em "O orçamento contempla" na proposta.</p>
         </div>
       )}
 

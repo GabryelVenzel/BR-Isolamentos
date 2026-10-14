@@ -39,8 +39,7 @@ import {
   calcularBeneficiosConsolidados,
   calcularPaybackMeses,
   distribuirResumoFinanceiroSimplificado,
-  itensContemplados,
-  itensNaoContemplados,
+  escopoContemplado,
   linhasEspecificacoesTecnicas,
   quadrosQuantificacao,
   linhasOperacionaisIncluso,
@@ -166,8 +165,7 @@ export default function PropostaComercialDocument({ orcamento, configEmpresa }: 
   const garantiaMeses = configEmpresa?.garantia_mao_obra_meses ?? 12;
   const validadeDias = configEmpresa?.validade_proposta_dias ?? 30;
   const formaPagamentoPadrao = configEmpresa?.forma_pagamento_padrao || "50% de entrada + 50% na conclusão dos trabalhos";
-  const contempla = itensContemplados(orcamento.tipo_proposta);
-  const naoContempla = itensNaoContemplados(orcamento.tipo_proposta);
+  const { contempla, naoContempla } = escopoContemplado(orcamento, itens);
   const linhasEspecificacoes = linhasEspecificacoesTecnicas(itens);
   const resumoSimplificado = distribuirResumoFinanceiroSimplificado(orcamento);
   const temTopicoRoi = !somenteMaoObra && economiaAnualTotal > 0;
@@ -209,6 +207,7 @@ export default function PropostaComercialDocument({ orcamento, configEmpresa }: 
               <Text style={estilos.blocoTitulo}>
                 Trecho {index + 1} ({LABEL_TIPO[item.tipo_trabalho]})
                 {item.trabalho_altura ? " · trabalho em altura" : ""}
+                {item.remocao_isolamento ? " · com remoção do isolamento existente" : ""}
               </Text>
               {(item.escopo_itens?.length ?? 0) > 0 ? (
                 item.escopo_itens.map((escopo) => (

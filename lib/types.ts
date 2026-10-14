@@ -136,6 +136,11 @@ export interface ItemOrcamento {
    * proxy no Escopo (diferente de "tem curvas"/"tubulação pequena", que já
    * são deriváveis de `escopo_itens` — ver lib/usecases/orcamento/escopo.ts). */
   trabalho_altura: boolean;
+  /** Migração 051 — este trecho inclui a REMOÇÃO do isolamento existente
+   * antes de aplicar o novo. Consome tempo (fator
+   * `ConfigEmpresa.eficiencia_remocao` na mão de obra) e muda a proposta: a
+   * remoção sai de "Não contemplado" e entra em "O orçamento contempla". */
+  remocao_isolamento?: boolean;
   /** Produto dos fatores de eficiência aplicados (tubulação pequena × curva
    * × altura × fator BR) — cache só para exibição/auditoria na proposta,
    * não recalcula nada sozinho depois de salvo (migração 019). */
@@ -173,6 +178,32 @@ export interface LinhaDetalhamentoMaterial {
   titulo: string;
   quantidade: number;
   unidade: string;
+  preco_unitario: number;
+  subtotal: number;
+}
+
+/** Item do catálogo de execução padrão (migração 051) — equipamento ou
+ * serviço de apoio que se repete de obra em obra (andaime, plataforma,
+ * guindauto...), cadastrado em Configurar Preços. */
+export interface ItemExecucaoPadrao {
+  /** Identificador estável (não muda ao renomear). */
+  id: string;
+  nome: string;
+  /** "diária", "un.", "verba"... */
+  unidade: string;
+  /** Preço padrão por unidade. */
+  preco: number;
+}
+
+/** Um item do catálogo de execução no estado em que estava num orçamento
+ * (migração 051): incluído (com quantidade e preço) ou não. Os não incluídos
+ * também são guardados — a proposta os cita em "Não contemplado". */
+export interface ItemExecucaoOrcamento {
+  id: string;
+  nome: string;
+  unidade: string;
+  incluido: boolean;
+  quantidade: number;
   preco_unitario: number;
   subtotal: number;
 }
@@ -267,6 +298,12 @@ export interface Orcamento {
    * os dias de obra também definem as diárias cobradas, ver
    * `mao_obra_equipe`. */
   horas_uteis_dia: number | null;
+
+  /** Migração 051 — catálogo de execução padrão como estava neste
+   * orçamento: o que foi incluído (entra no custo de execução e em "O
+   * orçamento contempla") e o que não foi (vai para "Não contemplado").
+   * `null`/ausente em orçamentos anteriores. */
+  itens_execucao?: ItemExecucaoOrcamento[] | null;
 
   /** Migração 048 — equipe e diárias da mão de obra. `null`/ausente em
    * orçamentos anteriores (modelo antigo: horas de uma dupla × valor/hora,
@@ -473,6 +510,12 @@ export interface ConfigEmpresa {
   /** Multiplicador quando o trecho está marcado como trabalho em altura
    * (> 2m) — único fator que não tem como ser derivado de outro dado. */
   eficiencia_altura: number;
+  /** Migração 051 — multiplicador quando o trecho inclui remoção do
+   * isolamento existente (ex.: 0,80 = o trecho rende 80% do normal). Ausente
+   * enquanto a migração não foi rodada (vale 1, sem efeito). */
+  eficiencia_remocao?: number;
+  /** Migração 051 — catálogo de itens de execução padrão. */
+  itens_execucao_padrao?: ItemExecucaoPadrao[] | null;
   /** Fator de rendimento da dupla brasileira — sempre aplicado. */
   eficiencia_fator_br: number;
   /** Horas úteis de um dia de trabalho (7h desde a migração 048) — é o dia

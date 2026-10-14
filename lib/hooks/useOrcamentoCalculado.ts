@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { aplicarMaoObraNosTrechos, calcularMaoObraDoWizard, horasMaoObraTotal, useWizardStore, type WizardItem } from "@/lib/store";
-import { calcularOrcamento } from "@/lib/usecases/orcamento";
-import type { CalcularOrcamentoResultado, ConfigEmpresa, ImpostoConfig, MaoObraEquipe } from "@/lib/types";
+import { calcularOrcamento, catalogoItensExecucao, resolverItensExecucao, totalItensExecucao } from "@/lib/usecases/orcamento";
+import type { CalcularOrcamentoResultado, ConfigEmpresa, ImpostoConfig, ItemExecucaoOrcamento, MaoObraEquipe } from "@/lib/types";
 import type { PrecificacaoTrecho } from "@/lib/usecases/orcamento";
 
 // Configuração da empresa + impostos extras: iguais em todas as etapas do
@@ -33,6 +33,10 @@ export interface OrcamentoCalculado {
    * `rascunho`, o trecho em edição vem por último. */
   trechos: Array<{ precificacao: PrecificacaoTrecho }>;
   maoObra: MaoObraEquipe | null;
+  /** Catálogo de execução padrão cruzado com o que foi habilitado neste
+   * orçamento (migração 051) — o total dos incluídos já está em
+   * `resultado.valor_mao_obra` ("Execução"). */
+  itensExecucao: ItemExecucaoOrcamento[];
   /** Orçamento completo (custos, impostos, margem, valor final); `null` sem
    * trechos, enquanto carrega ou quando o cálculo acusa erro. */
   resultado: CalcularOrcamentoResultado | null;
@@ -45,7 +49,7 @@ export interface OrcamentoCalculado {
  * total usa este mesmo cálculo, então os números nunca divergem entre as
  * etapas nem ficam desatualizados quando algo muda. */
 export function useOrcamentoCalculado(rascunho?: PrecificacaoTrecho | null): OrcamentoCalculado {
-  const { itens, equipe, valoresDiariaOverride, horasUteisDiaOverride, diasMaoObraManual, custosOperacionais, margemPercentual, descontoValor } =
+  const { itens, equipe, valoresDiariaOverride, horasUteisDiaOverride, diasMaoObraManual, custosOperacionais, margemPercentual, descontoValor, execucaoPadrao } =
     useWizardStore();
   const [dados, setDados] = useState<{ config: ConfigEmpresa; impostosExtras: ImpostoConfig[] } | null>(null);
   const [erroConfig, setErroConfig] = useState<string | null>(null);
@@ -61,12 +65,13 @@ export function useOrcamentoCalculado(rascunho?: PrecificacaoTrecho | null): Orc
   }, []);
 
   return useMemo(() => {
-    if (!dados) return { config: null, trechos: [], maoObra: null, resultado: null, erro: erroConfig };
+    if (!dados) return { config: null, trechos: [], maoObra: null, itensExecucao: [], resultado: null, erro: erroConfig };
 
     const todos: Array<{ precificacao: PrecificacaoTrecho }> = rascunho ? [...itens, { precificacao: rascunho }] : itens;
     const maoObra = calcularMaoObraDoWizard(todos, { equipe, valoresDiariaOverride, horasUteisDiaOverride, diasMaoObraManual }, dados.config);
     const trechos = aplicarMaoObraNosTrechos(todos, maoObra);
-    if (trechos.length === 0) return { config: dados.config, trechos, maoObra, resultado: null, erro: null };
+    const itensExecucao = resolverItensExecucao(catalogoItensExecucao(dados.config.itens_execucao_padrao), execucaoPadrao);
+    if (trechos.length === 0) return { config: dados.config, trechos, maoObra, itensExecucao, resultado: null, erro: null };
 
     try {
       const soma = (campo: "subtotal_material" | "subtotal_mao_obra") => Number(trechos.reduce((acc, t) => acc + t.precificacao[campo], 0).toFixed(2));
@@ -76,8 +81,9 @@ export function useOrcamentoCalculado(rascunho?: PrecificacaoTrecho | null): Orc
         calcularOrcamento({
         valor_materiais_direto: soma("subtotal_material"),
         // Mão de obra da equipe (já repartida) + itens adicionais de execução
-        // de cada trecho — vai pronta; o motor não recalcula.
-        valor_mao_obra_direto: soma("subtotal_mao_obra"),
+        // de cada trecho + itens de execução padrão habilitados no orçamento
+        // — vai pronta; o motor não recalcula.
+        valor_mao_obra_direto: Number((soma("subtotal_mao_obra") + totalItensExecucao(itensExecucao)).toFixed(2)),
         config,
         impostosExtras: dados.impostosExtras,
         horas_mao_obra: horasMaoObraTotal(trechos as WizardItem[]),
@@ -95,9 +101,9 @@ export function useOrcamentoCalculado(rascunho?: PrecificacaoTrecho | null): Orc
       const semDesconto = calcular();
       const desconto = Math.min(Math.max(0, descontoValor || 0), semDesconto.preco_cheio);
       const resultado = desconto > 0 && semDesconto.preco_cheio > 0 ? calcular((desconto / semDesconto.preco_cheio) * 100) : semDesconto;
-      return { config: dados.config, trechos, maoObra, resultado, erro: null };
+      return { config: dados.config, trechos, maoObra, itensExecucao, resultado, erro: null };
     } catch (error) {
-      return { config: dados.config, trechos, maoObra, resultado: null, erro: error instanceof Error ? error.message : "Erro ao calcular o orçamento." };
+      return { config: dados.config, trechos, maoObra, itensExecucao, resultado: null, erro: error instanceof Error ? error.message : "Erro ao calcular o orçamento." };
     }
-  }, [dados, erroConfig, itens, rascunho, equipe, valoresDiariaOverride, horasUteisDiaOverride, diasMaoObraManual, custosOperacionais, margemPercentual, descontoValor]);
+  }, [dados, erroConfig, itens, rascunho, equipe, valoresDiariaOverride, horasUteisDiaOverride, diasMaoObraManual, custosOperacionais, margemPercentual, descontoValor, execucaoPadrao]);
 }

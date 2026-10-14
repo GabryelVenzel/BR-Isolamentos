@@ -6,12 +6,14 @@
 //                       : diâmetro<6" ? eficiencia_tubulacao_media
 //                       : 1                                    [>= 6" ou sem diâmetro/"plano"]
 //   eficiência_global = fator_diametro × (curvas ? fator : 1) ×
-//                        (altura ? fator : 1) × fator_br  [sempre aplicado]
+//                        (altura ? fator : 1) × (remoção ? fator : 1) ×
+//                        fator_br  [sempre aplicado]
 //   m²_equivalentes   = m² ÷ eficiência_global
 //
 // A fórmula vale POR ITEM do Escopo (ver `calcularMaoObraPorItens`, é o que o
 // orçamento usa) — cada reta/curva/plano tem a própria eficiência, e os m²
-// equivalentes dos itens são somados. Só a altura vale pro trecho inteiro.
+// equivalentes dos itens são somados. Altura e remoção do isolamento
+// existente (migração 051) valem pro trecho inteiro.
 //
 // Os fatores SEMPRE se multiplicam entre si (nunca somam) — quanto mais
 // condições difíceis (tubo fino + curva + altura), menor a eficiência e mais
@@ -28,7 +30,7 @@ import type { FaixaDiametroTubulacao } from "./escopo";
 
 export type ParametrosMaoObra = Pick<
   ConfigEmpresa,
-  "eficiencia_tubulacao_pequena" | "eficiencia_tubulacao_media" | "eficiencia_curva" | "eficiencia_altura" | "eficiencia_fator_br"
+  "eficiencia_tubulacao_pequena" | "eficiencia_tubulacao_media" | "eficiencia_curva" | "eficiencia_altura" | "eficiencia_fator_br" | "eficiencia_remocao"
 >;
 
 export interface FatoresMaoObra {
@@ -37,6 +39,8 @@ export interface FatoresMaoObra {
   faixaDiametro: FaixaDiametroTubulacao | null;
   temCurvas: boolean;
   trabalhoAltura: boolean;
+  /** O trecho inclui remover o isolamento existente (migração 051). */
+  remocaoIsolamento?: boolean;
 }
 
 export interface MaoObraAutomatica {
@@ -56,6 +60,8 @@ function eficienciaDe(fatores: FatoresMaoObra, parametros: ParametrosMaoObra): n
   // 1, sem multiplicação.
   if (fatores.temCurvas) eficiencia *= parametros.eficiencia_curva;
   if (fatores.trabalhoAltura) eficiencia *= parametros.eficiencia_altura;
+  // Sem o fator cadastrado (migração 051 não rodada) ou zerado, não penaliza.
+  if (fatores.remocaoIsolamento && Number(parametros.eficiencia_remocao) > 0) eficiencia *= Number(parametros.eficiencia_remocao);
   eficiencia *= parametros.eficiencia_fator_br;
   return eficiencia;
 }
@@ -96,19 +102,26 @@ export interface ItemMaoObra {
  * equivalentes) — o número que a Tela 4 mostra como "eficiência" e que é
  * salvo no trecho; em trecho com um item só (ou todos iguais) coincide
  * exatamente com a eficiência única. */
-export function calcularMaoObraPorItens(itens: ItemMaoObra[], trabalhoAltura: boolean, parametros: ParametrosMaoObra): MaoObraAutomatica {
+export function calcularMaoObraPorItens(
+  itens: ItemMaoObra[],
+  trabalhoAltura: boolean,
+  parametros: ParametrosMaoObra,
+  remocaoIsolamento = false
+): MaoObraAutomatica {
   let totalM2 = 0;
   let totalEquivalente = 0;
 
   for (const item of itens) {
-    const eficiencia = eficienciaDe({ faixaDiametro: item.faixaDiametro, temCurvas: item.ehCurva, trabalhoAltura }, parametros);
+    const eficiencia = eficienciaDe({ faixaDiametro: item.faixaDiametro, temCurvas: item.ehCurva, trabalhoAltura, remocaoIsolamento }, parametros);
     totalM2 += item.metragemM2;
     totalEquivalente += equivalente(item.metragemM2, eficiencia);
   }
 
   // Sem nenhum item com metragem, cai na eficiência "só altura × fator BR".
   const eficienciaMedia =
-    totalEquivalente > 0 ? totalM2 / totalEquivalente : eficienciaDe({ faixaDiametro: null, temCurvas: false, trabalhoAltura }, parametros);
+    totalEquivalente > 0
+      ? totalM2 / totalEquivalente
+      : eficienciaDe({ faixaDiametro: null, temCurvas: false, trabalhoAltura, remocaoIsolamento }, parametros);
 
   return {
     eficienciaGlobal: round4(eficienciaMedia),

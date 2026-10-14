@@ -41,6 +41,8 @@ export const ItemOrcamentoSchema = z.object({
   perimetro_m: z.number().nullable().optional(),
   // Migração 019 — mão de obra automática (ver calcularMaoObraAutomatica.ts).
   trabalho_altura: z.boolean().optional().default(false),
+  // Migração 051 — o trecho inclui remover o isolamento existente.
+  remocao_isolamento: z.boolean().optional().default(false),
   eficiencia_global: z.number().nullable().optional(),
   espessura_necessaria_mm: z.number(),
   temperatura_face_fria: z.number().nullable().optional(),
@@ -105,6 +107,22 @@ export const CreateOrcamentoSchema = z.object({
   // especificamente; `null`/ausente = usa o padrão de ConfigEmpresa no
   // momento de gerar a Proposta (ver prazoExecucaoDiasUteis).
   horas_uteis_dia: z.number().positive().nullable().optional(),
+  // Migração 051 — catálogo de execução padrão como estava no orçamento
+  // (incluídos e não incluídos — ver ItemExecucaoOrcamento em lib/types.ts).
+  itens_execucao: z
+    .array(
+      z.object({
+        id: z.string(),
+        nome: z.string(),
+        unidade: z.string(),
+        incluido: z.boolean(),
+        quantidade: z.number().nonnegative(),
+        preco_unitario: z.number().nonnegative(),
+        subtotal: z.number().nonnegative(),
+      })
+    )
+    .nullable()
+    .optional(),
   // Migração 048 — equipe e diárias da mão de obra (ver MaoObraEquipe em
   // lib/types.ts). Ausente/`null` em quem ainda manda o modelo antigo.
   mao_obra_equipe: z

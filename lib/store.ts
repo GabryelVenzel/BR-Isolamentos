@@ -29,6 +29,7 @@ import type {
 } from "./types";
 import type { PrecificacaoTrecho } from "./usecases/orcamento";
 import type { EstadoWizardSalvo } from "./usecases/orcamento/reabrirOrcamento";
+import type { EscolhaItemExecucao, EscolhasExecucao } from "./usecases/orcamento/itensExecucao";
 import {
   EQUIPE_PADRAO,
   calcularMaoObraEquipe,
@@ -60,6 +61,11 @@ export interface WizardEspecificacoes {
    * Escolhido na Tela 2 (Escopo), guardado aqui porque é um atributo do
    * TRECHO inteiro, igual `metragem_editada`. */
   trabalho_altura: boolean;
+  /** Este trecho inclui remover o isolamento existente (migração 051) —
+   * mesmo tipo de marcação da altura: escolhido na Tela 2, afeta só a mão de
+   * obra (fator `eficiencia_remocao`) e, na proposta, tira a remoção de "Não
+   * contemplado". */
+  remocao_isolamento?: boolean;
   /** Obrigatório só no quente; no frio é calculada (ver calcularFrio). */
   espessura_mm: number | null;
   // Nullable de propósito (pedido: "campo vazio, não 0") — 0°C é um valor
@@ -206,6 +212,9 @@ export interface WizardState {
 
   resultadoOrcamento: CalcularOrcamentoResultado | null;
 
+  /** Itens de execução PADRÃO habilitados neste orçamento, por id do
+   * catálogo (migração 051 — ver lib/usecases/orcamento/itensExecucao.ts). */
+  execucaoPadrao: EscolhasExecucao;
   /** Margem de lucro só deste orçamento (%); `null` = a de Configurar Preços. */
   margemPercentual: number | null;
   /** Desconto em R$ sobre o preço cheio (0 = sem desconto). */
@@ -241,6 +250,7 @@ export interface WizardState {
   setValorDiariaOverride: (funcao: FuncaoMaoObra, valor: number | null) => void;
   setDiasMaoObraManual: (dias: number | null) => void;
   setAjustesAtual: (dados: Partial<AjustesTrecho>) => void;
+  setItemExecucao: (id: string, dados: Partial<EscolhaItemExecucao>) => void;
   setMargemPercentual: (percentual: number | null) => void;
   setDescontoValor: (valor: number) => void;
   setObservacoes: (texto: string) => void;
@@ -260,6 +270,7 @@ const itemAtualInicial: WizardEspecificacoes = {
   acabamento_customizado_nome: null,
   acabamento_customizado_preco_m2: null,
   trabalho_altura: false,
+  remocao_isolamento: false,
   espessura_mm: null,
   temperatura_quente: null,
   // Pré-preenchimento pra facilitar (pedido explícito) — mesmo campo serve
@@ -310,6 +321,7 @@ export const useWizardStore = create<WizardState>()(
       valoresDiariaOverride: {},
       diasMaoObraManual: null,
       resultadoOrcamento: null,
+      execucaoPadrao: {},
       margemPercentual: null,
       descontoValor: 0,
       observacoes: "",
@@ -370,6 +382,11 @@ export const useWizardStore = create<WizardState>()(
         set((state) => ({ valoresDiariaOverride: { ...state.valoresDiariaOverride, [funcao]: valor } })),
       setDiasMaoObraManual: (dias) => set({ diasMaoObraManual: dias }),
       setAjustesAtual: (dados) => set((state) => ({ ajustesAtual: { ...state.ajustesAtual, ...dados } })),
+      setItemExecucao: (id, dados) =>
+        set((state) => {
+          const atual: EscolhaItemExecucao = state.execucaoPadrao[id] ?? { incluido: false, quantidade: 1, precoUnitario: null };
+          return { execucaoPadrao: { ...state.execucaoPadrao, [id]: { ...atual, ...dados } } };
+        }),
       setMargemPercentual: (percentual) => set({ margemPercentual: percentual }),
       setDescontoValor: (valor) => set({ descontoValor: valor }),
       setObservacoes: (texto) => set({ observacoes: texto }),
@@ -390,6 +407,7 @@ export const useWizardStore = create<WizardState>()(
           valoresDiariaOverride: { ...estado.valoresDiariaOverride },
           diasMaoObraManual: estado.diasMaoObraManual ?? null,
           resultadoOrcamento: null,
+          execucaoPadrao: { ...estado.execucaoPadrao },
           margemPercentual: estado.margemPercentual ?? null,
           descontoValor: estado.descontoValor ?? 0,
           observacoes: estado.observacoes ?? "",
@@ -413,6 +431,7 @@ export const useWizardStore = create<WizardState>()(
           valoresDiariaOverride: {},
           diasMaoObraManual: null,
           resultadoOrcamento: null,
+          execucaoPadrao: {},
           margemPercentual: null,
           descontoValor: 0,
           observacoes: "",
@@ -442,6 +461,7 @@ export const useWizardStore = create<WizardState>()(
           equipe: { ...currentState.equipe, ...persisted?.equipe },
           valoresDiariaOverride: { ...persisted?.valoresDiariaOverride },
           ajustesAtual: { ...currentState.ajustesAtual, ...persisted?.ajustesAtual },
+          execucaoPadrao: { ...persisted?.execucaoPadrao },
         };
       },
     }
@@ -460,6 +480,7 @@ export function estadoParaSalvar(state: WizardState): EstadoWizardSalvo {
     equipe: state.equipe,
     valoresDiariaOverride: state.valoresDiariaOverride,
     diasMaoObraManual: state.diasMaoObraManual,
+    execucaoPadrao: state.execucaoPadrao,
     margemPercentual: state.margemPercentual,
     descontoValor: state.descontoValor,
     observacoes: state.observacoes,

@@ -51,8 +51,7 @@ import {
   calcularPaybackMeses,
   descricaoMaterialCompleta,
   distribuirResumoFinanceiroSimplificado,
-  itensContemplados,
-  itensNaoContemplados,
+  escopoContemplado,
   linhasEspecificacoesTecnicas,
   quadrosQuantificacao,
   linhasOperacionaisIncluso,
@@ -554,11 +553,12 @@ function blocoContatoTecnico(configEmpresa: ConfigEmpresa | null | undefined): T
 
 /** Bloco "Escopo" — lista de itens por trecho + "O orçamento contempla"/"Não
  * contemplado" empilhados. */
-function blocoEscopo(itens: Orcamento["itens"], tipoProposta: Orcamento["tipo_proposta"]): Array<Paragraph> {
+function blocoEscopo(itens: Orcamento["itens"], orcamento: Orcamento): Array<Paragraph> {
+  const { contempla, naoContempla } = escopoContemplado(orcamento, itens ?? []);
   const children: Paragraph[] = [];
   (itens ?? []).forEach((item, index) => {
     children.push(
-      subTitulo(`Trecho ${index + 1} (${LABEL_TIPO[item.tipo_trabalho] ?? item.tipo_trabalho})${item.trabalho_altura ? " · trabalho em altura" : ""}`, {
+      subTitulo(`Trecho ${index + 1} (${LABEL_TIPO[item.tipo_trabalho] ?? item.tipo_trabalho})${item.trabalho_altura ? " · trabalho em altura" : ""}${item.remocao_isolamento ? " · com remoção do isolamento existente" : ""}`, {
         before: index === 0 ? 0 : 100,
       })
     );
@@ -568,8 +568,8 @@ function blocoEscopo(itens: Orcamento["itens"], tipoProposta: Orcamento["tipo_pr
       children.push(paragrafoItem(`${formatarNumero(item.area_m2)} m²`));
     }
   });
-  children.push(subTitulo("O orçamento contempla", { cor: COR_ACCENT, before: 180, tamanho: 19 }), ...itensContemplados(tipoProposta).map(paragrafoItem));
-  children.push(subTitulo("Não contemplado", { cor: COR_ERRO, before: 140, tamanho: 19 }), ...itensNaoContemplados(tipoProposta).map(paragrafoItem));
+  children.push(subTitulo("O orçamento contempla", { cor: COR_ACCENT, before: 180, tamanho: 19 }), ...contempla.map(paragrafoItem));
+  children.push(subTitulo("Não contemplado", { cor: COR_ERRO, before: 140, tamanho: 19 }), ...naoContempla.map(paragrafoItem));
   return children;
 }
 
@@ -652,7 +652,7 @@ export async function gerarPropostaComercialDocx(orcamento: Orcamento, configEmp
   children.push(blocoCliente(orcamento, "comercial", validadeDias), espaco());
 
   children.push(tituloSecao(`${n++}. Escopo`));
-  children.push(...blocoEscopo(itens, orcamento.tipo_proposta));
+  children.push(...blocoEscopo(itens, orcamento));
 
   children.push(tituloSecao(`${n++}. Especificações Técnicas`));
   children.push(tabelaEspecificacoesTecnicas(itens));
@@ -946,7 +946,7 @@ export async function gerarPropostaTecnicaDocx(orcamento: Orcamento, configEmpre
   }
 
   children.push(tituloSecao(`${numeroSecao++}. Escopo`));
-  children.push(...blocoEscopo(itens, orcamento.tipo_proposta));
+  children.push(...blocoEscopo(itens, orcamento));
 
   children.push(tituloSecao(`${numeroSecao++}. Parâmetros de cálculo`));
   children.push(

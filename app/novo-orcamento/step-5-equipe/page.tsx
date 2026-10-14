@@ -5,6 +5,7 @@ import EquipeMaoObra from "@/components/EquipeMaoObra";
 import { formatarMoeda, formatarNumero } from "@/lib/format";
 import { useOrcamentoCalculado } from "@/lib/hooks/useOrcamentoCalculado";
 import { useWizardStore } from "@/lib/store";
+import { catalogoItensExecucao, quantidadeInicialItemExecucao, totalItensExecucao } from "@/lib/usecases/orcamento";
 
 /** Etapa 5 — o que vale para o ORÇAMENTO INTEIRO, uma vez só: a equipe de mão
  * de obra (com as diárias) e os custos operacionais. Antes esses quadros
@@ -15,7 +16,9 @@ export default function Step5EquipePage() {
   const router = useRouter();
   const { itens, custosOperacionais, setCustosOperacionais, editarItem, margemPercentual, setMargemPercentual, descontoValor, setDescontoValor } =
     useWizardStore();
-  const { config, trechos, maoObra, resultado, erro } = useOrcamentoCalculado();
+  const { config, trechos, maoObra, itensExecucao, resultado, erro } = useOrcamentoCalculado();
+  const { execucaoPadrao, setItemExecucao } = useWizardStore();
+  const catalogo = catalogoItensExecucao(config?.itens_execucao_padrao);
 
   // Voltar = reabrir o último trecho na Tela 4, com os ajustes dele.
   function voltarAoUltimoTrecho() {
@@ -136,6 +139,116 @@ export default function Step5EquipePage() {
           </div>
         )}
       </div>
+
+      {/* Itens de execução padrão (migração 051) — equipamentos e serviços
+          de apoio do catálogo de Configurar Preços: basta habilitar. O que
+          fica habilitado entra em "O orçamento contempla" na proposta; o que
+          não fica é citado em "Não contemplado". */}
+      {config && (
+        <div className="card space-y-3">
+          <div>
+            <h2 className="text-lg font-semibold">Itens de execução</h2>
+            <p className="text-xs text-gray-500">
+              Marque o que esta obra inclui. Na proposta, os marcados entram em "O orçamento contempla" e no quadro de itens de execução;
+              os não marcados são citados em "Não contemplado".
+            </p>
+          </div>
+          {catalogo.length === 0 ? (
+            <p className="text-sm text-gray-500">
+              Nenhum item cadastrado. Monte a lista (andaime, plataforma elevatória, guindauto...) em{" "}
+              <a href="/config-precos" className="text-brand hover:underline">
+                Configurar Preços → Mão de Obra → Itens de execução padrão
+              </a>
+              .
+            </p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200 text-sm">
+                <thead className="table-header">
+                  <tr>
+                    <th className="py-2 pr-4 text-left">Incluir</th>
+                    <th className="py-2 pr-4 text-left">Item</th>
+                    <th className="py-2 pr-4 text-left">Quantidade</th>
+                    <th className="py-2 pr-4 text-left">Preço unit. (R$)</th>
+                    <th className="py-2 text-right">Subtotal</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {catalogo.map((item) => {
+                    const escolha = execucaoPadrao[item.id];
+                    const incluido = !!escolha?.incluido;
+                    const linha = itensExecucao.find((i) => i.id === item.id);
+                    return (
+                      <tr key={item.id} className={incluido ? "" : "text-gray-400"}>
+                        <td className="py-1.5 pr-4">
+                          <input
+                            type="checkbox"
+                            className="h-4 w-4"
+                            aria-label={`Incluir ${item.nome}`}
+                            checked={incluido}
+                            onChange={(e) =>
+                              setItemExecucao(item.id, {
+                                incluido: e.target.checked,
+                                // Ao habilitar pela primeira vez: os dias de obra, se o item é por diária.
+                                ...(e.target.checked && !escolha ? { quantidade: quantidadeInicialItemExecucao(item, maoObra?.dias ?? 0) } : {}),
+                              })
+                            }
+                          />
+                        </td>
+                        <td className="py-1.5 pr-4 font-medium">{item.nome}</td>
+                        <td className="py-1.5 pr-4">
+                          {incluido ? (
+                            <span className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                min={0}
+                                step="0.01"
+                                aria-label={`Quantidade de ${item.nome}`}
+                                className="input-field w-24"
+                                value={escolha?.quantidade ?? 1}
+                                onChange={(e) => setItemExecucao(item.id, { quantidade: Math.max(0, Number(e.target.value) || 0) })}
+                              />
+                              <span className="text-xs text-gray-500">{item.unidade}</span>
+                            </span>
+                          ) : (
+                            <span className="text-xs">{item.unidade}</span>
+                          )}
+                        </td>
+                        <td className="py-1.5 pr-4">
+                          {incluido ? (
+                            <input
+                              type="number"
+                              min={0}
+                              step="0.01"
+                              aria-label={`Preço de ${item.nome}`}
+                              className="input-field w-28"
+                              placeholder={String(item.preco)}
+                              value={escolha?.precoUnitario ?? ""}
+                              onChange={(e) => setItemExecucao(item.id, { precoUnitario: e.target.value === "" ? null : Math.max(0, Number(e.target.value)) })}
+                            />
+                          ) : (
+                            formatarMoeda(item.preco)
+                          )}
+                        </td>
+                        <td className="py-1.5 text-right font-medium">{incluido ? formatarMoeda(linha?.subtotal ?? 0) : "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {catalogo.length > 0 && (
+            <div className="flex justify-between border-t border-gray-100 pt-2 text-sm font-semibold">
+              <span>Itens de execução incluídos</span>
+              <span>{formatarMoeda(totalItensExecucao(itensExecucao))}</span>
+            </div>
+          )}
+          {itensExecucao.some((i) => i.incluido && i.preco_unitario === 0) && (
+            <p className="text-xs text-amber-700">Há item incluído com preço R$ 0,00 — informe o preço aqui ou cadastre o padrão em Configurar Preços.</p>
+          )}
+        </div>
+      )}
 
       {/* Margem e desconto deste orçamento — passam pelo mesmo motor de
           cálculo (preço = custo ÷ (1 − impostos − margem); o imposto incide

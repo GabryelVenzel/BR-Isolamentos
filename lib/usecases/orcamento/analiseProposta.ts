@@ -149,6 +149,71 @@ export function itensNaoContemplados(tipoProposta: "material_mo" | "somente_mo")
   return itens;
 }
 
+const igualSemAcento = (a: string, b: string) => normalizar(a) === normalizar(b);
+function normalizar(texto: string): string {
+  return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+}
+
+/** "O orçamento contempla" / "Não contemplado" das Propostas, montados a
+ * partir do que o orçamento realmente tem (migração 051) — usada pelas
+ * Propostas Técnica e Comercial, PDF e Word, pra nunca divergirem.
+ *
+ *   - Remoção do isolamento existente: contemplada quando algum trecho foi
+ *     marcado com remoção (cita os trechos, se não forem todos); senão, não
+ *     contemplada.
+ *   - Itens de execução padrão (andaime, plataforma, guindauto...): os
+ *     habilitados no orçamento entram em "contempla"; os demais do catálogo
+ *     são citados em "Não contemplado".
+ *   - Itens adicionais de execução digitados à mão num trecho também contam
+ *     como contemplados (e saem do "Não contemplado" se tiverem o mesmo nome
+ *     de um item do catálogo).
+ *
+ * Orçamento anterior à migração 051 (sem `itens_execucao`): as listas
+ * genéricas de antes (`itensContemplados`/`itensNaoContemplados`), sem
+ * mudança. */
+export function escopoContemplado(
+  orcamento: Pick<Orcamento, "tipo_proposta" | "itens_execucao">,
+  itens: ItemOrcamento[]
+): { contempla: string[]; naoContempla: string[] } {
+  const tipoProposta = orcamento.tipo_proposta ?? "material_mo";
+  const catalogo = orcamento.itens_execucao;
+  if (!catalogo) return { contempla: itensContemplados(tipoProposta), naoContempla: itensNaoContemplados(tipoProposta) };
+
+  const contempla = itensContemplados(tipoProposta);
+  const naoContempla: string[] = [];
+  if (tipoProposta === "somente_mo") naoContempla.push("Material isolante e acabamentos (fornecidos pelo cliente)");
+
+  // Remoção do isolamento existente.
+  const trechosComRemocao = itens.map((item, index) => (item.remocao_isolamento ? index + 1 : 0)).filter((n) => n > 0);
+  if (trechosComRemocao.length > 0) {
+    const todos = trechosComRemocao.length === itens.length;
+    contempla.push(
+      todos ? "Remoção do isolamento existente" : `Remoção do isolamento existente (${trechosComRemocao.length === 1 ? "trecho" : "trechos"} ${trechosComRemocao.join(", ")})`
+    );
+  }
+
+  // Itens de execução: padrão habilitados + adicionais livres dos trechos.
+  const incluidos = catalogo.filter((i) => i.incluido).map((i) => i.nome);
+  const livres: string[] = [];
+  for (const item of itens) {
+    for (const linha of item.detalhamento_materiais ?? []) {
+      if (linha.chave === "item_adicional_execucao") livres.push(linha.titulo);
+    }
+  }
+  const execucao: string[] = [];
+  for (const nome of [...incluidos, ...livres]) {
+    if (!execucao.some((e) => igualSemAcento(e, nome))) execucao.push(nome);
+  }
+  contempla.push(...execucao);
+
+  if (trechosComRemocao.length === 0) naoContempla.push("Remoção do isolamento existente");
+  const foraDoEscopo = catalogo.filter((i) => !i.incluido && !execucao.some((e) => igualSemAcento(e, i.nome))).map((i) => i.nome);
+  if (foraDoEscopo.length > 0) naoContempla.push(`Equipamentos e serviços de apoio não incluídos: ${foraDoEscopo.join(", ")}`);
+  naoContempla.push("Adequações civis/estruturais, salvo se explicitamente incluídas");
+
+  return { contempla, naoContempla };
+}
+
 export interface LinhaEspecificacaoTecnica {
   trechoNumero: number;
   tipoTrabalho: TipoTrabalho;
@@ -233,7 +298,7 @@ export function distribuirResumoFinanceiroSimplificado(
  * 1, diárias sem nenhuma (são sempre dias fechados), o resto com 2. */
 export function casasDecimaisQuantidade(unidade: string): number {
   if (unidade === "g") return 1;
-  if (unidade.startsWith("diária")) return 0;
+  if (unidade.startsWith("diária") || unidade === "verba") return 0;
   return 2;
 }
 
@@ -349,7 +414,7 @@ export interface QuadroQuantificacao {
  * Com mais de um trecho, Materiais e Itens Adicionais ganham a coluna
  * "Trecho"; a equipe é da proposta inteira e não tem essa coluna. */
 export function quadrosQuantificacao(
-  orcamento: Pick<Orcamento, "tipo_proposta" | "mao_obra_equipe">,
+  orcamento: Pick<Orcamento, "tipo_proposta" | "mao_obra_equipe" | "itens_execucao">,
   itens: ItemOrcamento[]
 ): QuadroQuantificacao[] {
   const comTrecho = itens.length > 1;
@@ -382,8 +447,18 @@ export function quadrosQuantificacao(
     if (horas.length > 0) quadros.push({ titulo: "Mão de Obra", cabecalho: cabecalhoPorTrecho, linhas: porTrecho(horas) });
   }
 
-  const execucao = linhasItensAdicionaisExecucao(itens);
-  if (execucao.length > 0) quadros.push({ titulo: "Itens Adicionais de Execução", cabecalho: cabecalhoPorTrecho, linhas: porTrecho(execucao) });
+  // Itens de execução: os padrão habilitados (valem para o orçamento
+  // inteiro — "Geral" na coluna Trecho) + os adicionais livres de cada trecho.
+  const execucaoPadrao = (orcamento.itens_execucao ?? [])
+    .filter((i) => i.incluido && i.quantidade > 0)
+    .map((i) => [
+      ...(comTrecho ? ["Geral"] : []),
+      i.nome,
+      // "2 diárias", não "2 diária" — a unidade do catálogo vem no singular.
+      `${formatarNumeroBr(i.quantidade, casasDecimaisQuantidade(i.unidade))} ${i.unidade === "diária" && i.quantidade !== 1 ? "diárias" : i.unidade}`,
+    ]);
+  const execucao = [...execucaoPadrao, ...porTrecho(linhasItensAdicionaisExecucao(itens))];
+  if (execucao.length > 0) quadros.push({ titulo: "Itens Adicionais de Execução", cabecalho: cabecalhoPorTrecho, linhas: execucao });
 
   return quadros;
 }

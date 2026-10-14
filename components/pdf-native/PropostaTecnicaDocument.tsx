@@ -29,8 +29,7 @@ import { Document, Page, Text, View } from "@react-pdf/renderer";
 import { formatarData, formatarMoeda, formatarNumero } from "@/lib/format";
 import {
   descricaoMaterialCompleta,
-  itensContemplados,
-  itensNaoContemplados,
+  escopoContemplado,
   linhasEspecificacoesTecnicas,
   quadrosQuantificacao,
   linhasOperacionaisIncluso,
@@ -132,8 +131,7 @@ export default function PropostaTecnicaDocument({ orcamento, configEmpresa }: Pr
   const reducaoMax = reducoes.length > 0 ? Math.max(...reducoes) : null;
   const maiorFaceFria = itensQuentes.reduce((max, i) => (i.temperatura_face_fria != null ? Math.max(max, i.temperatura_face_fria) : max), -Infinity);
 
-  const contempla = itensContemplados(orcamento.tipo_proposta);
-  const naoContempla = itensNaoContemplados(orcamento.tipo_proposta);
+  const { contempla, naoContempla } = escopoContemplado(orcamento, itens);
   const linhasEspecificacoes = linhasEspecificacoesTecnicas(itens);
   const somenteMaoObra = orcamento.tipo_proposta === "somente_mo";
   // Um quadro para cada coisa — Materiais, Mão de Obra (função e quantidade
@@ -250,6 +248,7 @@ export default function PropostaTecnicaDocument({ orcamento, configEmpresa }: Pr
               <Text style={estilos.blocoTitulo}>
                 Trecho {index + 1} ({LABEL_TIPO[item.tipo_trabalho]})
                 {item.trabalho_altura ? " · trabalho em altura" : ""}
+                {item.remocao_isolamento ? " · com remoção do isolamento existente" : ""}
               </Text>
               {(item.escopo_itens?.length ?? 0) > 0 ? (
                 item.escopo_itens.map((escopo) => (

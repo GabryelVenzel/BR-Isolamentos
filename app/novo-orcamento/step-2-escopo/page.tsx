@@ -77,6 +77,25 @@ export default function Step2EscopoPage() {
             <span className="block text-xs text-gray-500">Reduz o rendimento da equipe neste trecho e aumenta os dias de obra. Não muda a quantidade de material.</span>
           </span>
         </label>
+        {/* Remoção do isolamento existente (migração 051) — mesma lógica da
+            altura: consome tempo de obra (fator em Configurar Preços) e, na
+            proposta, passa de "Não contemplado" para "O orçamento contempla". */}
+        <label
+          className={`flex flex-1 cursor-pointer items-center gap-3 rounded-card border px-4 py-3 ${
+            itemAtual.remocao_isolamento ? "border-amber-400 bg-amber-50" : "border-gray-200 bg-white"
+          }`}
+        >
+          <input
+            type="checkbox"
+            className="h-4 w-4"
+            checked={!!itemAtual.remocao_isolamento}
+            onChange={(e) => setItemAtual({ remocao_isolamento: e.target.checked })}
+          />
+          <span>
+            <span className="block text-sm font-medium text-gray-800">Este trecho tem remoção do isolamento existente</span>
+            <span className="block text-xs text-gray-500">Aumenta os dias de obra e aparece na proposta como serviço contemplado. Não muda a quantidade de material.</span>
+          </span>
+        </label>
         <button type="button" className="btn-primary self-center" onClick={() => setEditando("novo")}>
           + Adicionar Item
         </button>

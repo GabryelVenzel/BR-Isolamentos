@@ -88,6 +88,9 @@ export function precificarTrecho(input: {
   precoAcabamentoM2: number;
   precosAcessorios: PrecosAcessorios;
   trabalhoAltura: boolean;
+  /** O trecho inclui remover o isolamento existente (migração 051) — só
+   * afeta o trabalho de mão de obra, como a altura. */
+  remocaoIsolamento?: boolean;
   parametrosQuantificacao: ParametrosQuantificacao;
   parametrosMaoObra: ParametrosMaoObra;
 }): PrecificacaoTrecho {
@@ -106,7 +109,8 @@ export function precificarTrecho(input: {
       ehCurva: item.tipo === "curva",
     })),
     input.trabalhoAltura,
-    input.parametrosMaoObra
+    input.parametrosMaoObra,
+    input.remocaoIsolamento ?? false
   );
 
   const subtotalMaterial =

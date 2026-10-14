@@ -132,6 +132,7 @@ export default function Step4PrecosPage() {
           precoAcabamentoM2: precoAcabamentoBase,
           precosAcessorios,
           trabalhoAltura: especificacoes.trabalho_altura,
+          remocaoIsolamento: !!especificacoes.remocao_isolamento,
           parametrosQuantificacao: config,
           parametrosMaoObra: config,
         })
@@ -584,7 +585,8 @@ export default function Step4PrecosPage() {
                   <p className="text-sm">
                     <strong>{formatarNumero(metragem, 2)} m²</strong> ÷ eficiência média{" "}
                     <strong>{formatarNumero(base.eficiencia_global * 100, 1)}%</strong>
-                    {especificacoes.trabalho_altura && " (inclui trabalho em altura)"} ={" "}
+                    {especificacoes.trabalho_altura && " (inclui trabalho em altura)"}
+                    {especificacoes.remocao_isolamento && " (inclui remoção do isolamento existente)"} ={" "}
                     <strong>{formatarNumero(m2EquivalenteTrecho, 2)} m² equivalentes</strong>
                   </p>
                   <p className="text-xs text-gray-500">

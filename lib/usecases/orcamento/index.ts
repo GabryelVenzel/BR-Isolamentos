@@ -29,6 +29,14 @@ export { quantificarMateriais } from "./quantificarMateriais";
 export type { ParametrosQuantificacao, QuantificacaoMateriais } from "./quantificarMateriais";
 export { calcularMaoObraAutomatica, calcularMaoObraPorItens } from "./calcularMaoObraAutomatica";
 export {
+  ITENS_EXECUCAO_SUGERIDOS,
+  catalogoItensExecucao,
+  quantidadeInicialItemExecucao,
+  resolverItensExecucao,
+  totalItensExecucao,
+} from "./itensExecucao";
+export type { EscolhaItemExecucao, EscolhasExecucao } from "./itensExecucao";
+export {
   EQUIPE_PADRAO,
   EQUIPE_VAZIA,
   FUNCOES_MAO_OBRA,
@@ -58,6 +66,7 @@ export {
   linhasQuantificacaoMateriais,
   linhasItensAdicionaisExecucao,
   quadrosQuantificacao,
+  escopoContemplado,
   prazoExecucaoDaProposta,
   prazoExecucaoDiasUteis,
   casasDecimaisQuantidade,

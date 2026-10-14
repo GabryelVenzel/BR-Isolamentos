@@ -19,6 +19,7 @@
 
 import type { ConfigEmpresa, FuncaoMaoObra, ItemEscopo, ItemOrcamento, Orcamento, PrecoConfig } from "../../types";
 import type { AjustesTrecho, ChaveLinhaAjuste, ItemAdicional, WizardCustosOperacionais, WizardEspecificacoes, WizardItem } from "../../store";
+import type { EscolhasExecucao } from "./itensExecucao";
 import { EQUIPE_PADRAO, EQUIPE_VAZIA, funcaoProduz, rendimentoM2Dia, valorDiariaPadrao, type EquipeMaoObra } from "./maoObraEquipe";
 
 /** O que o wizard guarda de um orçamento — a cópia salva junto dele e o que
@@ -32,6 +33,9 @@ export interface EstadoWizardSalvo {
   equipe: EquipeMaoObra;
   valoresDiariaOverride: Partial<Record<FuncaoMaoObra, number | null>>;
   diasMaoObraManual: number | null;
+  /** Itens de execução padrão habilitados (migração 051); ausente em cópias
+   * guardadas antes dela. */
+  execucaoPadrao?: EscolhasExecucao;
   /** Margem de lucro só deste orçamento (%); `null` = a de Configurar Preços. */
   margemPercentual: number | null;
   /** Desconto em R$ sobre o preço cheio. */
@@ -69,6 +73,7 @@ function reconstruirTrecho(item: ItemOrcamento, tipoProposta: EstadoWizardSalvo[
     acabamento_customizado_nome: acabamento ? null : item.acabamento ?? "Sem acabamento",
     acabamento_customizado_preco_m2: acabamento ? null : numero(item.preco_acabamento_m2),
     trabalho_altura: !!item.trabalho_altura,
+    remocao_isolamento: !!item.remocao_isolamento,
     espessura_mm: numero(item.espessura_necessaria_mm) || null,
     temperatura_quente: item.temperatura_quente,
     temperatura_ambiente: item.temperatura_ambiente,
@@ -189,7 +194,9 @@ export function reconstruirEstadoWizard(orcamento: Orcamento, config: ConfigEmpr
     // funileiro + 1 isolador, pelos dias que as horas salvas davam, com a
     // diária ajustada para fechar no mesmo total (pode diferir em centavos,
     // pelo arredondamento da diária).
-    const execucao = itens.reduce((acc, i) => acc + i.precificacao.subtotal_itens_execucao, 0);
+    const execucao =
+      itens.reduce((acc, i) => acc + i.precificacao.subtotal_itens_execucao, 0) +
+      (orcamento.itens_execucao ?? []).reduce((acc, i) => acc + (i.incluido ? numero(i.subtotal) : 0), 0);
     const maoObraSalva = round2(Math.max(0, numero(orcamento.valor_mao_obra) - execucao));
     const horas = (orcamento.itens ?? []).reduce((acc, i) => acc + numero(i.horas_mao_obra), 0);
     const horasDia = numero(orcamento.horas_uteis_dia) > 0 ? numero(orcamento.horas_uteis_dia) : numero(config.horas_uteis_dia) || 7;
@@ -227,6 +234,13 @@ export function reconstruirEstadoWizard(orcamento: Orcamento, config: ConfigEmpr
     (numero(orcamento.valor_alimentacao) > 0 && !(config.valor_diaria_alimentacao > 0));
   if (semPreco) avisos.push("Algum custo operacional deste orçamento não tem mais preço unitário em Configurar Preços — confira as quantidades na etapa \"Equipe e custos\".");
 
+  // Itens de execução padrão: os que estavam incluídos voltam habilitados,
+  // com a quantidade e o preço que tinham.
+  const execucaoPadrao: EscolhasExecucao = {};
+  for (const item of orcamento.itens_execucao ?? []) {
+    if (item.incluido) execucaoPadrao[item.id] = { incluido: true, quantidade: item.quantidade, precoUnitario: item.preco_unitario };
+  }
+
   // Margem: a que foi usada = 100 × (1 − custo ÷ preço cheio) − impostos.
   let margemPercentual: number | null = null;
   if (numero(orcamento.preco_cheio) > 0 && numero(orcamento.subtotal) > 0) {
@@ -251,6 +265,7 @@ export function reconstruirEstadoWizard(orcamento: Orcamento, config: ConfigEmpr
       equipe,
       valoresDiariaOverride,
       diasMaoObraManual,
+      execucaoPadrao,
       margemPercentual,
       descontoValor: numero(orcamento.valor_desconto),
       observacoes: orcamento.observacoes_adicionais ?? "",
