@@ -175,7 +175,7 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo, modo = "jan
         onClick={(e) => e.stopPropagation()}
       >
         <h2 className={pagina ? "sr-only" : "mb-4 font-montserrat text-lg font-bold text-brand"}>
-          {parceiro ? "Editar Parceiro" : "Novo Parceiro"}
+          {parceiro ? "Editar cadastro" : { prestador: "Novo Prestador", parceria: "Nova Parceria", representante: "Novo Representante" }[categoria]}
         </h2>
 
         <div className="space-y-4">
