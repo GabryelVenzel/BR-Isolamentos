@@ -114,6 +114,11 @@ export interface Lead {
    * ver migração 026) — nunca enviar no PATCH/POST, o Postgres calcula
    * sozinho. `null` em lead normal (nunca marcado como comissão). */
   valor_comissao: number | null;
+  /** Migração 055 — lead trazido por um representante: venda nossa (com
+   * orçamento), da qual sai a comissão dele. O valor do lead é a nossa
+   * proposta; o líquido é valor × (1 − %). Nunca junto com `eh_comissao`. */
+  representante_id?: string | null;
+  percentual_representante?: number | null;
   created_at: string;
   updated_at: string;
   // Preenchido via join, opcional (ver LeadRepository.select).
@@ -124,12 +129,16 @@ export interface Lead {
   vinculos?: LeadOrcamento[];
   /** Parceiro pra quem a indicação foi feita — só em lead de comissão. */
   parceiro?: Parceiro;
+  /** Representante que trouxe o lead (migração 055). */
+  representante?: Parceiro | null;
   // Campos CALCULADOS, não persistidos — anexados por
   // lib/usecases/comercial/prazoEtapa.ts a partir de historico_mudancas_leads
   // + ConfigPrazoEtapas (ver createComercialContext#listarLeads). Ausentes
   // em qualquer outro caminho que não passe por lá (ex.: buscarLead).
   dias_na_etapa_atual?: number;
   etapa_atrasada?: boolean;
+  /** Calculado em "leads dormindo": data da atividade mais recente. */
+  ultima_atividade?: string;
   /** Migração 026 — total de anexos do lead, anexado só a leads de comissão
    * (ver createComercialContext#listarLeads) pra alimentar o indicador
    * visual do card do Kanban (✅/⚠️ tem comprovante) sem precisar de outro
@@ -321,9 +330,11 @@ export type TipoTrabalhoOperacional =
  * gente de verdade (aparece na Agenda/Capacidade, pode ser vinculado a um
  * Serviço); "parceria" é só um canal de indicação (aparece no seletor de
  * comissão do Lead, migração 026, mas nunca na Agenda — não tem headcount
- * pra oferecer). "Ambos" deixou de existir na migração 053: Prestadores e
- * Parcerias viraram subabas separadas do Operacional. */
-export type CategoriaParceiro = "prestador" | "parceria";
+ * pra oferecer). "Ambos" deixou de existir na migração 053. "representante"
+ * (migração 055): representa a empresa comercialmente e recebe comissão
+ * sobre as vendas que traz. Parcerias e Representantes ficam no Comercial;
+ * Prestadores no Operacional. */
+export type CategoriaParceiro = "prestador" | "parceria" | "representante";
 
 /** Categorias de fornecimento (material/equipamento/serviço de apoio — ver
  * sql-migration-015). Corrige um equívoco da migração 013, que tinha
@@ -391,6 +402,9 @@ export interface Parceiro {
    * (ver lib/usecases/operacional/capacidade.ts), porque dependem de QUAL
    * DIA está sendo consultado. */
   total_pessoas: number | null;
+  /** Migração 055 — % de comissão que o representante costuma receber
+   * (preenche o lead novo dele). Só para representante. */
+  percentual_comissao_padrao?: number | null;
   ativo: boolean;
   created_at: string;
   updated_at: string;

@@ -11,6 +11,7 @@ import KanbanBoard from "@/components/modules/comercial/KanbanBoard";
 import FiltrosKanban, { type FiltrosKanbanState } from "@/components/modules/comercial/FiltrosKanban";
 import LeadsFriosPanel from "@/components/modules/comercial/LeadsFriosPanel";
 import ClientesTab from "@/components/modules/comercial/ClientesTab";
+import ListaParceiros from "@/components/modules/operacional/ListaParceiros";
 import ConfiguracoesTab from "@/components/modules/comercial/ConfiguracoesTab";
 import NovoLeadModal from "@/components/comercial/NovoLeadModal";
 import ValorFechadoHost, { pedirValorFechado } from "@/components/modules/comercial/ValorFechado";
@@ -26,11 +27,14 @@ import { orcamentosDoLead } from "@/lib/leads";
 // comerciais (funil, origem, performance por responsável etc.) agora vivem
 // centralizados em /resumo?tab=comercial, junto com os relatórios de
 // Operacional e Financeiro (ver app/resumo/page.tsx).
-type AbaComercial = "crm" | "clientes" | "configuracoes";
+type AbaComercial = "crm" | "clientes" | "parcerias" | "representantes" | "configuracoes";
 
 const ABAS: Array<{ valor: AbaComercial; label: string }> = [
   { valor: "crm", label: "CRM" },
   { valor: "clientes", label: "Clientes" },
+  // Migração 055 — Parcerias veio do Operacional; Representantes é novo.
+  { valor: "parcerias", label: "Parcerias" },
+  { valor: "representantes", label: "Representantes" },
   { valor: "configuracoes", label: "Configurações" },
 ];
 
@@ -62,6 +66,8 @@ function ComercialPageConteudo() {
 
   const [soAtrasados, setSoAtrasados] = useEstadoLembrado("filtros-comercial-atrasados", false);
   const [soComissoes, setSoComissoes] = useEstadoLembrado("filtros-comercial-comissoes", false);
+  // Migração 055 — filtro de representações ("" todas, "todos" só representações, ou um representante).
+  const [filtroRepresentante, setFiltroRepresentante] = useEstadoLembrado("filtros-comercial-representante", "");
   const [mostrarPerdidos, setMostrarPerdidos] = useEstadoLembrado("filtros-comercial-perdidos", false);
 
   const [mostrarNovoLead, setMostrarNovoLead] = useState(false);
@@ -138,7 +144,10 @@ function ComercialPageConteudo() {
   }, [aba, carregarLeadsFrios]);
 
   useEffect(() => {
-    fetch("/api/usuarios").then((r) => r.json()).then(setUsuarios).catch(() => setUsuarios([]));
+    fetch("/api/usuarios")
+      .then((r) => r.json())
+      .then(setUsuarios)
+      .catch(() => setUsuarios([]));
   }, []);
 
   async function moverLead(leadId: string, novaEtapa: EtapaFunil) {
@@ -209,9 +218,7 @@ function ComercialPageConteudo() {
   // Lead de comissão guarda o valor em `valor_comissao`, não em
   // `valor_estimado` (mesma distinção de components/modules/comercial/
   // KanbanBoard.tsx) — sem isso, esses leads ficavam de fora do total.
-  const valorTotalAtivo = leads
-    .filter((l) => l.etapa !== "fechado" && l.etapa !== "perdido")
-    .reduce((acc, l) => acc + valorDoLead(l), 0);
+  const valorTotalAtivo = leads.filter((l) => l.etapa !== "fechado" && l.etapa !== "perdido").reduce((acc, l) => acc + valorDoLead(l), 0);
 
   const totalLeadsAtrasados = leads.filter((l) => l.etapa_atrasada).length;
   const totalLeadsComissao = leads.filter((l) => l.eh_comissao).length;
@@ -222,7 +229,9 @@ function ComercialPageConteudo() {
     ? leads.filter(
         (l) =>
           l.numero_lead?.toLowerCase().includes(buscaNormalizada) ||
-          orcamentosDoLead(l).some((v) => v.orcamento.numero_orcamento?.toLowerCase().includes(buscaNormalizada) || v.orcamento.numero?.toLowerCase().includes(buscaNormalizada)) ||
+          orcamentosDoLead(l).some(
+            (v) => v.orcamento.numero_orcamento?.toLowerCase().includes(buscaNormalizada) || v.orcamento.numero?.toLowerCase().includes(buscaNormalizada)
+          ) ||
           l.cliente?.nome?.toLowerCase().includes(buscaNormalizada)
       )
     : leads;
@@ -232,10 +241,18 @@ function ComercialPageConteudo() {
   // "sumir" do board até seu retorno automático é o comportamento pedido —
   // não é um lead perdido, é um lead com reativação já agendada (ver
   // lib/usecases/comercial/mudarTemperatura.ts).
-  const leadsSemFriosOcultos =
-    filtros.temperatura === "frio" ? leadsBuscados : leadsBuscados.filter((l) => l.temperatura !== "frio");
+  const leadsSemFriosOcultos = filtros.temperatura === "frio" ? leadsBuscados : leadsBuscados.filter((l) => l.temperatura !== "frio");
   const leadsAposAtrasados = soAtrasados ? leadsSemFriosOcultos.filter((l) => l.etapa_atrasada) : leadsSemFriosOcultos;
-  const leadsExibidos = soComissoes ? leadsAposAtrasados.filter((l) => l.eh_comissao) : leadsAposAtrasados;
+  const leadsAposComissoes = soComissoes ? leadsAposAtrasados.filter((l) => l.eh_comissao) : leadsAposAtrasados;
+  const leadsExibidos = !filtroRepresentante
+    ? leadsAposComissoes
+    : leadsAposComissoes.filter((l) => (filtroRepresentante === "todos" ? Boolean(l.representante_id) : l.representante_id === filtroRepresentante));
+  const representantesNoFunil = Object.values(
+    leads.reduce<Record<string, { id: string; nome: string; total: number }>>((acc, l) => {
+      if (l.representante_id) acc[l.representante_id] = { id: l.representante_id, nome: l.representante?.nome ?? "Representante", total: (acc[l.representante_id]?.total ?? 0) + 1 };
+      return acc;
+    }, {})
+  ).sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 
   // Revisão de usabilidade: abas do módulo primeiro, depois o cabeçalho
   // padrão (título, ação principal e menu "⋯"). A frase fica numa linha
@@ -244,22 +261,30 @@ function ComercialPageConteudo() {
     <div className="space-y-4">
       <TabsNavigation tabs={ABAS.map((a) => ({ valor: a.valor, label: a.label }))} activeTab={aba} onTabChange={trocarAba} />
 
-      <CabecalhoPagina
-        titulo="Comercial"
-        descricao={
-          <>
-            <span className="block truncate text-xs italic text-gray-400" title="O próprio SENHOR irá à sua frente e estará com você; ele nunca o deixará nem o abandonará. Não tenha medo! Não desanime!">
-              "O próprio SENHOR irá à sua frente e estará com você; ele nunca o deixará nem o abandonará. Não tenha medo! Não desanime!"
-            </span>
-            {aba === "crm" && `${leads.length} lead${leads.length === 1 ? "" : "s"}, ${formatarMoeda(valorTotalAtivo)} em negociação ativa.`}
-            {aba === "clientes" && "Cadastro de clientes e histórico de leads."}
-            {aba === "configuracoes" && "Prazos de reativação, prazo máximo por etapa e responsáveis."}
-          </>
-        }
-        acaoPrincipal={aba === "crm" ? { label: "+ Novo Lead", onClick: () => setMostrarNovoLead(true) } : undefined}
-        // Lixeira (migração 047): leads excluídos, recuperáveis por 30 dias — só administrador.
-        acoes={aba === "crm" && acesso?.admin ? [{ label: "Lixeira", onClick: () => setMostrarLixeira(true) }] : []}
-      />
+      {/* Parcerias e Representantes têm cabeçalho próprio (título e "+ Novo"). */}
+      {aba === "parcerias" && <ListaParceiros categoria="parceria" />}
+      {aba === "representantes" && <ListaParceiros categoria="representante" />}
+      {aba !== "parcerias" && aba !== "representantes" && (
+        <CabecalhoPagina
+          titulo="Comercial"
+          descricao={
+            <>
+              <span
+                className="block truncate text-xs italic text-gray-400"
+                title="O próprio SENHOR irá à sua frente e estará com você; ele nunca o deixará nem o abandonará. Não tenha medo! Não desanime!"
+              >
+                "O próprio SENHOR irá à sua frente e estará com você; ele nunca o deixará nem o abandonará. Não tenha medo! Não desanime!"
+              </span>
+              {aba === "crm" && `${leads.length} lead${leads.length === 1 ? "" : "s"}, ${formatarMoeda(valorTotalAtivo)} em negociação ativa.`}
+              {aba === "clientes" && "Cadastro de clientes e histórico de leads."}
+              {aba === "configuracoes" && "Prazos de reativação, prazo máximo por etapa e responsáveis."}
+            </>
+          }
+          acaoPrincipal={aba === "crm" ? { label: "+ Novo Lead", onClick: () => setMostrarNovoLead(true) } : undefined}
+          // Lixeira (migração 047): leads excluídos, recuperáveis por 30 dias — só administrador.
+          acoes={aba === "crm" && acesso?.admin ? [{ label: "Lixeira", onClick: () => setMostrarLixeira(true) }] : []}
+        />
+      )}
       {mostrarLixeira && (
         <Lixeira
           tipo="leads"
@@ -286,18 +311,16 @@ function ComercialPageConteudo() {
             soComissoes={soComissoes}
             onToggleComissoes={setSoComissoes}
             totalLeadsComissao={totalLeadsComissao}
+            representante={filtroRepresentante}
+            onRepresentante={setFiltroRepresentante}
+            representantes={representantesNoFunil}
             mostrarPerdidos={mostrarPerdidos}
             onTogglePerdidos={setMostrarPerdidos}
             totalLeadsPerdidos={totalLeadsPerdidos}
           />
 
           {mostrarFrios ? (
-            <LeadsFriosPanel
-              agendamentos={leadsFrios}
-              carregando={carregandoFrios}
-              onReativar={reativarFrio}
-              onCancelar={cancelarFrio}
-            />
+            <LeadsFriosPanel agendamentos={leadsFrios} carregando={carregandoFrios} onReativar={reativarFrio} onCancelar={cancelarFrio} />
           ) : carregandoLeads ? (
             <EsqueletoLista />
           ) : (
@@ -328,7 +351,7 @@ function ComercialPageConteudo() {
             // existente, ver AnexosLead.tsx) — abre o detalhe direto em
             // seguida, já que o próximo passo natural é adicionar o anexo.
             if (leadId) {
-              toast.sucesso("Lead de comissão criado — adicione o comprovante (anexo) a seguir.");
+              toast.sucesso("Lead de parceria criado — adicione o comprovante (anexo) a seguir.");
               router.push(`/comercial/leads/${leadId}`);
             } else {
               toast.sucesso("Lead criado.");

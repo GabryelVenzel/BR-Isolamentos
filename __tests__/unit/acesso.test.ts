@@ -106,7 +106,9 @@ describe("podeAcessarRota", () => {
   it("leituras cruzadas entre módulos operacionais são livres; gravações não", () => {
     expect(podeAcessarRota(comercial, "/api/operacional/parceiros", "GET")).toBe(true);
     expect(podeAcessarRota(comercial, "/api/orcamentos", "GET")).toBe(true);
-    expect(podeAcessarRota(comercial, "/api/operacional/parceiros", "POST")).toBe(false);
+    // Migração 055: Parcerias e Representantes ficam no Comercial — o cadastro de parceiros é aberto aos dois módulos.
+    expect(podeAcessarRota(comercial, "/api/operacional/parceiros", "POST")).toBe(true);
+    expect(podeAcessarRota(comercial, "/api/operacional/servicos/1/diarias", "POST")).toBe(false);
     expect(podeAcessarRota(comercial, "/api/orcamentos", "POST")).toBe(false);
     expect(podeAcessarRota(operacional, "/api/comercial/leads/1/mover", "POST")).toBe(false);
   });

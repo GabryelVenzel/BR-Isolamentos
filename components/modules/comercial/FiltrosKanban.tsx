@@ -31,6 +31,10 @@ interface Props {
   soComissoes: boolean;
   onToggleComissoes: (valor: boolean) => void;
   totalLeadsComissao: number;
+  /** Migração 055: "" = todos; "todos" = só representações; id = um representante. */
+  representante: string;
+  onRepresentante: (valor: string) => void;
+  representantes: Array<{ id: string; nome: string; total: number }>;
   mostrarPerdidos: boolean;
   onTogglePerdidos: (valor: boolean) => void;
   totalLeadsPerdidos: number;
@@ -51,6 +55,9 @@ export default function FiltrosKanban({
   soComissoes,
   onToggleComissoes,
   totalLeadsComissao,
+  representante,
+  onRepresentante,
+  representantes,
   mostrarPerdidos,
   onTogglePerdidos,
   totalLeadsPerdidos,
@@ -63,7 +70,15 @@ export default function FiltrosKanban({
     ...(filtros.periodo ? [{ label: PERIODOS[filtros.periodo] ?? filtros.periodo, limpar: () => onChange({ periodo: "" }) }] : []),
     ...(mostrarFrios ? [{ label: "Leads frios em reativação", limpar: () => onToggleFrios(false) }] : []),
     ...(soAtrasados ? [{ label: "Só atrasados", limpar: () => onToggleAtrasados(false) }] : []),
-    ...(soComissoes ? [{ label: "Só comissões", limpar: () => onToggleComissoes(false) }] : []),
+    ...(soComissoes ? [{ label: "Só parcerias", limpar: () => onToggleComissoes(false) }] : []),
+    ...(representante
+      ? [
+          {
+            label: representante === "todos" ? "Só representações" : `Representante: ${representantes.find((r) => r.id === representante)?.nome ?? ""}`,
+            limpar: () => onRepresentante(""),
+          },
+        ]
+      : []),
     ...(mostrarPerdidos ? [{ label: "Com perdidos", limpar: () => onTogglePerdidos(false) }] : []),
   ];
 
@@ -128,9 +143,23 @@ export default function FiltrosKanban({
         </label>
         <label className="flex items-center gap-2 py-1 text-sm text-gray-700">
           <input type="checkbox" className="h-4 w-4" checked={soComissoes} onChange={(e) => onToggleComissoes(e.target.checked)} />
-          <Gift className="icone" aria-hidden /> Só comissões
+          <Gift className="icone" aria-hidden /> Só parcerias
           {totalLeadsComissao > 0 && <span className="badge bg-accent-light text-accent-dark">{totalLeadsComissao}</span>}
         </label>
+        <select
+          aria-label="Representações"
+          className="input-field w-full py-1.5 text-sm sm:w-auto"
+          value={representante}
+          onChange={(e) => onRepresentante(e.target.value)}
+        >
+          <option value="">Representações: todas as vendas</option>
+          <option value="todos">Só representações ({representantes.reduce((s, r) => s + r.total, 0)})</option>
+          {representantes.map((r) => (
+            <option key={r.id} value={r.id}>
+              {r.nome} ({r.total})
+            </option>
+          ))}
+        </select>
         <label className="flex items-center gap-2 py-1 text-sm text-gray-700">
           <input type="checkbox" className="h-4 w-4" checked={mostrarPerdidos} onChange={(e) => onTogglePerdidos(e.target.checked)} />
           Mostrar perdidos

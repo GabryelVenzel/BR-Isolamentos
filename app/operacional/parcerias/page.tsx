@@ -1,6 +1,6 @@
-import ListaParceiros from "@/components/modules/operacional/ListaParceiros";
+import { redirect } from "next/navigation";
 
-/** Operacional → Parcerias (migração 053). */
+/** Parcerias saiu do Operacional para o Comercial (migração 055). */
 export default function Page() {
-  return <ListaParceiros categoria="parceria" />;
+  redirect("/comercial?aba=parcerias");
 }

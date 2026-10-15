@@ -16,7 +16,7 @@ const TipoTrabalhoOperacionalSchema = z.enum([
 ]);
 
 // "ambos" deixou de existir na migração 053 (Prestadores e Parcerias separados).
-const CategoriaParceiroSchema = z.enum(["prestador", "parceria"]);
+const CategoriaParceiroSchema = z.enum(["prestador", "parceria", "representante"]);
 
 const ParceiroBaseSchema = z.object({
   // Nome fantasia (migração 031, ver comentário em Parceiro.nome,
@@ -70,11 +70,13 @@ const ParceiroBaseSchema = z.object({
   notas_isolamentos_removiveis: z.string().trim().nullable().optional(),
   notas_isolamentos_fixos: z.string().trim().nullable().optional(),
   total_pessoas: z.number().int().positive("Total de pessoas deve ser maior que zero.").nullable().optional(),
+  // Migração 055 — % padrão do representante.
+  percentual_comissao_padrao: z.number().min(0).max(100).nullable().optional(),
   ativo: z.boolean().optional(),
 });
 
 export const CreateParceiroSchema = ParceiroBaseSchema.refine(
-  (p) => p.categoria_parceiro === "parceria" || (p.tipos_trabalho ?? []).length > 0,
+  (p) => p.categoria_parceiro !== "prestador" || (p.tipos_trabalho ?? []).length > 0,
   { message: "Selecione pelo menos um tipo de trabalho.", path: ["tipos_trabalho"] }
 );
 

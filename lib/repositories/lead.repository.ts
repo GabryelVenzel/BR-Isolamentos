@@ -26,7 +26,7 @@ export class LeadRepository extends BaseRepository<Lead> {
   // `vinculos` (migração 053): os orçamentos vinculados, com o orçamento de
   // cada um — os que estão na lixeira são filtrados em lib/leads.ts
   // (`orcamentosDoLead`).
-  protected select = "*, cliente:clientes(*), vinculos:lead_orcamentos(*, orcamento:orcamentos(*)), parceiro:parceiros(*)";
+  protected select = "*, cliente:clientes(*), vinculos:lead_orcamentos(*, orcamento:orcamentos(*)), parceiro:parceiros!leads_parceiro_id_fkey(*), representante:parceiros!leads_representante_id_fkey(*)";
 
   // LIXEIRA (migração 047) — ver `temLixeira` em ./base.ts.
   protected temLixeira = true;

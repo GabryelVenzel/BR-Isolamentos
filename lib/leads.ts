@@ -3,7 +3,8 @@
 import type { Orcamento } from "./types";
 import type { EtapaFunil, Lead, LeadOrcamento } from "./types/domain";
 
-type LeadComValores = Pick<Lead, "etapa" | "eh_comissao" | "valor_estimado" | "valor_comissao" | "valor_fechado">;
+type LeadComValores = Pick<Lead, "etapa" | "eh_comissao" | "valor_estimado" | "valor_comissao" | "valor_fechado"> &
+  Partial<Pick<Lead, "representante_id" | "percentual_representante">>;
 
 /** O valor que representa o lead em cartões, somas de coluna e indicadores:
  *
@@ -16,8 +17,27 @@ type LeadComValores = Pick<Lead, "etapa" | "eh_comissao" | "valor_estimado" | "v
  * Lead fechado antes da migração 043 sem valor fechado cai no estimado. */
 export function valorDoLead(lead: LeadComValores): number {
   if (lead.eh_comissao) return lead.valor_comissao ?? 0;
+  // Representante (migração 055): o Kanban mostra o LÍQUIDO (o que fica para
+  // a empresa). Os indicadores do Resumo usam o bruto — ver valorBrutoDoLead.
+  if (ehRepresentacao(lead)) return valorBrutoDoLead(lead) - comissaoRepresentante(lead);
+  return valorBrutoDoLead(lead);
+}
+
+/** Valor da proposta: fechado (se fechou) ou estimado. */
+export function valorBrutoDoLead(lead: LeadComValores): number {
   if (lead.etapa === "fechado" && lead.valor_fechado != null) return lead.valor_fechado;
   return lead.valor_estimado;
+}
+
+/** Lead trazido por representante (migração 055). */
+export function ehRepresentacao(lead: Partial<Pick<Lead, "representante_id">>): boolean {
+  return Boolean(lead.representante_id);
+}
+
+/** Comissão do representante sobre o valor do lead (fechado ou estimado). */
+export function comissaoRepresentante(lead: LeadComValores): number {
+  if (!ehRepresentacao(lead)) return 0;
+  return Math.round(valorBrutoDoLead(lead) * (Number(lead.percentual_representante ?? 0) / 100) * 100) / 100;
 }
 
 /** Ao fechar, o lead precisa de um valor fechado? Comissão não: o valor dela

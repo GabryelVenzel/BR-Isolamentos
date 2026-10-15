@@ -1,10 +1,10 @@
 "use client";
 
-import { classesTemperatura, formatarData, formatarMoeda, formatarTemperatura } from "@/lib/format";
+import { classesTemperatura, formatarData, formatarMoeda, formatarNumero, formatarTemperatura } from "@/lib/format";
 import MoverPara from "@/components/ui/MoverPara";
-import { valorDoLead } from "@/lib/leads";
+import { comissaoRepresentante, ehRepresentacao, valorBrutoDoLead, valorDoLead } from "@/lib/leads";
 import type { EtapaFunil, Lead } from "@/lib/types/domain";
-import { AlertTriangle, Calendar, CheckCircle2, Gift, Handshake, MapPin, RefreshCw, Timer, User } from "lucide-react";
+import { AlertTriangle, BadgePercent, Calendar, CheckCircle2, Gift, Handshake, MapPin, RefreshCw, Timer, User } from "lucide-react";
 
 interface Props {
   lead: Lead;
@@ -65,7 +65,13 @@ export default function LeadCardKanban({ lead, nomeResponsavel, opcoesMover, onM
           className="badge mb-1 inline-flex items-center gap-1 bg-accent-light text-accent-dark"
           title={lead.total_anexos && lead.total_anexos > 0 ? "Tem comprovante anexado." : "Sem comprovante anexado ainda."}
         >
-          <Gift className="icone" aria-hidden /> Comissão {lead.total_anexos && lead.total_anexos > 0 ? <CheckCircle2 className="icone" aria-hidden /> : <AlertTriangle className="icone" aria-hidden />}
+          <Gift className="icone" aria-hidden /> Parceria {lead.total_anexos && lead.total_anexos > 0 ? <CheckCircle2 className="icone" aria-hidden /> : <AlertTriangle className="icone" aria-hidden />}
+        </span>
+      )}
+
+      {ehRepresentacao(lead) && (
+        <span className="badge mb-1 inline-flex items-center gap-1 bg-purple-100 text-purple-800" title="Venda trazida por representante — o valor mostrado já desconta a comissão dele.">
+          <BadgePercent className="icone" aria-hidden /> Representação {formatarNumero(Number(lead.percentual_representante ?? 0), 2)}%
         </span>
       )}
 
@@ -76,6 +82,24 @@ export default function LeadCardKanban({ lead, nomeResponsavel, opcoesMover, onM
           {lead.parceiro?.nome && <p className="truncate text-[13px] text-gray-500"><Handshake className="icone" aria-hidden /> {lead.parceiro.nome}</p>}
           {(lead.valor_comissao ?? 0) > 0 && (
             <p className="mb-1.5 font-montserrat text-base font-bold text-accent">{formatarMoeda(lead.valor_comissao ?? 0)}</p>
+          )}
+        </>
+      ) : ehRepresentacao(lead) ? (
+        <>
+          {lead.representante?.nome && (
+            <p className="truncate text-[13px] text-gray-500">
+              <BadgePercent className="icone" aria-hidden /> {lead.representante.nome}
+            </p>
+          )}
+          {valorBrutoDoLead(lead) > 0 && (
+            <p className="mb-1.5">
+              <span className="font-montserrat text-base font-bold text-accent" title="Líquido: valor da proposta menos a comissão do representante">
+                {formatarMoeda(valorDoLead(lead))}
+              </span>
+              <span className="block text-xs text-gray-400">
+                líquido · proposta {formatarMoeda(valorBrutoDoLead(lead))} − {formatarMoeda(comissaoRepresentante(lead))}
+              </span>
+            </p>
           )}
         </>
       ) : (

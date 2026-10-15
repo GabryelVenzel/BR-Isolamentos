@@ -1,4 +1,4 @@
-import type { LancamentoFinanceiroRepository, LeadRepository, ParceiroRepository } from "../../repositories";
+import type { HistoricoMudancaLeadRepository, LancamentoFinanceiroRepository, LeadRepository, ParceiroRepository } from "../../repositories";
 import type { AlertaResumo } from "../../types/resumo";
 import { formatarMoeda } from "../../format";
 import { calcularLeadsDormindo } from "../comercial";
@@ -7,6 +7,8 @@ export interface ReposAlertas {
   lancamentoRepo: LancamentoFinanceiroRepository;
   leadRepo: LeadRepository;
   parceiroRepo: ParceiroRepository;
+  /** Para "leads sem contato" contar também mudanças de etapa/orçamento. */
+  historicoRepo?: HistoricoMudancaLeadRepository;
 }
 
 const LIMITE_UTILIZACAO_PARCEIRO = 90;
@@ -46,7 +48,8 @@ export async function listarAlertas(
     repos.leadRepo.listar(),
     repos.parceiroRepo.capacidadeView(),
   ]);
-  const leadsDormindo = calcularLeadsDormindo(todosLeads);
+  const historico = repos.historicoRepo && todosLeads.length > 0 ? await repos.historicoRepo.listarPorLeads(todosLeads.map((l) => l.id)) : [];
+  const leadsDormindo = calcularLeadsDormindo(todosLeads, new Date(), historico);
 
   const hojeISO = new Date().toISOString().slice(0, 10);
   const vencidas = aReceber.filter((l) => l.data < hojeISO);

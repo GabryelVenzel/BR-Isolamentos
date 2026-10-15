@@ -19,6 +19,9 @@ export const RESUMO_SUBNAV: ModuleSubNavItem[] = [
 export const COMERCIAL_SUBNAV: ModuleSubNavItem[] = [
   { href: "/comercial?aba=crm", label: "CRM" },
   { href: "/comercial?aba=clientes", label: "Clientes" },
+  // Migração 055 — quem recebe nossas indicações e quem nos representa.
+  { href: "/comercial?aba=parcerias", label: "Parcerias" },
+  { href: "/comercial?aba=representantes", label: "Representantes" },
   { href: "/comercial?aba=configuracoes", label: "Configurações" },
 ];
 
@@ -41,9 +44,8 @@ export const ORCAMENTO_SUBNAV: ModuleSubNavItem[] = [
 export const OPERACIONAL_SUBNAV: ModuleSubNavItem[] = [
   { href: "/operacional/servicos", label: "Serviços" },
   { href: "/operacional", label: "Agenda" },
-  // Migração 053 — Parceiros separados: quem executa x quem indica.
+  // Migração 053 — Parceiros separados; Parcerias foi para o Comercial (055).
   { href: "/operacional/prestadores", label: "Prestadores" },
-  { href: "/operacional/parcerias", label: "Parcerias" },
   { href: "/operacional/fornecedores", label: "Fornecedores" },
   // Pedidos de compra, cotações e histórico de preços (migração 044).
   { href: "/operacional/compras", label: "Compras" },

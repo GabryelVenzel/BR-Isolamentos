@@ -44,6 +44,8 @@ import {
   gerarRelatorioComercial,
   calcularPipelinePorEtapa,
   calcularVendasPorMes,
+  calcularLeadsDormindo,
+  calcularRepresentantes,
   moverLead,
   mudarTemperatura,
   reativarLeadFrio,
@@ -261,13 +263,16 @@ export function createComercialContext(supabase: SupabaseClient) {
       // Vendas por mês e pipeline por etapa não dependem de QUANDO o lead foi
       // criado: usam todos os leads (com os mesmos filtros de responsável e
       // temperatura) — senão "vendas de 6 meses" mostraria só o mês filtrado.
+      // O mesmo vale para leads dormindo (um lead antigo parado é justamente
+      // o que interessa) e para o desempenho dos representantes.
       const todos = await leadRepo.listar({ atribuidoA: filtros.atribuidoA, temperatura: filtros.temperatura });
-      const fechados = todos.filter((l) => l.etapa === "fechado");
-      const historicoFechados = fechados.length > 0 ? await historicoRepo.listarPorLeads(fechados.map((l) => l.id)) : [];
+      const historicoTodos = todos.length > 0 ? await historicoRepo.listarPorLeads(todos.map((l) => l.id)) : [];
       return {
         ...relatorio,
-        vendasPorMes: calcularVendasPorMes(todos, historicoFechados),
+        vendasPorMes: calcularVendasPorMes(todos, historicoTodos),
         pipelinePorEtapa: calcularPipelinePorEtapa(todos),
+        leadsDormindo: calcularLeadsDormindo(todos, new Date(), historicoTodos),
+        representantes: calcularRepresentantes(todos),
       };
     },
   };

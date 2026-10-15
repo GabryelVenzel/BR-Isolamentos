@@ -3,6 +3,7 @@ import {
   calcularFunil,
   calcularKpis,
   calcularLeadsDormindo,
+  calcularRepresentantes,
   calcularLeadsFriosResumo,
   calcularLeadsPorOrigem,
   calcularPerformancePorResponsavel,
@@ -216,10 +217,33 @@ describe("calcularLeadsDormindo", () => {
     expect(dormindo.map((l) => l.id)).toEqual(["1"]);
   });
 
+  it("mudança de etapa/orçamento no histórico conta como atividade (bug: aparecia dormindo)", () => {
+    const agora = new Date("2026-01-20T00:00:00Z");
+    const leads = [lead({ id: "1", etapa: "negociacao", data_ultima_interacao: "2026-01-01T00:00:00Z" })];
+    const historico = [{ id: "h", lead_id: "1", tipo_mudanca: "mudanca_etapa", data_mudanca: "2026-01-19T00:00:00Z" }] as never;
+    expect(calcularLeadsDormindo(leads, agora, historico)).toEqual([]);
+    const semHistorico = calcularLeadsDormindo(leads, agora);
+    expect(semHistorico[0].ultima_atividade).toBe("2026-01-01T00:00:00Z");
+  });
+
   it("usa created_at quando nunca houve interação", () => {
     const agora = new Date("2026-01-20T00:00:00Z");
     const leads = [lead({ id: "1", etapa: "prospeccao", created_at: "2026-01-01T00:00:00Z", data_ultima_interacao: null })];
     expect(calcularLeadsDormindo(leads, agora).map((l) => l.id)).toEqual(["1"]);
+  });
+});
+
+describe("calcularRepresentantes", () => {
+  it("soma em andamento e fechados por representante, com comissão e conversão", () => {
+    const rep = { id: "r1", nome: "Rep 1" } as never;
+    const leads = [
+      lead({ id: "1", etapa: "fechado", valor_estimado: 1000, valor_fechado: 2000, representante_id: "r1", percentual_representante: 10, representante: rep }),
+      lead({ id: "2", etapa: "contato", valor_estimado: 500, representante_id: "r1", percentual_representante: 10, representante: rep }),
+      lead({ id: "3", etapa: "perdido", valor_estimado: 300, representante_id: "r1", percentual_representante: 10, representante: rep }),
+      lead({ id: "4", etapa: "fechado", valor_estimado: 9000 }),
+    ];
+    const [r] = calcularRepresentantes(leads);
+    expect(r).toMatchObject({ id: "r1", nome: "Rep 1", emAndamento: { quantidade: 1, valor: 500 }, fechados: { quantidade: 1, valor: 2000, comissao: 200 }, perdidos: 1, conversaoPercentual: 50 });
   });
 });
 

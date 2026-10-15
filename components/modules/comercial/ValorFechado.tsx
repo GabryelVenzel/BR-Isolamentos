@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { CampoMoeda } from "@/components/ui/CamposDocumento";
 import { empilharModal } from "@/components/ui/pilha-modais";
-import { formatarMoeda } from "@/lib/format";
+import { formatarMoeda, formatarNumero } from "@/lib/format";
 import { orcamentosDoLead } from "@/lib/leads";
 import type { Lead } from "@/lib/types/domain";
 
@@ -18,7 +18,7 @@ import type { Lead } from "@/lib/types/domain";
 // Com vários orçamentos vinculados (migração 053) pergunta também qual(is)
 // foi(ram) fechado(s): esses viram "aceito", os outros "rejeitado".
 
-type LeadParaFechar = Pick<Lead, "numero_lead" | "valor_estimado" | "valor_fechado" | "cliente" | "vinculos">;
+type LeadParaFechar = Pick<Lead, "numero_lead" | "valor_estimado" | "valor_fechado" | "cliente" | "vinculos" | "representante_id" | "percentual_representante">;
 
 export interface RespostaFechamento {
   valor: number;
@@ -128,6 +128,14 @@ export default function ValorFechadoHost() {
         <p className="mt-1 text-xs text-gray-500">
           Vira o valor orçado da obra e entra nos indicadores de vendas. O orçamento vinculado não é alterado.
         </p>
+
+        {lead.representante_id && numero > 0 && (
+          <p className="mt-3 rounded-input bg-purple-50 px-3 py-2 text-xs text-purple-900">
+            Representante ({formatarNumero(Number(lead.percentual_representante ?? 0), 2)}%): comissão de{" "}
+            <strong>{formatarMoeda((numero * Number(lead.percentual_representante ?? 0)) / 100)}</strong> — líquido para nós{" "}
+            <strong>{formatarMoeda(numero - (numero * Number(lead.percentual_representante ?? 0)) / 100)}</strong>.
+          </p>
+        )}
 
         {orcamentos.length > 1 && (
           <fieldset className="mt-4">

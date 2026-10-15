@@ -27,7 +27,8 @@ const TIPOS = TIPOS_TRABALHO_OPCOES;
 
 const CATEGORIAS_PARCEIRO: Array<{ valor: CategoriaParceiro; label: string; descricao: string }> = [
   { valor: "prestador", label: "Prestador", descricao: "Fornece mão de obra — aparece na Agenda e pode ser vinculado a um Serviço." },
-  { valor: "parceria", label: "Parceria", descricao: "Só indicação/comissão — não mobiliza gente, não aparece na Agenda." },
+  { valor: "parceria", label: "Parceria", descricao: "Recebe nossas indicações e nos paga comissão — não aparece na Agenda." },
+  { valor: "representante", label: "Representante", descricao: "Representa a empresa nas vendas e recebe comissão sobre o que vende." },
 ];
 
 // Uma nota por tipo de trabalho (migração 030 — bug relatado: só bancada/
@@ -59,6 +60,7 @@ interface Form {
   tiposTrabalho: TipoTrabalhoOperacional[];
   notas: Record<TipoTrabalhoOperacional, string>;
   totalPessoas: string;
+  percentualPadrao: string;
 }
 
 function paraForm(p: Parceiro | null, categoria: CategoriaParceiro): Form {
@@ -78,6 +80,7 @@ function paraForm(p: Parceiro | null, categoria: CategoriaParceiro): Form {
       TIPOS_TRABALHO_OPCOES.map((t) => [t.valor, (p?.[CAMPO_NOTAS[t.valor]] as string | null) ?? ""])
     ) as Record<TipoTrabalhoOperacional, string>,
     totalPessoas: p?.total_pessoas != null ? String(p.total_pessoas) : "",
+    percentualPadrao: p?.percentual_comissao_padrao != null ? String(p.percentual_comissao_padrao) : "",
   };
 }
 
@@ -135,6 +138,7 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo, modo = "jan
       tipos_trabalho: form.tiposTrabalho,
       ...notasPayload,
       total_pessoas: form.totalPessoas ? Number(form.totalPessoas) : null,
+      ...(form.categoriaParceiro === "representante" && { percentual_comissao_padrao: form.percentualPadrao === "" ? null : Number(form.percentualPadrao) }),
     };
 
     try {
@@ -258,7 +262,7 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo, modo = "jan
             <p className="label-field mb-2">
               Tipo de cadastro<span className="text-status-error"> *</span>
             </p>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
               {CATEGORIAS_PARCEIRO.map((c) => (
                 <label
                   key={c.valor}
@@ -280,6 +284,25 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo, modo = "jan
               ))}
             </div>
           </div>
+          )}
+
+          {form.categoriaParceiro === "representante" && (
+            <div className="border-t border-gray-100 pt-4">
+              <label className="label-field" htmlFor="parc-percentual">
+                % de comissão padrão
+              </label>
+              <input
+                id="parc-percentual"
+                type="number"
+                min={0}
+                max={100}
+                step="0.01"
+                className="input-field max-w-[10rem]"
+                value={form.percentualPadrao}
+                onChange={(e) => setForm((f) => ({ ...f, percentualPadrao: e.target.value }))}
+              />
+              <p className="mt-1 text-xs text-gray-400">Vem preenchido nos leads deste representante; dá para mudar em cada lead.</p>
+            </div>
           )}
 
           {prestador && (

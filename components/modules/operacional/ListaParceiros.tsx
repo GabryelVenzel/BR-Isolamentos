@@ -33,15 +33,24 @@ const TEXTOS: Record<CategoriaParceiro, { titulo: string; descricao: string; nov
   },
   parceria: {
     titulo: "Parcerias",
-    descricao: "Parceiros de indicação — recebem comissão pelos leads indicados. Clique para abrir a ficha.",
+    descricao: "Empresas para quem indicamos serviços e que nos pagam comissão. Clique para abrir a ficha.",
     novo: "+ Nova Parceria",
     vazio: "Nenhuma parceria cadastrada.",
-    base: "/operacional/parcerias",
+    base: "/comercial/parcerias",
+  },
+  representante: {
+    titulo: "Representantes",
+    descricao: "Quem representa a empresa nas vendas e recebe comissão sobre o que vende. Clique para abrir a ficha.",
+    novo: "+ Novo Representante",
+    vazio: "Nenhum representante cadastrado.",
+    base: "/comercial/representantes",
   },
 };
 
-/** Subabas Prestadores e Parcerias do Operacional (migração 053 — antes uma
- * lista só, com filtro de categoria e a opção "ambos"). */
+const CAPACIDADE: Record<CategoriaParceiro, string> = { prestador: "mao_de_obra", parceria: "comissao", representante: "representante" };
+
+/** Prestadores (Operacional), Parcerias e Representantes (Comercial) —
+ * migrações 053 e 055; antes uma lista só, com filtro de categoria. */
 export default function ListaParceiros({ categoria }: { categoria: CategoriaParceiro }) {
   const textos = TEXTOS[categoria];
   const prestador = categoria === "prestador";
@@ -57,12 +66,12 @@ export default function ListaParceiros({ categoria }: { categoria: CategoriaParc
   const carregar = useCallback(async () => {
     setCarregando(true);
     try {
-      const payload = await fetch(`/api/operacional/parceiros?capacidade=${prestador ? "mao_de_obra" : "comissao"}`).then((r) => r.json());
+      const payload = await fetch(`/api/operacional/parceiros?capacidade=${CAPACIDADE[categoria]}`).then((r) => r.json());
       if (payload.success) setParceiros(payload.data);
     } finally {
       setCarregando(false);
     }
-  }, [prestador]);
+  }, [categoria]);
 
   useEffect(() => {
     carregar();
@@ -137,6 +146,7 @@ export default function ListaParceiros({ categoria }: { categoria: CategoriaParc
                 <th className="px-4 py-2 text-left">CNPJ</th>
                 <th className="px-4 py-2 text-left">Cidade</th>
                 {prestador && <th className="px-4 py-2 text-right">Capacidade</th>}
+                {categoria === "representante" && <th className="px-4 py-2 text-right">% padrão</th>}
                 <th className="px-4 py-2 text-left">Status</th>
                 <th className="px-4 py-2 text-right">
                   <span className="sr-only">Ações</span>
@@ -173,6 +183,11 @@ export default function ListaParceiros({ categoria }: { categoria: CategoriaParc
                   {prestador && (
                     <td data-label="Capacidade" className="px-4 py-2 text-right text-gray-500">
                       {p.total_pessoas != null ? `${formatarNumero(p.total_pessoas, 0)} pessoas` : "—"}
+                    </td>
+                  )}
+                  {categoria === "representante" && (
+                    <td data-label="% padrão" className="px-4 py-2 text-right text-gray-500">
+                      {p.percentual_comissao_padrao != null ? `${formatarNumero(Number(p.percentual_comissao_padrao), 2)}%` : "—"}
                     </td>
                   )}
                   <td data-label="Status" className="px-4 py-2">

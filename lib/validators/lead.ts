@@ -34,6 +34,9 @@ const CamposBaseLeadSchema = z.object({
   parceiro_id: z.string().trim().nullable().optional(),
   valor_indicado: z.number().nonnegative().nullable().optional(),
   percentual_comissao: z.number().min(0).max(100).nullable().optional(),
+  // Migração 055 — lead de representante.
+  representante_id: z.string().trim().nullable().optional(),
+  percentual_representante: z.number().min(0).max(100).nullable().optional(),
 });
 
 // Tipo estrutural mínimo (não `z.infer<typeof CamposBaseLeadSchema>`) pra
@@ -41,6 +44,8 @@ const CamposBaseLeadSchema = z.object({
 // (Update), que tem todo campo opcional — os dois formatos são compatíveis
 // com este subconjunto de campos.
 interface CamposComissao {
+  representante_id?: string | null;
+  percentual_representante?: number | null;
   eh_comissao?: boolean;
   parceiro_id?: string | null;
   valor_indicado?: number | null;
@@ -48,6 +53,14 @@ interface CamposComissao {
 }
 
 function exigirCamposDeComissao(dados: CamposComissao, ctx: z.RefinementCtx) {
+  if (dados.representante_id) {
+    if (dados.eh_comissao) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["representante_id"], message: "Um lead é de parceria OU de representante, não dos dois." });
+    }
+    if (dados.percentual_representante == null) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["percentual_representante"], message: "Informe o % do representante." });
+    }
+  }
   if (!dados.eh_comissao) return;
   if (!dados.parceiro_id) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["parceiro_id"], message: "Selecione o parceiro da indicação." });

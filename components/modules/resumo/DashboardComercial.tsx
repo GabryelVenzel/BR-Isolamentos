@@ -3,14 +3,13 @@
 import { useCallback, useEffect, useState } from "react";
 import FilterBar from "./FilterBar";
 import ComissoesPorParceiroChart from "./graficos/ComissoesPorParceiroChart";
-import FunilChart from "./graficos/FunilChart";
 import { OrigemTabela, PipelineEtapaChart, VendasPorMesChart } from "./graficos/ComercialGraficos";
-import ResponsavelChart from "./graficos/ResponsavelChart";
 import { gerarPdfDeElemento, baixarArquivo } from "@/lib/pdf-generator";
 import { formatarEtapa, formatarMoeda, formatarNumero } from "@/lib/format";
 import type { FiltrosResumo } from "@/lib/types/resumo";
 import type { RelatorioComercial } from "@/lib/usecases/comercial";
-import { Gift } from "lucide-react";
+import { BadgePercent, Gift } from "lucide-react";
+import Link from "next/link";
 import { Carregando } from "@/components/ui/Esqueleto";
 
 const FILTROS_INICIAIS: FiltrosResumo = { periodo: "mes_atual" };
@@ -108,7 +107,7 @@ export default function DashboardComercial() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <FunilChart funil={relatorio.funil} />
+            <OrigemTabela dados={relatorio.leadsPorOrigem} />
 
             <div className="card">
               <h3 className="mb-3 font-montserrat text-sm font-bold uppercase text-brand">Tempo Médio por Etapa</h3>
@@ -123,17 +122,74 @@ export default function DashboardComercial() {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <OrigemTabela dados={relatorio.leadsPorOrigem} />
-            <ResponsavelChart dados={relatorio.performancePorResponsavel} />
-          </div>
+          {/* Representantes (migração 055) — todos os leads de representante,
+              independente do período: em andamento, fechados, comissão. */}
+          {relatorio.representantes.length > 0 && (
+            <div className="card overflow-x-auto p-0">
+              <div className="px-4 pt-4">
+                <h3 className="font-montserrat text-sm font-bold uppercase text-brand">
+                  <BadgePercent className="icone" aria-hidden /> Representantes
+                </h3>
+                <p className="text-xs text-gray-500">
+                  Todos os leads trazidos por representantes. Valores pela nossa proposta; a comissão é a devida sobre as vendas fechadas.
+                </p>
+              </div>
+              <table className="mt-2 w-full text-sm">
+                <thead>
+                  <tr className="table-header">
+                    <th className="px-4 py-2 text-left">Representante</th>
+                    <th className="px-4 py-2 text-right">Em andamento</th>
+                    <th className="px-4 py-2 text-right">Vendas fechadas</th>
+                    <th className="px-4 py-2 text-right">Comissão</th>
+                    <th className="px-4 py-2 text-right">Líquido</th>
+                    <th className="px-4 py-2 text-right">Conversão</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {relatorio.representantes.map((r) => (
+                    <tr key={r.id}>
+                      <td className="px-4 py-2">
+                        <Link href={`/comercial/representantes/${r.id}`} className="font-medium text-brand hover:underline">
+                          {r.nome}
+                        </Link>
+                        <span className="block text-xs text-gray-400">{formatarNumero(r.percentualMedio, 1)}% em média</span>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-2 text-right">
+                        {formatarMoeda(r.emAndamento.valor)} <span className="block text-xs text-gray-400">{r.emAndamento.quantidade} lead(s)</span>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-2 text-right">
+                        {formatarMoeda(r.fechados.valor)} <span className="block text-xs text-gray-400">{r.fechados.quantidade} venda(s)</span>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-2 text-right text-status-error">{formatarMoeda(r.fechados.comissao)}</td>
+                      <td className="whitespace-nowrap px-4 py-2 text-right font-semibold text-accent">{formatarMoeda(r.fechados.valor - r.fechados.comissao)}</td>
+                      <td className="whitespace-nowrap px-4 py-2 text-right">
+                        {formatarNumero(r.conversaoPercentual, 0)}% <span className="block text-xs text-gray-400">{r.perdidos} perdido(s)</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="font-semibold">
+                    <td className="px-4 py-2">Total</td>
+                    <td className="whitespace-nowrap px-4 py-2 text-right">{formatarMoeda(relatorio.representantes.reduce((s, r) => s + r.emAndamento.valor, 0))}</td>
+                    <td className="whitespace-nowrap px-4 py-2 text-right">{formatarMoeda(relatorio.representantes.reduce((s, r) => s + r.fechados.valor, 0))}</td>
+                    <td className="whitespace-nowrap px-4 py-2 text-right text-status-error">{formatarMoeda(relatorio.representantes.reduce((s, r) => s + r.fechados.comissao, 0))}</td>
+                    <td className="whitespace-nowrap px-4 py-2 text-right text-accent">
+                      {formatarMoeda(relatorio.representantes.reduce((s, r) => s + r.fechados.valor - r.fechados.comissao, 0))}
+                    </td>
+                    <td />
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
 
           {/* Comissões (migração 026) — só aparece se houver algum lead de
               comissão no filtro atual, pra não poluir o dashboard de quem
               não usa a funcionalidade. */}
           {relatorio.comissoes.totalQuantidade > 0 && (
             <div className="space-y-4">
-              <h2 className="font-montserrat text-sm font-bold uppercase text-brand"><Gift className="icone" aria-hidden /> Comissões (Indicações)</h2>
+              <h2 className="font-montserrat text-sm font-bold uppercase text-brand"><Gift className="icone" aria-hidden /> Parcerias (indicações que nos pagam comissão)</h2>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
                 {relatorio.comissoes.porStatus.map((s) => (
                   <div key={s.status} className="card text-center">
@@ -155,16 +211,23 @@ export default function DashboardComercial() {
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <div className="card">
               <h3 className="mb-3 font-montserrat text-sm font-bold uppercase text-brand">
-                Leads Dormindo ({relatorio.leadsDormindo.length})
+                Leads dormindo ({relatorio.leadsDormindo.length})
               </h3>
+              <p className="-mt-2 mb-3 text-xs text-gray-500">Em andamento e sem nenhuma atividade (contato, mudança de etapa ou de orçamento) há 7 dias ou mais.</p>
               {relatorio.leadsDormindo.length === 0 ? (
                 <p className="text-sm text-gray-400">Nenhum lead esquecido — tudo em dia!</p>
               ) : (
                 <ul className="space-y-2 text-sm">
                   {relatorio.leadsDormindo.slice(0, 8).map((lead) => (
-                    <li key={lead.id} className="flex items-center justify-between border-b border-gray-100 pb-2 last:border-0">
-                      <span>{lead.cliente?.nome ?? "—"}</span>
-                      <span className="text-xs text-status-error">{formatarEtapa(lead.etapa)}</span>
+                    <li key={lead.id} className="border-b border-gray-100 pb-2 last:border-0">
+                      <Link href={`/comercial/leads/${lead.id}`} className="flex items-center justify-between gap-3 hover:underline">
+                        <span className="min-w-0 truncate">
+                          {lead.cliente?.nome ?? "—"} <span className="text-xs text-gray-400">· {formatarEtapa(lead.etapa)}</span>
+                        </span>
+                        <span className="shrink-0 text-xs font-semibold text-status-error">
+                          {lead.ultima_atividade ? `${Math.floor((Date.now() - new Date(lead.ultima_atividade).getTime()) / 86400000)} dias parado` : ""}
+                        </span>
+                      </Link>
                     </li>
                   ))}
                 </ul>

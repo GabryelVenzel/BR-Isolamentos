@@ -8,6 +8,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import {
   AgendamentoRepository,
   CustoFixoRepository,
+  HistoricoMudancaLeadRepository,
   LancamentoFinanceiroRepository,
   LeadRepository,
   OrcamentoRepository,
@@ -68,7 +69,7 @@ export function createResumoContext(supabase: SupabaseClient) {
             totalDiasNegativos: fluxo.diario.filter((d) => d.saldo < 0).length,
           }
         : null;
-      return listarAlertas({ lancamentoRepo, leadRepo, parceiroRepo }, diasNegativos);
+      return listarAlertas({ lancamentoRepo, leadRepo, parceiroRepo, historicoRepo: new HistoricoMudancaLeadRepository(supabase) }, diasNegativos);
     },
 
     async chartReceitaVsDespesa(opts: { tipoTrabalho?: string; responsavel?: string } = {}) {

@@ -11,7 +11,7 @@ export interface FiltrosParceiro {
    * indicação (parceria/ambos — seletor de Lead de comissão). Expressa a
    * INTENÇÃO de cada tela, em vez de cada chamador reimplementar o "in"
    * sobre os 3 valores crus de `categoria_parceiro`. */
-  capacidade?: "mao_de_obra" | "comissao";
+  capacidade?: "mao_de_obra" | "comissao" | "representante";
 }
 
 export class ParceiroRepository extends BaseRepository<Parceiro> {
@@ -26,6 +26,7 @@ export class ParceiroRepository extends BaseRepository<Parceiro> {
     if (filtros.cidade) query = query.eq("cidade", filtros.cidade);
     if (filtros.capacidade === "mao_de_obra") query = query.eq("categoria_parceiro", "prestador");
     if (filtros.capacidade === "comissao") query = query.eq("categoria_parceiro", "parceria");
+    if (filtros.capacidade === "representante") query = query.eq("categoria_parceiro", "representante");
 
     const { data, error } = await query;
     if (error) throw error;

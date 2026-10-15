@@ -121,6 +121,9 @@ export function regraDaRota(pathname: string, metodo: string): Regra {
     if (comecaCom(pathname, "/api/usuarios")) return { apenasAdmin: true };
     // "Criar serviço" também é oferecido no detalhe de um lead fechado.
     if (pathname === "/api/operacional/servicos") return { modulos: ["operacional", "comercial"] };
+    // Parcerias e Representantes ficam no Comercial; Prestadores no
+    // Operacional — o cadastro (mesma tabela) é aberto aos dois módulos.
+    if (comecaCom(pathname, "/api/operacional/parceiros")) return { modulos: ["operacional", "comercial"] };
     if (comecaCom(pathname, "/api/operacional")) return { modulos: ["operacional"] };
     if (comecaCom(pathname, "/api/comercial")) return { modulos: ["comercial"] };
     if (comecaCom(pathname, "/api/clientes")) return { modulos: ["comercial", "orcamento"] };

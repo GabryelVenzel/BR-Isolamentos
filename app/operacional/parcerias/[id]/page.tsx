@@ -1,5 +1,6 @@
-import FichaParceiro from "@/components/modules/operacional/FichaParceiro";
+import { redirect } from "next/navigation";
 
-export default function Page() {
-  return <FichaParceiro categoria="parceria" />;
+/** Endereço antigo: a ficha da parceria agora fica no Comercial. */
+export default function Page({ params }: { params: { id: string } }) {
+  redirect(`/comercial/parcerias/${params.id}`);
 }

@@ -252,23 +252,66 @@ export function calcularPerformancePorResponsavel(leads: Lead[]): PerformanceRes
     .sort((a, b) => b.totalLeads - a.totalLeads);
 }
 
-/** Leads ativos (não fechados/perdidos) sem nenhuma interação registrada há
- * 7+ dias — usa `data_ultima_interacao` se houver, senão `created_at` (lead
- * nunca contatado desde que entrou). Ordenado do mais "esquecido" pro menos. */
-export function calcularLeadsDormindo(leads: Lead[], agora: Date = new Date()): Lead[] {
+/** Última atividade do lead: a interação mais recente (nota, ligação,
+ * e-mail...), a última mudança no histórico (etapa, temperatura, orçamento
+ * vinculado) ou a criação — a que for mais nova. Antes só contava a
+ * interação: um lead movido de etapa hoje aparecia como "sem contato" desde
+ * a última nota (bug relatado). */
+export function ultimaAtividadeDoLead(lead: Lead, historico: HistoricoMudancaLead[] = []): string {
+  const datas = [lead.created_at, lead.data_ultima_interacao, ...historico.filter((h) => h.lead_id === lead.id).map((h) => h.data_mudanca)].filter(
+    (d): d is string => Boolean(d)
+  );
+  return datas.reduce((maior, d) => (new Date(d).getTime() > new Date(maior).getTime() ? d : maior));
+}
+
+/** Leads em andamento (não fechados/perdidos) sem NENHUMA atividade há 7+
+ * dias (ver `ultimaAtividadeDoLead`), do mais esquecido para o menos. Cada
+ * lead volta com `ultima_atividade` preenchida. */
+export function calcularLeadsDormindo(leads: Lead[], agora: Date = new Date(), historico: HistoricoMudancaLead[] = []): Lead[] {
   const seteDiasAtras = agora.getTime() - 7 * UM_DIA_MS;
 
   return leads
     .filter((l) => l.etapa !== "fechado" && l.etapa !== "perdido")
-    .filter((l) => {
-      const referencia = l.data_ultima_interacao ?? l.created_at;
-      return new Date(referencia).getTime() < seteDiasAtras;
+    .map((l) => ({ ...l, ultima_atividade: ultimaAtividadeDoLead(l, historico) }))
+    .filter((l) => new Date(l.ultima_atividade).getTime() < seteDiasAtras)
+    .sort((a, b) => new Date(a.ultima_atividade).getTime() - new Date(b.ultima_atividade).getTime());
+}
+
+/** Desempenho por representante (migração 055) — sobre todos os leads de
+ * representante: em andamento e fechados, valor da proposta (bruto), comissão
+ * devida e conversão. */
+export interface DesempenhoRepresentante {
+  id: string;
+  nome: string;
+  percentualMedio: number;
+  emAndamento: { quantidade: number; valor: number };
+  fechados: { quantidade: number; valor: number; comissao: number };
+  perdidos: number;
+  conversaoPercentual: number;
+}
+
+export function calcularRepresentantes(leads: Lead[]): DesempenhoRepresentante[] {
+  const porId = new Map<string, Lead[]>();
+  for (const l of leads) if (l.representante_id) porId.set(l.representante_id, [...(porId.get(l.representante_id) ?? []), l]);
+  return [...porId.entries()]
+    .map(([id, lista]) => {
+      const fechados = lista.filter((l) => l.etapa === "fechado");
+      const perdidos = lista.filter((l) => l.etapa === "perdido").length;
+      const andamento = lista.filter((l) => l.etapa !== "fechado" && l.etapa !== "perdido");
+      const valor = (l: Lead) => (l.etapa === "fechado" && l.valor_fechado != null ? l.valor_fechado : l.valor_estimado);
+      const comissao = (l: Lead) => Math.round(valor(l) * (Number(l.percentual_representante ?? 0) / 100) * 100) / 100;
+      const decididos = fechados.length + perdidos;
+      return {
+        id,
+        nome: lista[0].representante?.nome ?? "Representante",
+        percentualMedio: lista.reduce((s, l) => s + Number(l.percentual_representante ?? 0), 0) / lista.length,
+        emAndamento: { quantidade: andamento.length, valor: andamento.reduce((s, l) => s + valor(l), 0) },
+        fechados: { quantidade: fechados.length, valor: fechados.reduce((s, l) => s + valor(l), 0), comissao: fechados.reduce((s, l) => s + comissao(l), 0) },
+        perdidos,
+        conversaoPercentual: decididos > 0 ? (fechados.length / decididos) * 100 : 0,
+      };
     })
-    .sort((a, b) => {
-      const refA = new Date(a.data_ultima_interacao ?? a.created_at).getTime();
-      const refB = new Date(b.data_ultima_interacao ?? b.created_at).getTime();
-      return refA - refB;
-    });
+    .sort((a, b) => b.fechados.valor - a.fechados.valor || b.emAndamento.valor - a.emAndamento.valor);
 }
 
 export interface LeadsFriosResumo {
@@ -461,6 +504,7 @@ export function calcularVendasPorMes(leads: Lead[], historico: HistoricoMudancaL
 
 export interface RelatorioComercial {
   kpis: KpisComercial;
+  representantes: DesempenhoRepresentante[];
   pipelinePorEtapa: PipelineEtapa[];
   cicloVendaDias: number | null;
   vendasPorMes: VendaMes[];
@@ -487,6 +531,7 @@ export function gerarRelatorioComercial(
 ): RelatorioComercial {
   return {
     kpis: calcularKpis(leads),
+    representantes: calcularRepresentantes(leads),
     pipelinePorEtapa: calcularPipelinePorEtapa(leads),
     cicloVendaDias: calcularCicloVenda(leads, historico),
     vendasPorMes: calcularVendasPorMes(leads, historico, agora),
@@ -494,7 +539,7 @@ export function gerarRelatorioComercial(
     tempoMedioPorEtapa: calcularTempoMedioPorEtapa(leads, historico, agora),
     leadsPorOrigem: calcularLeadsPorOrigem(leads),
     performancePorResponsavel: calcularPerformancePorResponsavel(leads),
-    leadsDormindo: calcularLeadsDormindo(leads, agora),
+    leadsDormindo: calcularLeadsDormindo(leads, agora, historico),
     leadsFriosResumo: calcularLeadsFriosResumo(agendamentosFrios, agora),
     comissoes: calcularComissoes(leads, lancamentosPagoPorLeadId),
   };

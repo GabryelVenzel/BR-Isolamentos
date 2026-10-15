@@ -7,12 +7,15 @@ import CabecalhoPagina from "@/components/ui/CabecalhoPagina";
 import FichaAbas, { useAbaAtual } from "@/components/FichaAbas";
 import ListaVinculados from "@/components/ListaVinculados";
 import { EsqueletoCartao } from "@/components/ui/Esqueleto";
-import { formatarData, formatarEtapa, formatarMoeda } from "@/lib/format";
+import { formatarData, formatarEtapa, formatarMoeda, formatarNumero } from "@/lib/format";
+import { comissaoRepresentante, valorBrutoDoLead } from "@/lib/leads";
 import type { CategoriaParceiro, LancamentoFinanceiro, Lead, Parceiro, Servico } from "@/lib/types/domain";
 
-const BASE: Record<CategoriaParceiro, { href: string; label: string }> = {
-  prestador: { href: "/operacional/prestadores", label: "Prestadores" },
-  parceria: { href: "/operacional/parcerias", label: "Parcerias" },
+// Volta para a lista (no Comercial, a lista é uma aba da página /comercial).
+const BASE: Record<CategoriaParceiro, { href: string; label: string; ficha: string }> = {
+  prestador: { href: "/operacional/prestadores", label: "Prestadores", ficha: "/operacional/prestadores" },
+  parceria: { href: "/comercial?aba=parcerias", label: "Parcerias", ficha: "/comercial/parcerias" },
+  representante: { href: "/comercial?aba=representantes", label: "Representantes", ficha: "/comercial/representantes" },
 };
 
 /** Ficha de prestador ou parceria em página própria: dados e documentos,
@@ -41,7 +44,7 @@ function Ficha({ categoria }: { categoria: CategoriaParceiro }) {
     if (r?.success) {
       setParceiro(r.data);
       // Aberto pela aba errada (ex.: link antigo): vai para a certa.
-      if (r.data.categoria_parceiro !== categoria) router.replace(`${BASE[r.data.categoria_parceiro as CategoriaParceiro].href}/${id}`);
+      if (r.data.categoria_parceiro !== categoria) router.replace(`${BASE[r.data.categoria_parceiro as CategoriaParceiro].ficha}/${id}`);
     }
     else setErro(r?.error ?? "Não foi possível abrir o parceiro.");
   }, [id, categoria, router]);
@@ -55,12 +58,12 @@ function Ficha({ categoria }: { categoria: CategoriaParceiro }) {
       fetch(`/api/operacional/parceiros/${id}/servicos`).then((x) => x.json()).then((r) => setObras(r?.success ? r.data : [])).catch(() => setObras([]));
     if (aba === "pagamentos" && lancamentos === null)
       fetch(`/api/financeiro/lancamentos?parceiro_id=${id}`).then((x) => x.json()).then((r) => setLancamentos(r?.success ? r.data : [])).catch(() => setLancamentos([]));
-    if (aba === "indicacoes" && indicacoes === null)
+    if ((aba === "indicacoes" || aba === "vendas") && indicacoes === null)
       fetch("/api/comercial/leads")
         .then((x) => x.json())
-        .then((r) => setIndicacoes((r?.success ? (r.data as Lead[]) : []).filter((l) => l.parceiro_id === id)))
+        .then((r) => setIndicacoes((r?.success ? (r.data as Lead[]) : []).filter((l) => (categoria === "representante" ? l.representante_id === id : l.parceiro_id === id))))
         .catch(() => setIndicacoes([]));
-  }, [aba, id, obras, lancamentos, indicacoes]);
+  }, [aba, id, obras, lancamentos, indicacoes, categoria]);
 
   const base = BASE[categoria];
 
@@ -73,11 +76,31 @@ function Ficha({ categoria }: { categoria: CategoriaParceiro }) {
       <FichaAbas
         abas={[
           { valor: "dados", label: "Dados e documentos" },
-          categoria === "prestador" ? { valor: "obras", label: "Obras" } : { valor: "indicacoes", label: "Indicações" },
+          categoria === "prestador"
+            ? { valor: "obras", label: "Obras" }
+            : categoria === "representante"
+              ? { valor: "vendas", label: "Vendas" }
+              : { valor: "indicacoes", label: "Indicações" },
           { valor: "pagamentos", label: "Pagamentos" },
         ]}
       />
       {aba === "dados" && <ModalParceiro parceiro={parceiro} modo="pagina" onFechar={() => router.push(base.href)} onSalvo={carregar} />}
+      {aba === "vendas" && (
+        <ListaVinculados
+          titulo="Leads e vendas do representante"
+          vazio="Nenhum lead deste representante ainda."
+          itens={
+            indicacoes &&
+            indicacoes.map((l) => ({
+              id: l.id,
+              href: `/comercial/leads/${l.id}`,
+              titulo: `${l.numero_lead ?? "Lead"}${l.cliente?.nome ? ` · ${l.cliente.nome}` : ""}`,
+              detalhe: `${formatarEtapa(l.etapa)} · ${formatarMoeda(valorBrutoDoLead(l))} · comissão ${formatarNumero(Number(l.percentual_representante ?? 0), 2)}%`,
+              direita: formatarMoeda(comissaoRepresentante(l)),
+            }))
+          }
+        />
+      )}
       {aba === "indicacoes" && (
         <ListaVinculados
           titulo="Leads indicados"

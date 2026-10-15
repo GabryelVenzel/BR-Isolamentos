@@ -7,7 +7,7 @@ import { formatarMoeda } from "@/lib/format";
 import type { Cliente } from "@/lib/types";
 import { ORIGENS_LEAD, type OrigemLead, type Parceiro, type TemperaturaLead } from "@/lib/types/domain";
 import FecharComEsc from "@/components/ui/FecharComEsc";
-import { Gift } from "lucide-react";
+import { BadgePercent, Gift } from "lucide-react";
 
 interface Props {
   /** `leadId` só vem preenchido quando o lead criado é de comissão (migração
@@ -31,8 +31,11 @@ interface Props {
  * Origem é um dropdown de lista fixa (ORIGENS_LEAD), não texto livre — e
  * fica IMUTÁVEL depois que o lead é criado (ver atualizarLead.ts).
  *
- * Comissão/indicação (migração 026): checkbox "É Comissão/Indicação?" abre
- * os campos de Parceiro/Valor Indicado/% Comissão — o comprovante (anexo)
+ * Tipo do lead (migração 055): venda direta, PARCERIA (indicação que nós
+ * fazemos e pela qual recebemos comissão — campos de Parceiro/Valor
+ * Indicado/% Comissão) ou REPRESENTANTE (venda nossa trazida por um
+ * representante — valor da nossa proposta + % dele; o cartão mostra o
+ * líquido). Na parceria o comprovante (anexo)
  * NÃO é pedido aqui (ver `onCriado` acima) — a validação de verdade
  * acontece ao tentar mover o lead pra "Negociação" (ver moverLead.ts), que é
  * o ponto em que o CRM já bloqueia lead normal sem orçamento. */
@@ -44,7 +47,12 @@ export default function NovoLeadModal({ onCriado, onFechar }: Props) {
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
-  const [ehComissao, setEhComissao] = useState(false);
+  const [tipoLead, setTipoLead] = useState<"direta" | "parceria" | "representante">("direta");
+  const ehComissao = tipoLead === "parceria";
+  const ehRepresentante = tipoLead === "representante";
+  const [representantes, setRepresentantes] = useState<Parceiro[]>([]);
+  const [representanteId, setRepresentanteId] = useState("");
+  const [percentualRepresentante, setPercentualRepresentante] = useState("");
   const [parceiros, setParceiros] = useState<Parceiro[]>([]);
   const [parceiroId, setParceiroId] = useState("");
   const [valorIndicado, setValorIndicado] = useState("");
@@ -60,6 +68,22 @@ export default function NovoLeadModal({ onCriado, onFechar }: Props) {
       .catch(() => setParceiros([]));
   }, [ehComissao, parceiros.length]);
 
+  useEffect(() => {
+    if (!ehRepresentante || representantes.length > 0) return;
+    fetch("/api/operacional/parceiros?ativo=true&capacidade=representante")
+      .then((r) => r.json())
+      .then((payload) => payload.success && setRepresentantes(payload.data))
+      .catch(() => setRepresentantes([]));
+  }, [ehRepresentante, representantes.length]);
+
+  function escolherRepresentante(id: string) {
+    setRepresentanteId(id);
+    const padrao = representantes.find((r) => r.id === id)?.percentual_comissao_padrao;
+    if (padrao != null) setPercentualRepresentante(String(padrao));
+  }
+
+  const comissaoRepresentanteCalculada = valorEstimado && percentualRepresentante ? (Number(valorEstimado) * Number(percentualRepresentante)) / 100 : 0;
+
   const valorComissaoCalculado =
     valorIndicado && percentualComissao ? (Number(valorIndicado) * Number(percentualComissao)) / 100 : 0;
 
@@ -70,6 +94,10 @@ export default function NovoLeadModal({ onCriado, onFechar }: Props) {
     }
     if (ehComissao && (!parceiroId || !valorIndicado || Number(valorIndicado) <= 0 || !percentualComissao)) {
       setErro("Preencha parceiro, valor indicado e % de comissão.");
+      return;
+    }
+    if (ehRepresentante && (!representanteId || percentualRepresentante === "")) {
+      setErro("Escolha o representante e o % de comissão dele.");
       return;
     }
     setErro(null);
@@ -89,6 +117,8 @@ export default function NovoLeadModal({ onCriado, onFechar }: Props) {
           parceiro_id: ehComissao ? parceiroId : null,
           valor_indicado: ehComissao ? Number(valorIndicado) : null,
           percentual_comissao: ehComissao ? Number(percentualComissao) : null,
+          representante_id: ehRepresentante ? representanteId : null,
+          percentual_representante: ehRepresentante ? Number(percentualRepresentante) : null,
         }),
       });
       const payload = await response.json();
@@ -130,7 +160,7 @@ export default function NovoLeadModal({ onCriado, onFechar }: Props) {
               </select>
             </div>
             <div>
-              <label className="label-field">Valor estimado (R$)</label>
+              <label className="label-field">{ehRepresentante ? "Valor da nossa proposta (R$)" : "Valor estimado (R$)"}</label>
               <CampoMoeda value={valorEstimado} onChange={setValorEstimado} />
             </div>
             <div className="sm:col-span-2">
@@ -152,14 +182,75 @@ export default function NovoLeadModal({ onCriado, onFechar }: Props) {
           </div>
 
           <div className="rounded-lg border border-dashed border-gray-300 p-3">
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
-              <input type="checkbox" checked={ehComissao} onChange={(e) => setEhComissao(e.target.checked)} />
-              <Gift className="icone" aria-hidden /> É Comissão/Indicação?
-            </label>
-            <p className="mt-1 text-xs text-gray-400">
-              Indicação pra um parceiro executar — sem orçamento vinculado, só o comprovante da indicação (anexo,
-              adicionado depois de criar o lead).
-            </p>
+            <p className="label-field">Tipo do lead</p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3" role="radiogroup" aria-label="Tipo do lead">
+              {(
+                [
+                  ["direta", "Venda direta", "Venda nossa, sem intermediário."],
+                  ["parceria", "Parceria", "Indicamos para um parceiro executar e recebemos comissão."],
+                  ["representante", "Representante", "Venda nossa trazida por um representante, que recebe comissão."],
+                ] as const
+              ).map(([valor, label, ajuda]) => (
+                <label
+                  key={valor}
+                  className={`flex cursor-pointer flex-col gap-0.5 rounded-lg border p-2.5 text-sm ${tipoLead === valor ? "border-brand bg-brand-light/40" : "border-gray-200"}`}
+                >
+                  <span className="flex items-center gap-2 font-medium text-gray-800">
+                    <input type="radio" name="tipo-lead" checked={tipoLead === valor} onChange={() => setTipoLead(valor)} />
+                    {valor === "parceria" && <Gift className="icone" aria-hidden />}
+                    {valor === "representante" && <BadgePercent className="icone" aria-hidden />}
+                    {label}
+                  </span>
+                  <span className="text-xs text-gray-500">{ajuda}</span>
+                </label>
+              ))}
+            </div>
+            {ehComissao && (
+              <p className="mt-2 text-xs text-gray-400">
+                Sem orçamento vinculado — só o comprovante da indicação (anexo, adicionado depois de criar o lead).
+              </p>
+            )}
+
+            {ehRepresentante && (
+              <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div className="sm:col-span-2">
+                  <label className="label-field" htmlFor="lead-representante">
+                    Representante*
+                  </label>
+                  <select id="lead-representante" className="input-field" value={representanteId} onChange={(e) => escolherRepresentante(e.target.value)}>
+                    <option value="">Selecione o representante...</option>
+                    {representantes.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.nome}
+                      </option>
+                    ))}
+                  </select>
+                  {representantes.length === 0 && <p className="mt-1 text-xs text-gray-400">Cadastre em Comercial → Representantes.</p>}
+                </div>
+                <div>
+                  <label className="label-field" htmlFor="lead-perc-repr">
+                    % do representante*
+                  </label>
+                  <input
+                    id="lead-perc-repr"
+                    type="number"
+                    step="0.01"
+                    min={0}
+                    max={100}
+                    className="input-field"
+                    value={percentualRepresentante}
+                    onChange={(e) => setPercentualRepresentante(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <p className="label-field">Líquido para nós</p>
+                  <p className="input-field cursor-default bg-gray-50 font-semibold text-brand">
+                    {formatarMoeda((Number(valorEstimado) || 0) - comissaoRepresentanteCalculada)}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-400">Comissão: {formatarMoeda(comissaoRepresentanteCalculada)}</p>
+                </div>
+              </div>
+            )}
 
             {ehComissao && (
               <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">

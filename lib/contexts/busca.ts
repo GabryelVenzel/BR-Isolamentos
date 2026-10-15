@@ -89,8 +89,14 @@ export function createBuscaContext(supabase: SupabaseClient) {
         })),
         ...clientes.map((c) => ({ tipo: "cliente" as const, id: String(c.id), titulo: c.nome, detalhe: ["Cliente", c.razao_social, c.cidade].filter(Boolean).join(" · "), href: `/comercial/clientes/${c.id}` })),
         ...parceiros.map((p) => {
-          const parceria = p.categoria_parceiro === "parceria";
-          return { tipo: "parceiro" as const, id: p.id, titulo: p.nome, detalhe: [parceria ? "Parceria" : "Prestador", p.cidade].filter(Boolean).join(" · "), href: `/operacional/${parceria ? "parcerias" : "prestadores"}/${p.id}` };
+          const cat = p.categoria_parceiro;
+          const [rotulo, href] =
+            cat === "parceria"
+              ? ["Parceria", `/comercial/parcerias/${p.id}`]
+              : cat === "representante"
+                ? ["Representante", `/comercial/representantes/${p.id}`]
+                : ["Prestador", `/operacional/prestadores/${p.id}`];
+          return { tipo: "parceiro" as const, id: p.id, titulo: p.nome, detalhe: [rotulo, p.cidade].filter(Boolean).join(" · "), href };
         }),
         ...fornecedores.map((f) => ({ tipo: "fornecedor" as const, id: f.id, titulo: f.nome, detalhe: ["Fornecedor", f.cidade].filter(Boolean).join(" · "), href: `/operacional/fornecedores/${f.id}` })),
         ...funcionarios.map((f) => ({

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { CampoMoeda } from "@/components/ui/CamposDocumento";
 import { toast } from "./toast";
 import AnexosLead from "./AnexosLead";
+import RepresentacaoLead from "./RepresentacaoLead";
 import { pedirValorFechado } from "./ValorFechado";
 import { Carregando } from "@/components/ui/Esqueleto";
 import Link from "next/link";
@@ -395,7 +396,8 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou, modo = 
                 <div className="mt-1 flex items-center gap-2">
                   <span className="badge bg-brand-light text-brand">{formatarEtapa(lead.etapa)}</span>
                   <span className={`badge ${classesTemperatura(lead.temperatura)}`}>{formatarTemperatura(lead.temperatura)}</span>
-                  {lead.eh_comissao && <span className="badge bg-accent-light text-accent-dark"><Gift className="icone" aria-hidden /> Comissão</span>}
+                  {lead.eh_comissao && <span className="badge bg-accent-light text-accent-dark"><Gift className="icone" aria-hidden /> Parceria</span>}
+                  {lead.representante_id && <span className="badge bg-purple-100 text-purple-800">Representação</span>}
                 </div>
               </div>
               <button type="button" className="btn-danger shrink-0 text-xs" onClick={excluir}>
@@ -481,7 +483,7 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou, modo = 
 
                   {lead.eh_comissao ? (
                     <div className="space-y-3 border-t border-gray-100 pt-4">
-                      <h3 className="font-montserrat text-xs font-bold uppercase text-brand"><Gift className="icone" aria-hidden /> Dados da Comissão</h3>
+                      <h3 className="font-montserrat text-xs font-bold uppercase text-brand"><Gift className="icone" aria-hidden /> Dados da Parceria</h3>
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <div className="sm:col-span-2">
                           <label className="label-field">Parceiro</label>
@@ -530,6 +532,13 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou, modo = 
                     </div>
                   ) : (
                     <div className="space-y-3 border-t border-gray-100 pt-4">
+                      <RepresentacaoLead
+                        lead={lead}
+                        onSalvo={async () => {
+                          await carregar();
+                          onLeadMudou();
+                        }}
+                      />
                       <h3 className="font-montserrat text-xs font-bold uppercase text-brand">Orçamentos vinculados</h3>
                       {vinculados.length > 0 ? (
                         <ul className="space-y-1">
@@ -604,7 +613,7 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou, modo = 
                     <h3 className="font-montserrat text-xs font-bold uppercase text-brand">Mudar status/etapa</h3>
                     {lead.eh_comissao && totalAnexos === 0 && (
                       <p className="rounded-input bg-amber-50 px-3 py-2 text-xs text-amber-700">
-                        <AlertTriangle className="icone" aria-hidden /> Comissão sem anexo — adicione um comprovante antes de mover pra &quot;Negociação&quot;.
+                        <AlertTriangle className="icone" aria-hidden /> Parceria sem anexo — adicione um comprovante antes de mover pra &quot;Negociação&quot;.
                       </p>
                     )}
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
