@@ -1,54 +1,42 @@
 "use client";
-import { Carregando } from "@/components/ui/Esqueleto";
 
 import { useCallback, useEffect, useState } from "react";
-import CashFlowChart from "./CashFlowChart";
+import { Carregando } from "@/components/ui/Esqueleto";
 import FilterBar from "./FilterBar";
+import { GraficoFluxoCaixa, IndicadoresCaixa, TabelaAging, TabelaSemanasCaixa } from "./FluxoCaixa";
 import { DreTabela, ResultadoObrasTabela } from "./RelatoriosResultado";
 import ReceitaDespesaChart from "@/components/modules/financeiro/graficos/ReceitaDespesaChart";
 import DistribuicaoCategoriaChart from "@/components/modules/financeiro/graficos/DistribuicaoCategoriaChart";
+import CustosFixosVariaveisChart from "@/components/modules/financeiro/graficos/CustosFixosVariaveisChart";
 import { gerarPdfDeElemento, baixarArquivo } from "@/lib/pdf-generator";
 import { formatarMoeda, formatarNumero } from "@/lib/format";
-import type { FiltrosResumo, ProjecaoCaixaResumo } from "@/lib/types/resumo";
-import type { AlertaFinanceiro, DistribuicaoCategoria, KpisFinanceiro, ReceitaDespesaMes } from "@/lib/usecases/financeiro";
+import type { FiltrosResumo } from "@/lib/types/resumo";
+import type { CustosFixosVsVariaveis, DistribuicaoCategoria, KpisFinanceiro, ReceitaDespesaMes } from "@/lib/usecases/financeiro";
+import type { FluxoCaixa } from "@/lib/usecases/resumo";
 
 interface RelatorioFinanceiro {
   kpis: KpisFinanceiro;
   distribuicaoReceitas: DistribuicaoCategoria[];
   distribuicaoDespesas: DistribuicaoCategoria[];
   receitaVsDespesaPorMes: ReceitaDespesaMes[];
-  alertas: AlertaFinanceiro[];
 }
 
 const FILTROS_INICIAIS: FiltrosResumo = { periodo: "mes_atual" };
 
-/** Aba "Financeira" do dashboard centralizado de Resumo — antes vivia como
- * aba "Relatórios" dentro do próprio módulo Financeiro; movida pra cá pra
- * consolidar todos os relatórios num único lugar (ver decisão no topo de
- * app/resumo/page.tsx). Continua consumindo a mesma /api/financeiro/relatorios
- * — essa rota NÃO foi removida junto com a página, porque o Dashboard básico
- * que ficou em /financeiro (app/financeiro/page.tsx) também depende dela
- * (gráfico de receita/despesa + distribuição de despesas + alertas de
- * pendência). Os componentes de gráfico (ReceitaDespesaChart,
- * DistribuicaoCategoriaChart, CustosFixosVariaveisChart) continuam morando em
- * components/modules/financeiro/graficos pelo mesmo motivo — mover pra cá
- * quebraria o Dashboard do Financeiro, que não foi removido.
+/** Aba "Financeira" do Resumo (revisão do Resumo), em duas partes:
  *
- * Só o filtro de Período ficou aqui (Categoria, que existia antes, foi
- * removido por pedido — ver mesmo raciocínio em DashboardOperacao.tsx).
- * Pedido explícito (rodada "filtros por linhas"): usa agora o MESMO
- * FilterBar da aba Geral (Semana/Mês/Ano × Atual/Anterior + Personalizado),
- * em vez do `<select>` próprio (30 dias/3 meses/12 meses) que existia aqui
- * antes.
+ *   CAIXA (não depende do período — é a posição de hoje e o que vem):
+ *     caixa hoje, menor saldo previsto, saldo em 30/60/90 dias, a receber
+ *     vencido; gráfico do fluxo de caixa por mês ou dia a dia; próximas
+ *     semanas; contas em aberto por prazo.
  *
- * Pedido explícito (rodada "inverter gráficos de aba"): Custos Fixos x
- * Variáveis saiu daqui (foi pra aba Geral) e deu lugar à Projeção de Caixa
- * (CashFlowChart, mesmo componente/rota da aba Geral — `/api/resumo/charts/
- * cashflow-projecao`, sem filtro de período, já que é sempre "daqui pra
- * frente"). */
+ *   RESULTADO (competência, segue o período escolhido): receita, despesa,
+ *     resultado, margem e ponto de equilíbrio; resultado mês a mês; DRE;
+ *     resultado por obra; despesas por categoria; custos fixos x variáveis. */
 export default function DashboardFinanceira() {
   const [relatorio, setRelatorio] = useState<RelatorioFinanceiro | null>(null);
-  const [projecao, setProjecao] = useState<ProjecaoCaixaResumo | null>(null);
+  const [fluxo, setFluxo] = useState<FluxoCaixa | null>(null);
+  const [custos, setCustos] = useState<CustosFixosVsVariaveis | null>(null);
   const [carregando, setCarregando] = useState(true);
   const [erro, setErro] = useState<string | null>(null);
   const [filtros, setFiltros] = useState<FiltrosResumo>(FILTROS_INICIAIS);
@@ -61,21 +49,16 @@ export default function DashboardFinanceira() {
       const params = new URLSearchParams({ periodo: filtros.periodo });
       if (filtros.dataInicioCustom) params.set("dataInicio", filtros.dataInicioCustom);
       if (filtros.dataFimCustom) params.set("dataFim", filtros.dataFimCustom);
-
-      const [response, responseProjecao] = await Promise.all([
-        fetch(`/api/financeiro/relatorios?${params.toString()}`),
-        fetch("/api/resumo/charts/cashflow-projecao"),
+      const json = (url: string) => fetch(url).then((r) => r.json()).catch(() => ({ success: false }));
+      const [pRel, pFluxo, pCustos] = await Promise.all([
+        json(`/api/financeiro/relatorios?${params.toString()}`),
+        json("/api/resumo/fluxo-caixa"),
+        json(`/api/resumo/charts/custos-fixos-variaveis?${params.toString()}`),
       ]);
-      const payload = await response.json();
-      const payloadProjecao = await responseProjecao.json();
-      if (payload.success) {
-        setRelatorio(payload.data);
-      } else {
-        setErro(payload.error ?? "Erro ao carregar o relatório.");
-      }
-      if (payloadProjecao.success) setProjecao(payloadProjecao.data);
-    } catch {
-      setErro("Erro de conexão ao carregar o relatório.");
+      if (pRel.success) setRelatorio(pRel.data);
+      else setErro(pRel.error ?? "Erro ao carregar o relatório.");
+      setFluxo(pFluxo.success ? pFluxo.data : null);
+      setCustos(pCustos.success ? pCustos.data : null);
     } finally {
       setCarregando(false);
     }
@@ -95,12 +78,19 @@ export default function DashboardFinanceira() {
     }
   }
 
+  // Ponto de equilíbrio (estimativa): faturamento mensal que cobre os custos
+  // fixos configurados, dada a margem de contribuição do período
+  // (receita − despesas variáveis) / receita.
+  const receita = relatorio?.kpis.receitaTotal ?? 0;
+  const margemContribuicao = custos && receita > 0 ? (receita - custos.variaveis) / receita : null;
+  const pontoEquilibrio = relatorio && margemContribuicao && margemContribuicao > 0 ? relatorio.kpis.custosFixosMensal / margemContribuicao : null;
+
   return (
     <div className="space-y-6">
       <FilterBar filtros={filtros} onChange={setFiltros} onExportPdf={exportarPdf} onRefresh={carregar} atualizando={carregando || exportando} />
 
-      {carregando ? (
-        <Carregando />
+      {carregando && !relatorio ? (
+        <Carregando linhas={6} />
       ) : erro || !relatorio ? (
         <div className="card text-sm text-status-error">
           <p>{erro ?? "Não foi possível carregar o relatório."}</p>
@@ -110,51 +100,61 @@ export default function DashboardFinanceira() {
         </div>
       ) : (
         <div id="resumo-financeira-export" className="space-y-6 bg-gray-50">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="card text-center">
-              <p className="text-xs uppercase text-gray-500">Receita Total</p>
-              <p className="font-montserrat text-2xl font-bold text-accent">{formatarMoeda(relatorio.kpis.receitaTotal)}</p>
-            </div>
-            <div className="card text-center">
-              <p className="text-xs uppercase text-gray-500">Despesa Total</p>
-              <p className="font-montserrat text-2xl font-bold text-status-error">{formatarMoeda(relatorio.kpis.despesaTotal)}</p>
-            </div>
-            <div className="card text-center">
-              <p className="text-xs uppercase text-gray-500">Custos Fixos (mensal)</p>
-              <p className="font-montserrat text-2xl font-bold text-brand">{formatarMoeda(relatorio.kpis.custosFixosMensal)}</p>
-            </div>
-            <div className="card text-center">
-              <p className="text-xs uppercase text-gray-500">Margem</p>
-              <p className="font-montserrat text-2xl font-bold text-brand">
-                {relatorio.kpis.margemPercentual != null ? `${formatarNumero(relatorio.kpis.margemPercentual, 1)}%` : "—"}
-              </p>
-            </div>
-          </div>
-
-          <ReceitaDespesaChart dados={relatorio.receitaVsDespesaPorMes} />
-
-          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <DistribuicaoCategoriaChart titulo="Distribuição de Receitas" dados={relatorio.distribuicaoReceitas} />
-            <DistribuicaoCategoriaChart titulo="Distribuição de Despesas" dados={relatorio.distribuicaoDespesas} />
-          </div>
-
-          {projecao && <CashFlowChart projecao={projecao} />}
-
-          <DreTabela filtros={filtros} />
-          <ResultadoObrasTabela />
-
-          {relatorio.alertas.length > 0 && (
-            <div className="card">
-              <h3 className="mb-2 font-montserrat text-sm font-bold uppercase text-status-error">Pendências</h3>
-              {relatorio.alertas.map((a) => (
-                <p key={a.tipo} className="text-sm text-status-error">
-                  {formatarMoeda(a.valor)} em {a.mensagem}
-                </p>
-              ))}
-            </div>
+          {fluxo && (
+            <section className="space-y-4">
+              <h2 className="font-montserrat text-base font-bold text-brand">Caixa</h2>
+              <IndicadoresCaixa fluxo={fluxo} />
+              <GraficoFluxoCaixa fluxo={fluxo} />
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <TabelaSemanasCaixa fluxo={fluxo} />
+                <TabelaAging fluxo={fluxo} />
+              </div>
+            </section>
           )}
+
+          <section className="space-y-4">
+            <h2 className="font-montserrat text-base font-bold text-brand">Resultado do período (competência)</h2>
+            <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+              <Indicador titulo="Receitas" valor={formatarMoeda(relatorio.kpis.receitaTotal)} cor="text-accent" />
+              <Indicador titulo="Despesas" valor={formatarMoeda(relatorio.kpis.despesaTotal)} cor="text-status-error" />
+              <Indicador
+                titulo="Resultado"
+                valor={formatarMoeda(relatorio.kpis.lucroLiquido)}
+                cor={relatorio.kpis.lucroLiquido < 0 ? "text-status-error" : "text-brand"}
+              />
+              <Indicador titulo="Margem" valor={relatorio.kpis.margemPercentual != null ? `${formatarNumero(relatorio.kpis.margemPercentual, 1)}%` : "—"} cor="text-brand" />
+              <Indicador
+                titulo="Ponto de equilíbrio"
+                valor={pontoEquilibrio != null ? formatarMoeda(pontoEquilibrio) : "—"}
+                cor="text-brand"
+                detalhe={`Faturamento/mês que cobre ${formatarMoeda(relatorio.kpis.custosFixosMensal)} de custos fixos`}
+              />
+            </div>
+
+            <ReceitaDespesaChart dados={relatorio.receitaVsDespesaPorMes} />
+            <DreTabela filtros={filtros} />
+            <ResultadoObrasTabela />
+
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+              <DistribuicaoCategoriaChart titulo="Despesas por categoria" dados={relatorio.distribuicaoDespesas} />
+              <DistribuicaoCategoriaChart titulo="Receitas por categoria" dados={relatorio.distribuicaoReceitas} />
+              {custos && <CustosFixosVariaveisChart dados={custos} />}
+            </div>
+          </section>
         </div>
       )}
+    </div>
+  );
+}
+
+function Indicador({ titulo, valor, cor, detalhe }: { titulo: string; valor: string; cor: string; detalhe?: string }) {
+  return (
+    <div className="card p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{titulo}</p>
+      <p className={`mt-1 truncate font-montserrat text-lg font-bold sm:text-xl ${cor}`} title={valor}>
+        {valor}
+      </p>
+      {detalhe && <p className="text-xs text-gray-500">{detalhe}</p>}
     </div>
   );
 }

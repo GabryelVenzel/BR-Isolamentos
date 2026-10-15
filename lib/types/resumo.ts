@@ -114,17 +114,4 @@ export interface ParceiroTopResumo {
   percentualUtilizacao: number;
 }
 
-export interface DiaCashFlow {
-  dia: number; // 1-60
-  data: string; // ISO
-  saldoProjetado: number;
-  negativo: boolean;
-}
 
-export interface ProjecaoCaixaResumo {
-  dias: DiaCashFlow[];
-  saldoHoje: number;
-  saldoFinalPeriodo: number;
-  diasNegativos: number;
-  primeiroDiaNegativo: string | null;
-}

@@ -2,6 +2,7 @@
 
 import CabecalhoPagina from "@/components/ui/CabecalhoPagina";
 import { Carregando } from "@/components/ui/Esqueleto";
+import CaixaInicialConfig from "@/components/modules/financeiro/CaixaInicialConfig";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "@/components/modules/financeiro/toast";
 import ModalCategoria from "@/components/modules/financeiro/ModalCategoria";
@@ -172,8 +173,10 @@ export default function CategoriasPage() {
 
       <div>
         <h2 className="text-lg font-bold">Configurações</h2>
-        <p className="text-sm text-gray-500">Ciclo financeiro e moeda padrão.</p>
+        <p className="text-sm text-gray-500">Início do caixa, ciclo financeiro e moeda padrão.</p>
       </div>
+
+      <CaixaInicialConfig />
 
       {carregandoConfig ? (
         <Carregando />

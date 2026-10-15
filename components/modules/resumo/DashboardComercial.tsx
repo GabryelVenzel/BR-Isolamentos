@@ -4,13 +4,14 @@ import { useCallback, useEffect, useState } from "react";
 import FilterBar from "./FilterBar";
 import ComissoesPorParceiroChart from "./graficos/ComissoesPorParceiroChart";
 import FunilChart from "./graficos/FunilChart";
-import OrigemChart from "./graficos/OrigemChart";
+import { OrigemTabela, PipelineEtapaChart, VendasPorMesChart } from "./graficos/ComercialGraficos";
 import ResponsavelChart from "./graficos/ResponsavelChart";
 import { gerarPdfDeElemento, baixarArquivo } from "@/lib/pdf-generator";
 import { formatarEtapa, formatarMoeda, formatarNumero } from "@/lib/format";
 import type { FiltrosResumo } from "@/lib/types/resumo";
 import type { RelatorioComercial } from "@/lib/usecases/comercial";
 import { Gift } from "lucide-react";
+import { Carregando } from "@/components/ui/Esqueleto";
 
 const FILTROS_INICIAIS: FiltrosResumo = { periodo: "mes_atual" };
 
@@ -73,7 +74,7 @@ export default function DashboardComercial() {
       <FilterBar filtros={filtros} onChange={setFiltros} onExportPdf={exportarPdf} onRefresh={carregar} atualizando={carregando || exportando} />
 
       {carregando ? (
-        <p className="text-sm text-gray-500">Carregando relatório...</p>
+        <Carregando linhas={6} />
       ) : erro || !relatorio ? (
         // Erro explícito em vez de "Carregando..." travado pra sempre —
         // importante logo após o deploy, antes de sql-migration-005 ser
@@ -86,23 +87,24 @@ export default function DashboardComercial() {
         </div>
       ) : (
         <div id="resumo-comercial-export" className="space-y-6 bg-gray-50">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="card text-center">
-              <p className="text-xs uppercase text-gray-500">Total de Leads</p>
-              <p className="font-montserrat text-2xl font-bold text-brand">{relatorio.kpis.totalLeads}</p>
-            </div>
-            <div className="card text-center">
-              <p className="text-xs uppercase text-gray-500">Taxa de Conversão</p>
-              <p className="font-montserrat text-2xl font-bold text-accent">{formatarNumero(relatorio.kpis.taxaConversaoPercentual, 1)}%</p>
-            </div>
-            <div className="card text-center">
-              <p className="text-xs uppercase text-gray-500">Valor em Pipeline</p>
-              <p className="font-montserrat text-2xl font-bold text-brand">{formatarMoeda(relatorio.kpis.valorEmPipeline)}</p>
-            </div>
-            <div className="card text-center">
-              <p className="text-xs uppercase text-gray-500">Ticket Médio</p>
-              <p className="font-montserrat text-2xl font-bold text-brand">{formatarMoeda(relatorio.kpis.ticketMedio)}</p>
-            </div>
+          {/* Indicadores (revisão do Resumo): resultado de vendas primeiro,
+              depois eficiência (conversão, ticket, ciclo) e o que está em jogo. */}
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
+            <Indicador titulo="Vendas fechadas" valor={formatarMoeda(relatorio.kpis.valorFechado)} detalhe={`${relatorio.kpis.quantidadeFechados} venda(s)`} cor="text-accent" />
+            <Indicador titulo="Leads no período" valor={String(relatorio.kpis.totalLeads)} detalhe="Criados no período" />
+            <Indicador titulo="Conversão" valor={`${formatarNumero(relatorio.kpis.taxaConversaoPercentual, 1)}%`} detalhe="Fechados / leads" />
+            <Indicador titulo="Ticket médio" valor={formatarMoeda(relatorio.kpis.ticketMedio)} detalhe="Por venda fechada" />
+            <Indicador
+              titulo="Ciclo de venda"
+              valor={relatorio.cicloVendaDias != null ? `${formatarNumero(relatorio.cicloVendaDias, 0)} dias` : "—"}
+              detalhe="Da criação ao fechamento"
+            />
+            <Indicador titulo="Pipeline em aberto" valor={formatarMoeda(relatorio.kpis.valorEmPipeline)} detalhe="Leads ainda em andamento" />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <VendasPorMesChart dados={relatorio.vendasPorMes} />
+            <PipelineEtapaChart dados={relatorio.pipelinePorEtapa} />
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
@@ -122,7 +124,7 @@ export default function DashboardComercial() {
           </div>
 
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <OrigemChart dados={relatorio.leadsPorOrigem} />
+            <OrigemTabela dados={relatorio.leadsPorOrigem} />
             <ResponsavelChart dados={relatorio.performancePorResponsavel} />
           </div>
 
@@ -193,6 +195,18 @@ export default function DashboardComercial() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function Indicador({ titulo, valor, detalhe, cor = "text-brand" }: { titulo: string; valor: string; detalhe?: string; cor?: string }) {
+  return (
+    <div className="card p-4">
+      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">{titulo}</p>
+      <p className={`mt-1 truncate font-montserrat text-lg font-bold sm:text-xl ${cor}`} title={valor}>
+        {valor}
+      </p>
+      {detalhe && <p className="text-xs text-gray-500">{detalhe}</p>}
     </div>
   );
 }

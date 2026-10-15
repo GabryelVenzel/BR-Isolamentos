@@ -237,7 +237,7 @@ export function alertasDocumentosDeParceiros(
 ): Alerta[] {
   const alertas: Alerta[] = [];
   const rotulo = (d: { parceiro: string; nome: string }) => `${d.nome} (${d.parceiro})`;
-  const href = "/operacional/parceiros";
+  const href = "/operacional/prestadores";
 
   const vencidos = documentos.filter((d) => situacaoValidade(d.validade, hoje, diasAviso) === "vencido");
   if (vencidos.length > 0) {

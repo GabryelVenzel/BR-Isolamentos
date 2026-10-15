@@ -27,7 +27,8 @@ export async function POST(request: Request, { params }: Params) {
     } = await supabase.auth.getUser();
 
     const valorFechado = typeof body.valorFechado === "number" ? body.valorFechado : undefined;
-    const lead = await ctx.moverLead(params.id, body.novaEtapa, user?.email ?? null, valorFechado);
+    const vencedores = Array.isArray(body.orcamentosVencedores) ? body.orcamentosVencedores : undefined;
+    const lead = await ctx.moverLead(params.id, body.novaEtapa, user?.email ?? null, valorFechado, vencedores);
     logger.info("Lead movido de etapa", { id: params.id, novaEtapa: body.novaEtapa });
     return NextResponse.json(apiSuccess(lead));
   } catch (error) {

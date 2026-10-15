@@ -22,6 +22,12 @@ export const COMERCIAL_SUBNAV: ModuleSubNavItem[] = [
   { href: "/comercial?aba=configuracoes", label: "Configurações" },
 ];
 
+// Engenharia: Quente e Frio como subabas (mesmo padrão dos outros módulos).
+export const ENGENHARIA_SUBNAV: ModuleSubNavItem[] = [
+  { href: "/engenharia/quente", label: "Quente" },
+  { href: "/engenharia/frio", label: "Frio" },
+];
+
 export const ORCAMENTO_SUBNAV: ModuleSubNavItem[] = [
   { href: "/novo-orcamento", label: "Novo Orçamento" },
   { href: "/historico", label: "Histórico" },
@@ -35,7 +41,9 @@ export const ORCAMENTO_SUBNAV: ModuleSubNavItem[] = [
 export const OPERACIONAL_SUBNAV: ModuleSubNavItem[] = [
   { href: "/operacional/servicos", label: "Serviços" },
   { href: "/operacional", label: "Agenda" },
-  { href: "/operacional/parceiros", label: "Parceiros" },
+  // Migração 053 — Parceiros separados: quem executa x quem indica.
+  { href: "/operacional/prestadores", label: "Prestadores" },
+  { href: "/operacional/parcerias", label: "Parcerias" },
   { href: "/operacional/fornecedores", label: "Fornecedores" },
   // Pedidos de compra, cotações e histórico de preços (migração 044).
   { href: "/operacional/compras", label: "Compras" },

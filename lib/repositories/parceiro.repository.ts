@@ -24,8 +24,8 @@ export class ParceiroRepository extends BaseRepository<Parceiro> {
 
     if (filtros.ativo !== undefined) query = query.eq("ativo", filtros.ativo);
     if (filtros.cidade) query = query.eq("cidade", filtros.cidade);
-    if (filtros.capacidade === "mao_de_obra") query = query.in("categoria_parceiro", ["prestador", "ambos"]);
-    if (filtros.capacidade === "comissao") query = query.in("categoria_parceiro", ["parceria", "ambos"]);
+    if (filtros.capacidade === "mao_de_obra") query = query.eq("categoria_parceiro", "prestador");
+    if (filtros.capacidade === "comissao") query = query.eq("categoria_parceiro", "parceria");
 
     const { data, error } = await query;
     if (error) throw error;

@@ -1,6 +1,7 @@
 // Regras PURAS de valor de um lead, usadas por telas e relatórios.
 
-import type { Lead } from "./types/domain";
+import type { Orcamento } from "./types";
+import type { EtapaFunil, Lead, LeadOrcamento } from "./types/domain";
 
 type LeadComValores = Pick<Lead, "etapa" | "eh_comissao" | "valor_estimado" | "valor_comissao" | "valor_fechado">;
 
@@ -23,4 +24,25 @@ export function valorDoLead(lead: LeadComValores): number {
  * já é calculado (valor indicado × percentual). */
 export function exigeValorFechado(lead: Pick<Lead, "eh_comissao">): boolean {
   return !lead.eh_comissao;
+}
+
+export type VinculoComOrcamento = LeadOrcamento & { orcamento: Orcamento };
+
+/** Orçamentos vinculados ao lead (migração 053), sem os que estão na lixeira. */
+export function orcamentosDoLead(lead: Pick<Lead, "vinculos">): VinculoComOrcamento[] {
+  return (lead.vinculos ?? []).filter((v): v is VinculoComOrcamento => Boolean(v.orcamento && !v.orcamento.excluido_em));
+}
+
+/** Orçamento(s) fechado(s) — os marcados como vencedores ao fechar o lead. */
+export function orcamentosVencedores(lead: Pick<Lead, "vinculos">): VinculoComOrcamento[] {
+  return orcamentosDoLead(lead).filter((v) => v.vencedor);
+}
+
+/** Etapas em que dá para REMOVER um orçamento do lead: até Proposta. Depois
+ * disso o orçamento já está em negociação — para trocar, volte o lead para
+ * Proposta, remova, vincule o novo e avance de novo. */
+export const ETAPAS_REMOVER_VINCULO: EtapaFunil[] = ["prospeccao", "contato", "proposta"];
+
+export function podeRemoverVinculo(lead: Pick<Lead, "etapa">): boolean {
+  return ETAPAS_REMOVER_VINCULO.includes(lead.etapa);
 }

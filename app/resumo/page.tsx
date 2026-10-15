@@ -12,10 +12,10 @@ import DashboardFinanceira from "@/components/modules/resumo/DashboardFinanceira
 type AbaResumo = "geral" | "operacao" | "comercial" | "financeira";
 
 const ABAS: Array<{ valor: AbaResumo; label: string; subtitulo: string }> = [
-  { valor: "geral", label: "Geral", subtitulo: "Dashboard executivo — saúde financeira, vendas e operação em uma tela." },
-  { valor: "operacao", label: "Operação", subtitulo: "Relatórios operacionais — funil de obras, prazos e custos." },
-  { valor: "comercial", label: "Comercial", subtitulo: "Relatórios comerciais — funil de conversão, origem e performance." },
-  { valor: "financeira", label: "Financeira", subtitulo: "Relatórios financeiros — receitas, despesas, categorias e margem." },
+  { valor: "geral", label: "Geral", subtitulo: "Caixa, resultado, vendas e obras em uma tela — o detalhe de cada área fica nas abas ao lado." },
+  { valor: "operacao", label: "Operação", subtitulo: "Ocupação da equipe, andamento das obras, prazos e custo real × orçado." },
+  { valor: "comercial", label: "Comercial", subtitulo: "Vendas fechadas, conversão, ticket, ciclo de venda, pipeline e origem dos leads." },
+  { valor: "financeira", label: "Financeira", subtitulo: "Fluxo de caixa (hoje e próximos 90 dias) e resultado do período: DRE, margem e ponto de equilíbrio." },
 ];
 
 const CHAVE_ABA = "br-isolamentos:resumo-aba";

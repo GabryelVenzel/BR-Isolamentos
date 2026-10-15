@@ -30,7 +30,8 @@ interface Props {
 export default function RevenueVsExpenseChart({ dados }: Props) {
   return (
     <div className="card">
-      <h3 className="mb-4 font-montserrat text-sm font-bold uppercase text-brand">Receita x Despesa (6 meses)</h3>
+      <h3 className="font-montserrat text-sm font-bold uppercase text-brand">Resultado mês a mês</h3>
+      <p className="mb-3 text-xs text-gray-500">Receitas e despesas pela competência (mês a que pertencem) — últimos 6 meses.</p>
       <div className="h-72">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={dados}>
@@ -41,7 +42,7 @@ export default function RevenueVsExpenseChart({ dados }: Props) {
             <Legend wrapperStyle={{ fontSize: 12 }} />
             <Bar dataKey="receita" name="Receita" fill="#078B41" radius={[4, 4, 0, 0]} isAnimationActive={false} />
             <Bar dataKey="despesa" name="Despesa" fill="#DC3545" radius={[4, 4, 0, 0]} isAnimationActive={false} />
-            <Line dataKey="lucro" name="Lucro" stroke="#060035" strokeWidth={2} dot={{ r: 3 }} isAnimationActive={false} />
+            <Line dataKey="lucro" name="Resultado" stroke="#060035" strokeWidth={2} dot={{ r: 3 }} isAnimationActive={false} />
           </ComposedChart>
         </ResponsiveContainer>
       </div>

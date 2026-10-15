@@ -79,6 +79,10 @@ export const MoverLeadSchema = z.object({
   /** Obrigatório ao mover pra "fechado" um lead que não é de comissão
    * (migração 043) — a regra fica em moverLead.ts, que conhece o lead. */
   valorFechado: z.number().positive("O valor fechado precisa ser maior que zero.").optional(),
+  /** Migração 053 — ao fechar, quais orçamentos vinculados foram os
+   * fechados (viram "aceito"; os outros, "rejeitado"). Com um só vinculado,
+   * pode vir vazio: ele é o vencedor. */
+  orcamentosVencedores: z.array(z.number().int().positive()).optional(),
 });
 
 // Vincula um orçamento ao lead — obrigatório antes de mover pra etapa

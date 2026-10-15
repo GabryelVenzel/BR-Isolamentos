@@ -23,23 +23,16 @@ export class LeadRepository extends BaseRepository<Lead> {
   // `parceiro` (migração 026) — nome do parceiro pra quem a indicação foi
   // feita, exibido no card/modal de um lead de comissão sem precisar de
   // outro fetch.
-  protected select = "*, cliente:clientes(*), orcamento:orcamentos(*), parceiro:parceiros(*)";
+  // `vinculos` (migração 053): os orçamentos vinculados, com o orçamento de
+  // cada um — os que estão na lixeira são filtrados em lib/leads.ts
+  // (`orcamentosDoLead`).
+  protected select = "*, cliente:clientes(*), vinculos:lead_orcamentos(*, orcamento:orcamentos(*)), parceiro:parceiros(*)";
 
   // LIXEIRA (migração 047) — ver `temLixeira` em ./base.ts.
   protected temLixeira = true;
 
   constructor(supabase: SupabaseClient) {
     super(supabase, "leads");
-  }
-
-  /** Além de esconder os leads na lixeira, esconde o ORÇAMENTO vinculado
-   * quando é ele que está lá: o lead continua aparecendo, só sem o orçamento
-   * (o vínculo `orcamento_id` fica guardado e volta se o orçamento for
-   * restaurado). */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  protected ativos(colunas: string = this.select, opcoes?: Record<string, unknown>): any {
-    const query = super.ativos(colunas, opcoes);
-    return colunas.includes("orcamento:orcamentos") ? query.is("orcamento.excluido_em", null) : query;
   }
 
   async listar(filtros: FiltrosLead = {}): Promise<Lead[]> {

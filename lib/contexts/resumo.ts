@@ -13,16 +13,16 @@ import {
   OrcamentoRepository,
   ParceiroRepository,
 } from "../repositories";
-import type { FiltrosResumo, KpisResumo, ProjecaoCaixaResumo } from "../types/resumo";
+import type { FiltrosResumo, KpisResumo } from "../types/resumo";
+import { hojeBrasilia } from "../financeiro";
 import {
   calcularKpis,
-  distribuicaoPorTipo,
   funilLeads,
   listarAlertas,
-  projecaoCaixa,
+  calcularFluxoCaixa,
+  type FluxoCaixa,
   receitaVsDespesa,
   resolverPeriodo,
-  topParceiros,
 } from "../usecases/resumo";
 import { calcularCustosFixosVsVariaveis } from "../usecases/financeiro";
 
@@ -34,19 +34,36 @@ export function createResumoContext(supabase: SupabaseClient) {
   const agendamentoRepo = new AgendamentoRepository(supabase);
   const orcamentoRepo = new OrcamentoRepository(supabase);
 
+  /** Fluxo de caixa a partir do saldo inicial (migração 053). Antes do SQL
+   * 053 rodar, as colunas não existem: cai no padrão (R$ 0 em 28/09/2026). */
+  async function fluxoCaixa(): Promise<FluxoCaixa> {
+    const [lancamentos, custosFixos, config] = await Promise.all([
+      lancamentoRepo.listar(),
+      custoFixoRepo.listarTodos(),
+      supabase.from("config_empresa").select("caixa_data_inicial, caixa_saldo_inicial").limit(1).maybeSingle(),
+    ]);
+    const cfg = (config.error ? null : config.data) as { caixa_data_inicial?: string; caixa_saldo_inicial?: number } | null;
+    return calcularFluxoCaixa({
+      lancamentos,
+      custosFixos,
+      saldoInicial: Number(cfg?.caixa_saldo_inicial ?? 0),
+      dataInicial: cfg?.caixa_data_inicial ?? "2026-09-28",
+      hoje: hojeBrasilia(),
+    });
+  }
+
   return {
     kpis(filtros: FiltrosResumo): Promise<KpisResumo> {
       return calcularKpis(filtros, { lancamentoRepo, leadRepo, custoFixoRepo });
     },
 
     async alertas(): Promise<Awaited<ReturnType<typeof listarAlertas>>> {
-      // Reaproveita a mesma projeção de caixa do gráfico pro alerta de
-      // "caixa negativo", em vez de calcular duas vezes.
-      const projecao = await projecaoCaixa(lancamentoRepo, custoFixoRepo);
-      const diasNegativos = projecao.primeiroDiaNegativo
+      // Mesmo fluxo de caixa do gráfico, para o alerta de "caixa negativo".
+      const fluxo = await fluxoCaixa();
+      const diasNegativos = fluxo.primeiroDiaNegativo
         ? {
-            primeiroDiaNegativo: projecao.dias.findIndex((d) => d.data === projecao.primeiroDiaNegativo) + 1,
-            totalDiasNegativos: projecao.diasNegativos,
+            primeiroDiaNegativo: Math.max(1, fluxo.diario.findIndex((d) => d.data === fluxo.primeiroDiaNegativo)),
+            totalDiasNegativos: fluxo.diario.filter((d) => d.saldo < 0).length,
           }
         : null;
       return listarAlertas({ lancamentoRepo, leadRepo, parceiroRepo }, diasNegativos);
@@ -60,18 +77,7 @@ export function createResumoContext(supabase: SupabaseClient) {
       return funilLeads(leadRepo);
     },
 
-    chartDistribuicaoTipo(filtros: FiltrosResumo) {
-      const intervalo = resolverPeriodo(filtros.periodo, filtros.dataInicioCustom, filtros.dataFimCustom);
-      return distribuicaoPorTipo(orcamentoRepo, intervalo, filtros.responsavel);
-    },
-
-    chartTopParceiros() {
-      return topParceiros(parceiroRepo, agendamentoRepo);
-    },
-
-    chartProjecaoCaixa(): Promise<ProjecaoCaixaResumo> {
-      return projecaoCaixa(lancamentoRepo, custoFixoRepo);
-    },
+    fluxoCaixa,
 
     // Pedido explícito (rodada "inverter gráficos de aba"): Custos Fixos x
     // Variáveis passou da aba Financeira pra Geral — mesmo cálculo

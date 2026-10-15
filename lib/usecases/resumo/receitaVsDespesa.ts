@@ -16,7 +16,9 @@ export async function receitaVsDespesa(
   const hoje = new Date();
   const inicio = new Date(hoje.getFullYear(), hoje.getMonth() - (meses - 1), 1);
   const dataInicio = inicio.toISOString().slice(0, 10);
-  const dataFim = hoje.toISOString().slice(0, 10);
+  // Até o fim do mês atual: a competência de um lançamento do mês pode ser
+  // um dia que ainda não chegou.
+  const dataFim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).toISOString().slice(0, 10);
 
   const [receitas, despesas] = await Promise.all([
     repo.listarValoresPorTipo("receita", dataInicio, dataFim, opts),

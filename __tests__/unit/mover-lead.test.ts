@@ -1,6 +1,11 @@
 import { ConflictError, NotFoundError } from "@/lib/errors";
 import { moverLead } from "@/lib/usecases/comercial";
-import type { Lead } from "@/lib/types/domain";
+import type { Lead, LeadOrcamento } from "@/lib/types/domain";
+
+/** Vínculo lead ↔ orçamento (migração 053) com um orçamento mínimo. */
+function vinculo(orcamentoId: number, vencedor = false): LeadOrcamento {
+  return { id: `v-${orcamentoId}`, lead_id: "lead-1", orcamento_id: orcamentoId, vencedor, created_at: "2026-01-01T00:00:00Z", orcamento: { id: orcamentoId, numero: `ORC-${orcamentoId}`, valor_final: 1000 } as never };
+}
 
 function criarLeadFake(overrides: Partial<Lead> = {}): Lead {
   return {
@@ -82,7 +87,7 @@ describe("moverLead", () => {
     // orcamento_id preenchido só pra não esbarrar na regra de bloqueio de
     // "negociacao" sem orçamento (ver Problema 2) — este teste é sobre o
     // registro de histórico, não sobre essa regra.
-    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "contato", orcamento_id: 42 }));
+    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "contato", vinculos: [vinculo(42)] }));
     const historicoRepo = criarHistoricoRepoFake();
 
     await moverLead(
@@ -128,7 +133,7 @@ describe("moverLead", () => {
   });
 
   it("permite mover pra 'negociação' quando já tem orçamento vinculado", async () => {
-    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "proposta", orcamento_id: 42 }));
+    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "proposta", vinculos: [vinculo(42)] }));
     const historicoRepo = criarHistoricoRepoFake();
 
     const resultado = await moverLead(
@@ -160,7 +165,7 @@ describe("moverLead", () => {
   }
 
   it("move pra 'fechado' com orçamento vinculado marca o orçamento como 'aceito'", async () => {
-    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "negociacao", orcamento_id: 42 }));
+    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "negociacao", vinculos: [vinculo(42)] }));
     const historicoRepo = criarHistoricoRepoFake();
     const orcamentoRepo = criarOrcamentoRepoFake();
 
@@ -173,7 +178,7 @@ describe("moverLead", () => {
   });
 
   it("move pra 'perdido' com orçamento vinculado marca o orçamento como 'rejeitado'", async () => {
-    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "negociacao", orcamento_id: 42 }));
+    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "negociacao", vinculos: [vinculo(42)] }));
     const historicoRepo = criarHistoricoRepoFake();
     const orcamentoRepo = criarOrcamentoRepoFake();
 
@@ -186,7 +191,7 @@ describe("moverLead", () => {
   });
 
   it("reabrir um lead 'fechado' de volta pra 'negociacao' reverte o orçamento pra 'enviado'", async () => {
-    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "fechado", orcamento_id: 42 }));
+    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "fechado", vinculos: [vinculo(42)] }));
     const historicoRepo = criarHistoricoRepoFake();
     const orcamentoRepo = criarOrcamentoRepoFake();
 
@@ -212,7 +217,7 @@ describe("moverLead", () => {
   });
 
   it("não quebra quando orcamentoRepo não é passado (compatibilidade)", async () => {
-    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "negociacao", orcamento_id: 42 }));
+    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "negociacao", vinculos: [vinculo(42)] }));
     const historicoRepo = criarHistoricoRepoFake();
 
     const resultado = await moverLead(
@@ -317,7 +322,7 @@ describe("moverLead", () => {
   });
 
   it("fechar um lead NORMAL (não comissão) não gera lançamento nenhum", async () => {
-    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "negociacao", eh_comissao: false, orcamento_id: 42 }));
+    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "negociacao", eh_comissao: false, vinculos: [vinculo(42)] }));
     const historicoRepo = criarHistoricoRepoFake();
     const lancamentoRepo = criarLancamentoRepoFake();
 
@@ -345,7 +350,7 @@ describe("moverLead", () => {
 
 describe("moverLead — valor fechado (migração 043)", () => {
   it("fechar uma venda sem informar o valor fechado é recusado", async () => {
-    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "negociacao", orcamento_id: 42 }));
+    const leadRepo = criarLeadRepoFake(criarLeadFake({ etapa: "negociacao", vinculos: [vinculo(42)] }));
     const historicoRepo = criarHistoricoRepoFake();
 
     await expect(moverLead({ leadId: "lead-1", novaEtapa: "fechado" }, { leadRepo: leadRepo as never, historicoRepo: historicoRepo as never })).rejects.toThrow(/valor fechado/i);

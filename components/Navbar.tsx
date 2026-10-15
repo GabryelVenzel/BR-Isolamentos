@@ -12,12 +12,12 @@ import MenuAcoes, { type AcaoMenu } from "./ui/MenuAcoes";
 import { podeAcessarModulo, type Acesso, type Modulo } from "@/lib/acesso";
 import { useAcesso } from "@/lib/hooks/useAcesso";
 import { classeLargura } from "@/lib/largura";
-import { COMERCIAL_SUBNAV, FINANCEIRO_SUBNAV, OPERACIONAL_SUBNAV, ORCAMENTO_SUBNAV, RESUMO_SUBNAV, RH_SUBNAV } from "@/lib/module-nav";
+import { COMERCIAL_SUBNAV, ENGENHARIA_SUBNAV, FINANCEIRO_SUBNAV, OPERACIONAL_SUBNAV, ORCAMENTO_SUBNAV, RESUMO_SUBNAV, RH_SUBNAV } from "@/lib/module-nav";
 import type { ModuleSubNavItem } from "./ModuleSubNav";
 
 const LINKS: Array<{ href: string; label: string; modulo: Modulo; match?: string[]; sub?: ModuleSubNavItem[] }> = [
   { href: "/resumo", label: "Resumo", modulo: "resumo", match: ["/resumo", "/"], sub: RESUMO_SUBNAV },
-  { href: "/engenharia", label: "Engenharia", modulo: "engenharia" },
+  { href: "/engenharia/quente", label: "Engenharia", modulo: "engenharia", match: ["/engenharia"], sub: ENGENHARIA_SUBNAV },
   { href: "/comercial", label: "Comercial", modulo: "comercial", sub: COMERCIAL_SUBNAV },
   { href: "/operacional", label: "Operacional", modulo: "operacional", sub: OPERACIONAL_SUBNAV },
   { href: "/historico", label: "Orçamento", modulo: "orcamento", match: ["/historico", "/novo-orcamento", "/config-precos", "/orcamento"], sub: ORCAMENTO_SUBNAV },

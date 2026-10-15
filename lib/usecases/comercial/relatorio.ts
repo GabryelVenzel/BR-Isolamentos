@@ -34,6 +34,9 @@ export interface KpisComercial {
   taxaConversaoPercentual: number;
   valorEmPipeline: number;
   ticketMedio: number;
+  /** Revisão do Resumo — quantidade e soma dos fechados no conjunto. */
+  quantidadeFechados: number;
+  valorFechado: number;
 }
 
 /** KPIs do topo da aba Relatórios. `taxaConversaoPercentual` é sobre o TOTAL
@@ -53,6 +56,8 @@ export function calcularKpis(leads: Lead[]): KpisComercial {
     taxaConversaoPercentual: totalLeads > 0 ? (fechados.length / totalLeads) * 100 : 0,
     valorEmPipeline,
     ticketMedio: fechados.length > 0 ? valorFechado / fechados.length : 0,
+    quantidadeFechados: fechados.length,
+    valorFechado,
   };
 }
 
@@ -193,18 +198,28 @@ export interface LeadsPorOrigem {
   origem: string;
   quantidade: number;
   percentual: number;
+  /** Fechados vindos desta origem e a conversão dela (fechados / leads). */
+  fechados: number;
+  conversaoPercentual: number;
 }
 
 export function calcularLeadsPorOrigem(leads: Lead[]): LeadsPorOrigem[] {
   const total = leads.length;
-  const contagem = new Map<string, number>();
+  const contagem = new Map<string, { quantidade: number; fechados: number }>();
   for (const lead of leads) {
     const origem = lead.origem?.trim() || "Não informado";
-    contagem.set(origem, (contagem.get(origem) ?? 0) + 1);
+    const atual = contagem.get(origem) ?? { quantidade: 0, fechados: 0 };
+    contagem.set(origem, { quantidade: atual.quantidade + 1, fechados: atual.fechados + (lead.etapa === "fechado" ? 1 : 0) });
   }
 
   return Array.from(contagem.entries())
-    .map(([origem, quantidade]) => ({ origem, quantidade, percentual: total > 0 ? (quantidade / total) * 100 : 0 }))
+    .map(([origem, { quantidade, fechados }]) => ({
+      origem,
+      quantidade,
+      percentual: total > 0 ? (quantidade / total) * 100 : 0,
+      fechados,
+      conversaoPercentual: quantidade > 0 ? (fechados / quantidade) * 100 : 0,
+    }))
     .sort((a, b) => b.quantidade - a.quantidade);
 }
 
@@ -385,8 +400,70 @@ export function calcularComissoes(leads: Lead[], lancamentosPagoPorLeadId: Recor
   };
 }
 
+/** Pipeline aberto por etapa (quantidade e valor) — revisão do Resumo. */
+export interface PipelineEtapa {
+  etapa: EtapaFunil;
+  label: string;
+  quantidade: number;
+  valor: number;
+}
+
+export function calcularPipelinePorEtapa(leads: Lead[]): PipelineEtapa[] {
+  const etapas: EtapaFunil[] = ["prospeccao", "contato", "proposta", "negociacao"];
+  return etapas.map((etapa) => {
+    const daEtapa = leads.filter((l) => l.etapa === etapa);
+    return {
+      etapa,
+      label: LABELS_ETAPA[etapa],
+      quantidade: daEtapa.length,
+      valor: daEtapa.reduce((s, l) => s + (l.eh_comissao ? l.valor_comissao ?? 0 : l.valor_estimado), 0),
+    };
+  });
+}
+
+/** Data em que o lead fechou: a última mudança para "fechado" no histórico;
+ * sem histórico, a última atualização do lead. */
+function dataDoFechamento(lead: Lead, historico: HistoricoMudancaLead[]): string {
+  const mudancas = historico.filter((h) => h.lead_id === lead.id && h.etapa_nova === "fechado").map((h) => h.data_mudanca);
+  return mudancas.sort().at(-1) ?? lead.updated_at;
+}
+
+/** Ciclo de venda: dias médios entre a criação do lead e o fechamento. */
+export function calcularCicloVenda(leads: Lead[], historico: HistoricoMudancaLead[]): number | null {
+  const fechados = leads.filter((l) => l.etapa === "fechado");
+  if (fechados.length === 0) return null;
+  const dias = fechados.map((l) => Math.max(0, (new Date(dataDoFechamento(l, historico)).getTime() - new Date(l.created_at).getTime()) / 86400000));
+  return dias.reduce((s, d) => s + d, 0) / dias.length;
+}
+
+export interface VendaMes {
+  /** "YYYY-MM" */
+  mes: string;
+  quantidade: number;
+  valor: number;
+}
+
+/** Vendas fechadas por mês do fechamento — os últimos `meses` meses. */
+export function calcularVendasPorMes(leads: Lead[], historico: HistoricoMudancaLead[], agora: Date = new Date(), meses = 6): VendaMes[] {
+  const lista: VendaMes[] = [];
+  for (let i = meses - 1; i >= 0; i--) {
+    const d = new Date(Date.UTC(agora.getUTCFullYear(), agora.getUTCMonth() - i, 1));
+    lista.push({ mes: d.toISOString().slice(0, 7), quantidade: 0, valor: 0 });
+  }
+  for (const lead of leads.filter((l) => l.etapa === "fechado" && !l.eh_comissao)) {
+    const item = lista.find((m) => m.mes === dataDoFechamento(lead, historico).slice(0, 7));
+    if (!item) continue;
+    item.quantidade += 1;
+    item.valor += lead.valor_fechado ?? lead.valor_estimado;
+  }
+  return lista;
+}
+
 export interface RelatorioComercial {
   kpis: KpisComercial;
+  pipelinePorEtapa: PipelineEtapa[];
+  cicloVendaDias: number | null;
+  vendasPorMes: VendaMes[];
   funil: FunilComercial;
   tempoMedioPorEtapa: TempoMedioEtapa[];
   leadsPorOrigem: LeadsPorOrigem[];
@@ -410,6 +487,9 @@ export function gerarRelatorioComercial(
 ): RelatorioComercial {
   return {
     kpis: calcularKpis(leads),
+    pipelinePorEtapa: calcularPipelinePorEtapa(leads),
+    cicloVendaDias: calcularCicloVenda(leads, historico),
+    vendasPorMes: calcularVendasPorMes(leads, historico, agora),
     funil: calcularFunil(leads, historico),
     tempoMedioPorEtapa: calcularTempoMedioPorEtapa(leads, historico, agora),
     leadsPorOrigem: calcularLeadsPorOrigem(leads),

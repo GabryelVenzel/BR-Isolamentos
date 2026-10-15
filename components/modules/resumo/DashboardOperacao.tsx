@@ -5,11 +5,14 @@ import { useCallback, useEffect, useState } from "react";
 import FilterBar from "./FilterBar";
 import FunilServicosChart from "./graficos/FunilServicosChart";
 import CustoRealOrcadoChart from "./graficos/CustoRealOrcadoChart";
+import OcupacaoEquipe from "./graficos/OcupacaoEquipe";
 import { TIPOS_TRABALHO_OPCOES } from "@/components/modules/operacional/MultiSelectTiposTrabalho";
 import { gerarPdfDeElemento, baixarArquivo } from "@/lib/pdf-generator";
 import { formatarMoeda, formatarNumero } from "@/lib/format";
 import type { FiltrosResumo } from "@/lib/types/resumo";
 import type { RelatorioOperacional } from "@/lib/usecases/operacional";
+import type { Servico } from "@/lib/types/domain";
+import { hojeBrasilia } from "@/lib/financeiro";
 
 // Lista revisada (migração 027) — reaproveita a mesma fonte de sempre, ver
 // MultiSelectTiposTrabalho.tsx.
@@ -36,6 +39,25 @@ export default function DashboardOperacao() {
   const [erro, setErro] = useState<string | null>(null);
   const [filtros, setFiltros] = useState<FiltrosResumo>(FILTROS_INICIAIS);
   const [exportando, setExportando] = useState(false);
+  // Situação de AGORA (todas as obras, independente do período): quantas
+  // estão planejadas, em execução e atrasadas.
+  const [agora, setAgora] = useState<{ planejadas: number; execucao: number; atrasadas: number } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/operacional/servicos")
+      .then((r) => r.json())
+      .then((p) => {
+        if (!p.success) return;
+        const hoje = hojeBrasilia();
+        const lista = p.data as Servico[];
+        setAgora({
+          planejadas: lista.filter((s) => s.etapa === "planejamento").length,
+          execucao: lista.filter((s) => s.etapa === "execucao").length,
+          atrasadas: lista.filter((s) => s.etapa !== "finalizado" && s.data_fim_prevista && s.data_fim_prevista < hoje).length,
+        });
+      })
+      .catch(() => undefined);
+  }, []);
 
   const carregar = useCallback(async () => {
     setCarregando(true);
@@ -78,6 +100,8 @@ export default function DashboardOperacao() {
       <FilterBar filtros={filtros} onChange={setFiltros} onExportPdf={exportarPdf} onRefresh={carregar} atualizando={carregando || exportando} />
 
       <div id="resumo-operacao-export" className="space-y-6 bg-gray-50">
+      {/* Agora e próximos dias — não depende do período escolhido. */}
+      <OcupacaoEquipe />
       {carregando ? (
         <Carregando />
       ) : erro || !relatorio ? (
@@ -112,16 +136,16 @@ export default function DashboardOperacao() {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="card text-center">
-              <p className="text-xs uppercase text-gray-500">Planejados</p>
-              <p className="font-montserrat text-xl font-bold text-brand">{relatorio.kpis.servicosPlanejados}</p>
+              <p className="text-xs uppercase text-gray-500">Planejadas agora</p>
+              <p className="font-montserrat text-xl font-bold text-brand">{agora?.planejadas ?? relatorio.kpis.servicosPlanejados}</p>
             </div>
             <div className="card text-center">
-              <p className="text-xs uppercase text-gray-500">Em Execução</p>
-              <p className="font-montserrat text-xl font-bold text-accent">{relatorio.kpis.servicosEmProgresso}</p>
+              <p className="text-xs uppercase text-gray-500">Em execução agora</p>
+              <p className="font-montserrat text-xl font-bold text-accent">{agora?.execucao ?? relatorio.kpis.servicosEmProgresso}</p>
             </div>
             <div className="card text-center">
-              <p className="text-xs uppercase text-gray-500">Vencidos</p>
-              <p className="font-montserrat text-xl font-bold text-status-error">{relatorio.servicosVencidos.length}</p>
+              <p className="text-xs uppercase text-gray-500">Atrasadas agora</p>
+              <p className="font-montserrat text-xl font-bold text-status-error">{agora?.atrasadas ?? relatorio.servicosVencidos.length}</p>
             </div>
           </div>
 

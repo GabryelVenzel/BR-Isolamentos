@@ -15,8 +15,8 @@ const LIMITE_UTILIZACAO_PARCEIRO = 90;
  * Alertas críticos do dashboard executivo — 3 das 4 verificações do pedido
  * original ("contas vencidas", "leads sem contato", "parceiros no limite")
  * são diretas nos dados existentes. A 4ª ("caixa negativo esperado em N
- * dias") é calculada por `projecaoCaixa` (mesmo algoritmo do gráfico de
- * cash flow) — passada aqui já pronta (`diasNegativosProjecao`) em vez de
+ * dias") é calculada pelo fluxo de caixa (`calcularFluxoCaixa`, mesmo do
+ * gráfico) — passada aqui já pronta (`diasNegativosProjecao`) em vez de
  * recalculada, pra não duplicar a query de projeção quando as duas rodam
  * juntas (ver lib/contexts/resumo.ts).
  *
@@ -77,7 +77,7 @@ export async function listarAlertas(
       id: `parceiro-limite-${parceiro.id}`,
       severidade: "atencao",
       mensagem: `Parceiro ${parceiro.nome} no limite de capacidade (${parceiro.percentual_utilizacao.toFixed(0)}%)`,
-      href: "/operacional/parceiros",
+      href: "/operacional/prestadores",
       acaoLabel: "Ir para Operacional",
     });
   }

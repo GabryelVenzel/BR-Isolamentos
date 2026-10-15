@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "./toast";
 import MultiSelectTiposTrabalho, { TIPOS_TRABALHO_OPCOES } from "./MultiSelectTiposTrabalho";
 import { formatarMoeda } from "@/lib/format";
+import { orcamentosDoLead, orcamentosVencedores } from "@/lib/leads";
 import type { Lead, TipoTrabalhoOperacional } from "@/lib/types/domain";
 import FecharComEsc from "@/components/ui/FecharComEsc";
 import { Users } from "lucide-react";
@@ -66,13 +67,23 @@ export default function NovoServicoModal({ leadIdInicial, onFechar, onCriado }: 
       .then((p) => p.success && setLeadSelecionado(p.data));
   }, [leadId]);
 
+  // Orçamento da obra (migração 053): o(s) fechado(s) do lead; lead antigo
+  // sem vencedor marcado cai nos vinculados. Mais de um: você escolhe.
+  const candidatos = leadSelecionado ? (orcamentosVencedores(leadSelecionado).length > 0 ? orcamentosVencedores(leadSelecionado) : orcamentosDoLead(leadSelecionado)) : [];
+  const [orcamentoEscolhido, setOrcamentoEscolhido] = useState<number | null>(null);
+  const orcamentoDaObra = candidatos.find((v) => v.orcamento_id === orcamentoEscolhido) ?? (candidatos.length === 1 ? candidatos[0] : null);
+
   async function salvar() {
     if (!leadId) {
       setErro("Selecione o lead.");
       return;
     }
-    if (!leadSelecionado?.orcamento_id) {
+    if (candidatos.length === 0) {
       setErro("Este lead não tem orçamento vinculado — vincule um orçamento antes de criar o serviço.");
+      return;
+    }
+    if (!orcamentoDaObra) {
+      setErro("Escolha o orçamento desta obra.");
       return;
     }
     if (tiposTrabalho.length === 0) {
@@ -96,7 +107,7 @@ export default function NovoServicoModal({ leadIdInicial, onFechar, onCriado }: 
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           lead_id: leadId,
-          orcamento_id: leadSelecionado.orcamento_id,
+          orcamento_id: orcamentoDaObra.orcamento_id,
           tipos_trabalho: tiposTrabalho,
           responsavel_email: responsavelEmail,
           data_inicio: dataInicio,
@@ -148,10 +159,23 @@ export default function NovoServicoModal({ leadIdInicial, onFechar, onCriado }: 
               <p>
                 <span className="text-gray-500">Cliente:</span> {leadSelecionado.cliente?.nome ?? "—"}
               </p>
-              {leadSelecionado.orcamento_id ? (
+              {candidatos.length > 1 && (
+                <label className="block pt-1">
+                  <span className="text-gray-500">Orçamento desta obra:</span>
+                  <select className="input-field mt-1" value={orcamentoEscolhido ?? ""} onChange={(e) => setOrcamentoEscolhido(Number(e.target.value) || null)}>
+                    <option value="">Escolha...</option>
+                    {candidatos.map((v) => (
+                      <option key={v.orcamento_id} value={v.orcamento_id}>
+                        {v.orcamento.numero} — {formatarMoeda(v.orcamento.valor_final)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
+              {candidatos.length > 0 ? (
                 <p>
                   <span className="text-gray-500">Valor orçado da obra:</span>{" "}
-                  {formatarMoeda(leadSelecionado.valor_fechado ?? leadSelecionado.orcamento?.valor_final ?? leadSelecionado.valor_estimado)}
+                  {formatarMoeda(leadSelecionado.valor_fechado ?? orcamentoDaObra?.orcamento.valor_final ?? leadSelecionado.valor_estimado)}
                   {leadSelecionado.valor_fechado != null && <span className="text-xs text-gray-500"> (valor fechado do lead)</span>}
                 </p>
               ) : (

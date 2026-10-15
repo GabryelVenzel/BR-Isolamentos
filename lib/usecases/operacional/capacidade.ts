@@ -68,7 +68,7 @@ export function calcularCapacidadeDia(
     // Migração 027 — só parceiros que fornecem mão de obra (prestador/ambos)
     // entram na Agenda/Capacidade; "parceria" pura é só canal de indicação
     // de comissão, não tem gente pra mobilizar.
-    .filter((p) => p.ativo && (p.categoria_parceiro === "prestador" || p.categoria_parceiro === "ambos"))
+    .filter((p) => p.ativo && p.categoria_parceiro === "prestador")
     .map((parceiro) => {
       // Cada serviço pode ter mais de uma linha de execução pro MESMO
       // parceiro (turnos diferentes, por exemplo) — soma todas.

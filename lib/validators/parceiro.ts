@@ -15,9 +15,10 @@ const TipoTrabalhoOperacionalSchema = z.enum([
   "ajudante",
 ]);
 
-const CategoriaParceiroSchema = z.enum(["prestador", "parceria", "ambos"]);
+// "ambos" deixou de existir na migração 053 (Prestadores e Parcerias separados).
+const CategoriaParceiroSchema = z.enum(["prestador", "parceria"]);
 
-export const CreateParceiroSchema = z.object({
+const ParceiroBaseSchema = z.object({
   // Nome fantasia (migração 031, ver comentário em Parceiro.nome,
   // lib/types/domain.ts) — continua sendo o campo `nome`.
   nome: z.string().trim().min(1, "Informe o nome do parceiro."),
@@ -50,10 +51,9 @@ export const CreateParceiroSchema = z.object({
   disponibilidade_horas_semana: z.number().nonnegative().nullable().optional(),
   disponibilidade_dias: z.array(z.string().trim().min(1)).optional(),
   custo_hora: z.number().nonnegative().nullable().optional(),
-  // Pelo menos um tipo de trabalho, conforme o pedido — mas só exigido na
-  // CRIAÇÃO (UpdateParceiroSchema é .partial(), então uma edição parcial que
-  // não mexe nesse campo não é bloqueada).
-  tipos_trabalho: z.array(TipoTrabalhoOperacionalSchema).min(1, "Selecione pelo menos um tipo de trabalho."),
+  // Pelo menos um tipo de trabalho para PRESTADOR (ver o refine em
+  // CreateParceiroSchema abaixo) — parceria só indica, não executa.
+  tipos_trabalho: z.array(TipoTrabalhoOperacionalSchema).optional(),
   // Default "prestador" (migração 027) — mesmo raciocínio do default de
   // banco: todo parceiro sem essa informação explícita é tratado como quem
   // já era até aqui, fornecedor de mão de obra.
@@ -73,7 +73,12 @@ export const CreateParceiroSchema = z.object({
   ativo: z.boolean().optional(),
 });
 
-export const UpdateParceiroSchema = CreateParceiroSchema.partial();
+export const CreateParceiroSchema = ParceiroBaseSchema.refine(
+  (p) => p.categoria_parceiro === "parceria" || (p.tipos_trabalho ?? []).length > 0,
+  { message: "Selecione pelo menos um tipo de trabalho.", path: ["tipos_trabalho"] }
+);
+
+export const UpdateParceiroSchema = ParceiroBaseSchema.partial();
 
 // Anexo de parceiro (Editar Parceiro → seção Anexos) — mesmo padrão de
 // CreateAnexoLeadSchema, limite de 20 MB (maior que o de Lead: pedido

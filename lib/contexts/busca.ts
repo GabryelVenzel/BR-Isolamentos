@@ -70,7 +70,7 @@ export function createBuscaContext(supabase: SupabaseClient) {
             .order("id", { ascending: false })
             .limit(LIMITE)
         ),
-        consulta<{ id: string; nome: string; cidade?: string | null }>(supabase.from("parceiros").select("*").ilike("nome", like).limit(LIMITE)),
+        consulta<{ id: string; nome: string; cidade?: string | null; categoria_parceiro?: string }>(supabase.from("parceiros").select("*").ilike("nome", like).limit(LIMITE)),
         consulta<{ id: string; nome: string; cidade?: string | null }>(supabase.from("fornecedores").select("*").ilike("nome", like).limit(LIMITE)),
         consulta<{ id: string; nome: string; cargo: string | null; numero_funcionario: string | null }>(
           supabase.from("funcionarios").select("id, nome, cargo, numero_funcionario").or(`nome.ilike.${like},numero_funcionario.ilike.${like}`).limit(LIMITE)
@@ -88,7 +88,10 @@ export function createBuscaContext(supabase: SupabaseClient) {
           href: `/orcamento/${o.id}`,
         })),
         ...clientes.map((c) => ({ tipo: "cliente" as const, id: String(c.id), titulo: c.nome, detalhe: ["Cliente", c.razao_social, c.cidade].filter(Boolean).join(" · "), href: `/comercial/clientes/${c.id}` })),
-        ...parceiros.map((p) => ({ tipo: "parceiro" as const, id: p.id, titulo: p.nome, detalhe: ["Parceiro", p.cidade].filter(Boolean).join(" · "), href: `/operacional/parceiros/${p.id}` })),
+        ...parceiros.map((p) => {
+          const parceria = p.categoria_parceiro === "parceria";
+          return { tipo: "parceiro" as const, id: p.id, titulo: p.nome, detalhe: [parceria ? "Parceria" : "Prestador", p.cidade].filter(Boolean).join(" · "), href: `/operacional/${parceria ? "parcerias" : "prestadores"}/${p.id}` };
+        }),
         ...fornecedores.map((f) => ({ tipo: "fornecedor" as const, id: f.id, titulo: f.nome, detalhe: ["Fornecedor", f.cidade].filter(Boolean).join(" · "), href: `/operacional/fornecedores/${f.id}` })),
         ...funcionarios.map((f) => ({
           tipo: "funcionario" as const,

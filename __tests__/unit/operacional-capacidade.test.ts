@@ -135,8 +135,8 @@ describe("calcularCapacidadeDia", () => {
     expect(resultado.porParceiro).toHaveLength(0);
   });
 
-  it("inclui parceiros 'ambos' (fornecem mão de obra E recebem indicação)", () => {
-    const resultado = calcularCapacidadeDia("2026-08-10", [parceiro({ categoria_parceiro: "ambos" })], []);
+  it("inclui prestadores (migração 053: não existe mais 'ambos')", () => {
+    const resultado = calcularCapacidadeDia("2026-08-10", [parceiro({ categoria_parceiro: "prestador" })], []);
     expect(resultado.porParceiro).toHaveLength(1);
   });
 

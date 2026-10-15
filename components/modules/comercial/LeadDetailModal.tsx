@@ -6,7 +6,8 @@ import { toast } from "./toast";
 import AnexosLead from "./AnexosLead";
 import { pedirValorFechado } from "./ValorFechado";
 import { Carregando } from "@/components/ui/Esqueleto";
-import { exigeValorFechado } from "@/lib/leads";
+import Link from "next/link";
+import { exigeValorFechado, orcamentosDoLead, podeRemoverVinculo } from "@/lib/leads";
 import NovoServicoModal from "@/components/modules/operacional/NovoServicoModal";
 import {
   classesTemperatura,
@@ -27,7 +28,7 @@ import type {
 import type { Orcamento } from "@/lib/types";
 import FecharComEsc from "@/components/ui/FecharComEsc";
 import { confirmar } from "@/components/ui/confirmar";
-import { AlertTriangle, Gift } from "lucide-react";
+import { AlertTriangle, Gift, X } from "lucide-react";
 
 const ETAPAS: EtapaFunil[] = ["prospeccao", "contato", "proposta", "negociacao", "fechado", "perdido"];
 const TEMPERATURAS: TemperaturaLead[] = ["quente", "morno", "frio"];
@@ -85,6 +86,7 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou, modo = 
   const pagina = modo === "pagina";
   const [aba, setAba] = useState<AbaInterna>("dados");
   const [lead, setLead] = useState<Lead | null>(null);
+  const vinculados = lead ? orcamentosDoLead(lead) : [];
   const [historico, setHistorico] = useState<HistoricoMudancaLead[]>([]);
   const [interacoes, setInteracoes] = useState<InteracaoLead[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -216,6 +218,15 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou, modo = 
     }
   }
 
+  async function desvincular(orcamentoId: number, numero: string) {
+    if (!(await confirmar(`Remover o orçamento ${numero} deste lead? O orçamento continua existindo e volta ao status Proposta.`, { confirmarLabel: "Remover" }))) return;
+    const r = await fetch(`/api/comercial/leads/${leadId}/vincular-orcamento?orcamento=${orcamentoId}`, { method: "DELETE" }).then((x) => x.json());
+    if (!r.success) return toast.erro(r.error ?? "Não foi possível remover o orçamento.");
+    toast.sucesso("Orçamento removido do lead.");
+    await carregar();
+    onLeadMudou();
+  }
+
   async function salvarDados() {
     setSalvandoDados(true);
     try {
@@ -277,15 +288,17 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou, modo = 
     try {
       if (etapaSelecionada !== lead.etapa) {
         let valorFechado: number | undefined;
+        let orcamentosVencedores: number[] | undefined;
         if (etapaSelecionada === "fechado" && exigeValorFechado(lead)) {
           const informado = await pedirValorFechado(lead);
           if (informado === null) return;
-          valorFechado = informado;
+          valorFechado = informado.valor;
+          orcamentosVencedores = informado.vencedores;
         }
         const response = await fetch(`/api/comercial/leads/${leadId}/mover`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ novaEtapa: etapaSelecionada, valorFechado }),
+          body: JSON.stringify({ novaEtapa: etapaSelecionada, valorFechado, orcamentosVencedores }),
         });
         const payload = await response.json();
         if (!response.ok || !payload.success) {
@@ -517,16 +530,38 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou, modo = 
                     </div>
                   ) : (
                     <div className="space-y-3 border-t border-gray-100 pt-4">
-                      <h3 className="font-montserrat text-xs font-bold uppercase text-brand">Orçamento vinculado</h3>
-                      {lead.orcamento_id ? (
-                        <p className="rounded-input bg-brand-light px-3 py-2 text-sm text-brand">
-                          {lead.orcamento ? rotuloOrcamento(lead.orcamento) : `#${lead.orcamento_id}`}
-                        </p>
+                      <h3 className="font-montserrat text-xs font-bold uppercase text-brand">Orçamentos vinculados</h3>
+                      {vinculados.length > 0 ? (
+                        <ul className="space-y-1">
+                          {vinculados.map((v) => (
+                            <li key={v.orcamento_id} className="flex items-center gap-2 rounded-input bg-brand-light px-3 py-2 text-sm text-brand">
+                              <Link href={`/orcamento/${v.orcamento_id}`} className="min-w-0 flex-1 truncate hover:underline">
+                                {rotuloOrcamento(v.orcamento)}
+                              </Link>
+                              {v.vencedor && <span className="badge bg-accent-light text-accent-dark">Fechado</span>}
+                              {podeRemoverVinculo(lead) && (
+                                <button
+                                  type="button"
+                                  className="shrink-0 rounded-full p-1.5 text-gray-500 hover:bg-white hover:text-status-error"
+                                  title="Remover do lead"
+                                  aria-label={`Remover ${v.orcamento.numero} do lead`}
+                                  onClick={() => desvincular(v.orcamento_id, v.orcamento.numero)}
+                                >
+                                  <X className="h-4 w-4" aria-hidden />
+                                </button>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
                       ) : (
                         <p className="text-xs text-gray-500">
                           Nenhum orçamento vinculado ainda — obrigatório para mover o lead pra &quot;Negociação&quot;.
                         </p>
                       )}
+                      {vinculados.length > 0 && !podeRemoverVinculo(lead) && (
+                        <p className="text-xs text-gray-500">Para remover um orçamento, volte o lead para Proposta, remova, vincule o novo e avance de novo.</p>
+                      )}
+                      {lead.etapa !== "fechado" && (
                       <div className="flex items-center gap-2">
                         <select
                           className="input-field"
@@ -534,7 +569,7 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou, modo = 
                           onChange={(e) => setOrcamentoParaVincular(e.target.value)}
                         >
                           <option value="">Selecione um orçamento...</option>
-                          {orcamentosDoCliente.map((o) => (
+                          {orcamentosDoCliente.filter((o) => !vinculados.some((v) => v.orcamento_id === o.id)).map((o) => (
                             <option key={o.id} value={o.id}>
                               {rotuloOrcamento(o)}
                             </option>
@@ -549,6 +584,7 @@ export default function LeadDetailModal({ leadId, onFechar, onLeadMudou, modo = 
                           {vinculando ? "Vinculando..." : "Vincular"}
                         </button>
                       </div>
+                      )}
 
                       {lead.etapa === "fechado" && (
                         <div className="border-t border-gray-100 pt-3">

@@ -19,6 +19,7 @@ import {
   LancamentoFinanceiroRepository,
   LeadRepository,
   OrcamentoRepository,
+  LeadOrcamentoRepository,
   type FiltrosLead,
 } from "../repositories";
 import type {
@@ -41,12 +42,15 @@ import {
   cancelarAgendamentoFrio,
   criarLead,
   gerarRelatorioComercial,
+  calcularPipelinePorEtapa,
+  calcularVendasPorMes,
   moverLead,
   mudarTemperatura,
   reativarLeadFrio,
   registrarInteracao,
   verificarReativacoesPendentes,
   vincularOrcamento,
+  desvincularOrcamento,
   type RelatorioComercial,
 } from "../usecases/comercial";
 
@@ -60,14 +64,15 @@ export function createComercialContext(supabase: SupabaseClient) {
   const configPrazoEtapasRepo = new ConfigPrazoEtapasRepository(supabase);
   const clienteRepo = new ClienteRepository(supabase);
   const orcamentoRepo = new OrcamentoRepository(supabase);
+  const leadOrcamentoRepo = new LeadOrcamentoRepository(supabase);
   const lancamentoRepo = new LancamentoFinanceiroRepository(supabase);
 
   const reposMudancaEtapa = { leadRepo, historicoRepo };
   // anexoLeadRepo/lancamentoRepo (migração 026) — comissão troca a exigência
   // de orçamento por anexo em "negociação", e gera um lançamento automático
   // ao fechar (ver moverLead.ts).
-  const reposMoverLead = { leadRepo, historicoRepo, orcamentoRepo, anexoLeadRepo, lancamentoRepo };
-  const reposVincularOrcamento = { leadRepo, orcamentoRepo, historicoRepo };
+  const reposMoverLead = { leadRepo, historicoRepo, orcamentoRepo, anexoLeadRepo, lancamentoRepo, leadOrcamentoRepo };
+  const reposVincularOrcamento = { leadRepo, orcamentoRepo, historicoRepo, leadOrcamentoRepo };
   const reposTemperatura = { leadRepo, historicoRepo, agendamentoFrioRepo, configReativacaoRepo };
   const reposReativacao = { leadRepo, historicoRepo, agendamentoFrioRepo };
 
@@ -117,8 +122,8 @@ export function createComercialContext(supabase: SupabaseClient) {
       return atualizarLead(id, dados, { leadRepo });
     },
 
-    moverLead(leadId: string, novaEtapa: EtapaFunil, usuarioEmail?: string | null, valorFechado?: number): Promise<Lead> {
-      return moverLead({ leadId, novaEtapa, valorFechado }, reposMoverLead, usuarioEmail);
+    moverLead(leadId: string, novaEtapa: EtapaFunil, usuarioEmail?: string | null, valorFechado?: number, orcamentosVencedores?: number[]): Promise<Lead> {
+      return moverLead({ leadId, novaEtapa, valorFechado, orcamentosVencedores }, reposMoverLead, usuarioEmail);
     },
 
     mudarTemperatura(
@@ -144,6 +149,11 @@ export function createComercialContext(supabase: SupabaseClient) {
      * um método/rota novos só pra isso. */
     vincularOrcamento(leadId: string, orcamentoId: number, usuarioEmail?: string | null): Promise<Lead> {
       return vincularOrcamento({ leadId, orcamentoId }, reposVincularOrcamento, usuarioEmail);
+    },
+
+    /** Remove um orçamento do lead — só até a etapa Proposta (migração 053). */
+    desvincularOrcamento(leadId: string, orcamentoId: number, usuarioEmail?: string | null): Promise<Lead> {
+      return desvincularOrcamento({ leadId, orcamentoId }, reposVincularOrcamento, usuarioEmail);
     },
 
     // --- Interações (timeline de contato) ---
@@ -246,7 +256,19 @@ export function createComercialContext(supabase: SupabaseClient) {
         if (lancamento.lead_id) lancamentosPagoPorLeadId[lancamento.lead_id] = lancamento.pago;
       }
 
-      return gerarRelatorioComercial(leads, historico, agendamentosFrios, new Date(), lancamentosPagoPorLeadId);
+      const relatorio = gerarRelatorioComercial(leads, historico, agendamentosFrios, new Date(), lancamentosPagoPorLeadId);
+
+      // Vendas por mês e pipeline por etapa não dependem de QUANDO o lead foi
+      // criado: usam todos os leads (com os mesmos filtros de responsável e
+      // temperatura) — senão "vendas de 6 meses" mostraria só o mês filtrado.
+      const todos = await leadRepo.listar({ atribuidoA: filtros.atribuidoA, temperatura: filtros.temperatura });
+      const fechados = todos.filter((l) => l.etapa === "fechado");
+      const historicoFechados = fechados.length > 0 ? await historicoRepo.listarPorLeads(fechados.map((l) => l.id)) : [];
+      return {
+        ...relatorio,
+        vendasPorMes: calcularVendasPorMes(todos, historicoFechados),
+        pipelinePorEtapa: calcularPipelinePorEtapa(todos),
+      };
     },
   };
 }

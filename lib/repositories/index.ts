@@ -5,6 +5,7 @@ export { UsuarioRepository } from "./usuario.repository";
 export { OrcamentoRepository } from "./orcamento.repository";
 export type { FiltrosOrcamento } from "./orcamento.repository";
 export { LeadRepository } from "./lead.repository";
+export { LeadOrcamentoRepository } from "./lead-orcamento.repository";
 export type { FiltrosLead } from "./lead.repository";
 export { InteracaoLeadRepository } from "./interacao-lead.repository";
 export { AnexoLeadRepository } from "./anexo-lead.repository";

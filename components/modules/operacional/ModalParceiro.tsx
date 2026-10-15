@@ -16,6 +16,8 @@ interface Props {
   /** "pagina": o formulário dentro da ficha em página própria (revisão de
    * usabilidade); padrão: janela. */
   modo?: "janela" | "pagina";
+  /** Cadastro novo: aba de onde veio (Prestadores ou Parcerias). */
+  categoria?: CategoriaParceiro;
 }
 
 // Reaproveita a mesma lista usada no multi-select de tipos de trabalho de um
@@ -26,7 +28,6 @@ const TIPOS = TIPOS_TRABALHO_OPCOES;
 const CATEGORIAS_PARCEIRO: Array<{ valor: CategoriaParceiro; label: string; descricao: string }> = [
   { valor: "prestador", label: "Prestador", descricao: "Fornece mão de obra — aparece na Agenda e pode ser vinculado a um Serviço." },
   { valor: "parceria", label: "Parceria", descricao: "Só indicação/comissão — não mobiliza gente, não aparece na Agenda." },
-  { valor: "ambos", label: "Ambos", descricao: "Fornece mão de obra E recebe indicações de comissão." },
 ];
 
 // Uma nota por tipo de trabalho (migração 030 — bug relatado: só bancada/
@@ -60,7 +61,7 @@ interface Form {
   totalPessoas: string;
 }
 
-function paraForm(p: Parceiro | null): Form {
+function paraForm(p: Parceiro | null, categoria: CategoriaParceiro): Form {
   return {
     nome: p?.nome ?? "",
     razaoSocial: p?.razao_social ?? "",
@@ -71,7 +72,7 @@ function paraForm(p: Parceiro | null): Form {
     endereco: p?.endereco ?? "",
     cidade: p?.cidade ?? "",
     estado: p?.estado ?? "",
-    categoriaParceiro: p?.categoria_parceiro ?? "prestador",
+    categoriaParceiro: p?.categoria_parceiro ?? categoria,
     tiposTrabalho: p?.tipos_trabalho ?? [],
     notas: Object.fromEntries(
       TIPOS_TRABALHO_OPCOES.map((t) => [t.valor, (p?.[CAMPO_NOTAS[t.valor]] as string | null) ?? ""])
@@ -80,9 +81,11 @@ function paraForm(p: Parceiro | null): Form {
   };
 }
 
-export default function ModalParceiro({ parceiro, onFechar, onSalvo, modo = "janela" }: Props) {
+export default function ModalParceiro({ parceiro, onFechar, onSalvo, modo = "janela", categoria = "prestador" }: Props) {
   const pagina = modo === "pagina";
-  const [form, setForm] = useState<Form>(paraForm(parceiro));
+  const [form, setForm] = useState<Form>(paraForm(parceiro, categoria));
+  // Parceria (só indicação) não tem tipos de trabalho nem capacidade.
+  const prestador = form.categoriaParceiro === "prestador";
   const [salvando, setSalvando] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
 
@@ -104,7 +107,7 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo, modo = "jan
       setErro("Informe o nome do parceiro.");
       return;
     }
-    if (form.tiposTrabalho.length === 0) {
+    if (prestador && form.tiposTrabalho.length === 0) {
       setErro("Selecione pelo menos um tipo de trabalho.");
       return;
     }
@@ -248,11 +251,14 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo, modo = "jan
             </div>
           </div>
 
+          {/* Cadastro novo já nasce na aba de onde veio; na edição dá para
+              mudar de aba (cadastro feito no lugar errado). */}
+          {parceiro && (
           <div className="border-t border-gray-100 pt-4">
             <p className="label-field mb-2">
-              Categoria<span className="text-status-error"> *</span>
+              Tipo de cadastro<span className="text-status-error"> *</span>
             </p>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
               {CATEGORIAS_PARCEIRO.map((c) => (
                 <label
                   key={c.valor}
@@ -274,6 +280,10 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo, modo = "jan
               ))}
             </div>
           </div>
+          )}
+
+          {prestador && (
+            <>
 
           <div className="border-t border-gray-100 pt-4">
             <p className="label-field mb-2">
@@ -318,6 +328,8 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo, modo = "jan
               Capacidade.
             </p>
           </div>
+            </>
+          )}
 
           {/* Anexos só na edição (pedido explícito) — um parceiro recém-criado
               ainda não tem `id` real pra associar os documentos, e o próprio

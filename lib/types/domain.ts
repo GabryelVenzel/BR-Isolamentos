@@ -82,9 +82,9 @@ export interface Lead {
   /** E-mail (`usuarios.email`) do responsável pelo lead. */
   atribuido_a: string | null;
   tags: string[];
-  /** Orçamento vinculado — obrigatório para mover o lead pra etapa
-   * "proposta" (ver lib/usecases/comercial/moverLead.ts). Quando vinculado,
-   * `valor_estimado` passa a refletir `orcamento.valor_final`. */
+  /** OBSOLETO desde a migração 053 — o vínculo agora é `vinculos`
+   * (tabela `lead_orcamentos`, vários orçamentos por lead). A coluna fica no
+   * banco só como histórico; nada mais lê nem grava. */
   orcamento_id: number | null;
   /** Valor de `etapa`/`temperatura` imediatamente antes da última mudança —
    * espelha o topo de `historico_mudancas_leads` sem precisar de um join,
@@ -118,7 +118,10 @@ export interface Lead {
   updated_at: string;
   // Preenchido via join, opcional (ver LeadRepository.select).
   cliente?: Cliente;
-  orcamento?: Orcamento;
+  /** Orçamentos vinculados (migração 053), com o orçamento de cada um —
+   * use `orcamentosDoLead()` (lib/leads.ts), que já tira os que estão na
+   * lixeira. */
+  vinculos?: LeadOrcamento[];
   /** Parceiro pra quem a indicação foi feita — só em lead de comissão. */
   parceiro?: Parceiro;
   // Campos CALCULADOS, não persistidos — anexados por
@@ -132,6 +135,17 @@ export interface Lead {
    * visual do card do Kanban (✅/⚠️ tem comprovante) sem precisar de outro
    * fetch por lead. `undefined` em qualquer caminho que não passe por lá. */
   total_anexos?: number;
+}
+
+/** Vínculo lead ↔ orçamento (migração 053). `vencedor`: orçamento fechado
+ * quando o lead foi para "Fechado" (os outros viram rejeitados). */
+export interface LeadOrcamento {
+  id: string;
+  lead_id: string;
+  orcamento_id: number;
+  vencedor: boolean;
+  created_at: string;
+  orcamento?: Orcamento | null;
 }
 
 export type TipoInteracaoLead = "nota" | "email" | "chamada" | "reuniao" | "proposta_enviada";
@@ -291,8 +305,9 @@ export type TipoTrabalhoOperacional =
  * gente de verdade (aparece na Agenda/Capacidade, pode ser vinculado a um
  * Serviço); "parceria" é só um canal de indicação (aparece no seletor de
  * comissão do Lead, migração 026, mas nunca na Agenda — não tem headcount
- * pra oferecer); "ambos" entra nos dois fluxos. */
-export type CategoriaParceiro = "prestador" | "parceria" | "ambos";
+ * pra oferecer). "Ambos" deixou de existir na migração 053: Prestadores e
+ * Parcerias viraram subabas separadas do Operacional. */
+export type CategoriaParceiro = "prestador" | "parceria";
 
 /** Categorias de fornecimento (material/equipamento/serviço de apoio — ver
  * sql-migration-015). Corrige um equívoco da migração 013, que tinha

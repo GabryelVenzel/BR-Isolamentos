@@ -40,22 +40,6 @@ export default function CalculadoraForm({ form, onChange, materiais, acabamentos
 
   return (
     <div className="card space-y-4">
-      <div>
-        <label className="label-field">Tipo de trabalho</label>
-        <div className="flex gap-4">
-          {(["quente", "frio"] as const).map((tipo) => (
-            <label key={tipo} className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                checked={form.tipoTrabalho === tipo}
-                onChange={() => onChange({ tipoTrabalho: tipo })}
-              />
-              {tipo === "quente" ? "Quente" : "Frio (condensação)"}
-            </label>
-          ))}
-        </div>
-      </div>
-
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <div>
           <label className="label-field">

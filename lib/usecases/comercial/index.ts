@@ -8,7 +8,7 @@ export { cancelarAgendamentoFrio } from "./cancelarAgendamentoFrio";
 export { verificarReativacoesPendentes } from "./verificarReativacoesPendentes";
 export { registrarInteracao } from "./registrarInteracao";
 export { anexarArquivoLead } from "./anexarArquivoLead";
-export { vincularOrcamento } from "./vincularOrcamento";
+export { desvincularOrcamento, vincularOrcamento } from "./vincularOrcamento";
 export { anexarPrazoEtapa, anexarTotalAnexos, calcularDiasNaEtapaAtual } from "./prazoEtapa";
 export {
   calcularComissoes,
@@ -17,6 +17,9 @@ export {
   calcularLeadsDormindo,
   calcularLeadsFriosResumo,
   calcularLeadsPorOrigem,
+  calcularPipelinePorEtapa,
+  calcularVendasPorMes,
+  calcularCicloVenda,
   calcularPerformancePorResponsavel,
   calcularTempoMedioPorEtapa,
   gerarRelatorioComercial,
@@ -27,6 +30,8 @@ export type {
   KpisComercial,
   LeadsFriosResumo,
   LeadsPorOrigem,
+  PipelineEtapa,
+  VendaMes,
   PerformanceResponsavel,
   RelatorioComercial,
   RelatorioComissoes,

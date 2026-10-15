@@ -20,6 +20,7 @@ import type { AgendamentoLeadFrio, EtapaFunil, Lead } from "@/lib/types/domain";
 import { confirmar } from "@/components/ui/confirmar";
 import Lixeira from "@/components/Lixeira";
 import { useAcesso } from "@/lib/hooks/useAcesso";
+import { orcamentosDoLead } from "@/lib/leads";
 
 // A aba "Relatórios" que existia aqui foi removida — os relatórios
 // comerciais (funil, origem, performance por responsável etc.) agora vivem
@@ -146,10 +147,12 @@ function ComercialPageConteudo() {
 
     // Fechar uma venda pede o valor fechado antes de mover (migração 043).
     let valorFechado: number | undefined;
+    let orcamentosVencedores: number[] | undefined;
     if (novaEtapa === "fechado" && exigeValorFechado(leadAtual)) {
       const informado = await pedirValorFechado(leadAtual);
       if (informado === null) return;
-      valorFechado = informado;
+      valorFechado = informado.valor;
+      orcamentosVencedores = informado.vencedores;
     }
 
     // Atualização otimista — o card já pula de coluna antes da resposta do
@@ -160,7 +163,7 @@ function ComercialPageConteudo() {
       const response = await fetch(`/api/comercial/leads/${leadId}/mover`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ novaEtapa, valorFechado }),
+        body: JSON.stringify({ novaEtapa, valorFechado, orcamentosVencedores }),
       });
       const payload = await response.json();
       if (!response.ok || !payload.success) {
@@ -219,7 +222,7 @@ function ComercialPageConteudo() {
     ? leads.filter(
         (l) =>
           l.numero_lead?.toLowerCase().includes(buscaNormalizada) ||
-          l.orcamento?.numero_orcamento?.toLowerCase().includes(buscaNormalizada) ||
+          orcamentosDoLead(l).some((v) => v.orcamento.numero_orcamento?.toLowerCase().includes(buscaNormalizada) || v.orcamento.numero?.toLowerCase().includes(buscaNormalizada)) ||
           l.cliente?.nome?.toLowerCase().includes(buscaNormalizada)
       )
     : leads;

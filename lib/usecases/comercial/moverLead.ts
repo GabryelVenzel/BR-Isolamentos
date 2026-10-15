@@ -1,7 +1,14 @@
 import { ConflictError, NotFoundError, ValidationError } from "../../errors";
-import { exigeValorFechado } from "../../leads";
+import { exigeValorFechado, orcamentosDoLead } from "../../leads";
 import { logger } from "../../logger";
-import type { AnexoLeadRepository, HistoricoMudancaLeadRepository, LancamentoFinanceiroRepository, LeadRepository, OrcamentoRepository } from "../../repositories";
+import type {
+  AnexoLeadRepository,
+  HistoricoMudancaLeadRepository,
+  LancamentoFinanceiroRepository,
+  LeadOrcamentoRepository,
+  LeadRepository,
+  OrcamentoRepository,
+} from "../../repositories";
 import type { EtapaFunil, HistoricoMudancaLead, Lead, LancamentoFinanceiro } from "../../types/domain";
 import type { StatusOrcamento } from "../../types";
 import { MoverLeadSchema, parseOrThrow } from "../../validators";
@@ -73,10 +80,11 @@ export async function moverLead(
     orcamentoRepo?: OrcamentoRepository;
     anexoLeadRepo?: AnexoLeadRepository;
     lancamentoRepo?: LancamentoFinanceiroRepository;
+    leadOrcamentoRepo?: LeadOrcamentoRepository;
   },
   usuarioEmail?: string | null
 ): Promise<Lead> {
-  const { leadId, novaEtapa, valorFechado } = parseOrThrow(MoverLeadSchema, input);
+  const { leadId, novaEtapa, valorFechado, orcamentosVencedores } = parseOrThrow(MoverLeadSchema, input);
 
   const lead = await repos.leadRepo.findById(leadId);
   if (!lead) throw new NotFoundError(`Lead ${leadId} não encontrado.`);
@@ -89,7 +97,7 @@ export async function moverLead(
       if (totalAnexos === 0) {
         throw new ConflictError("Comissão requer pelo menos 1 anexo (comprovante). Adicione um anexo antes de avançar.");
       }
-    } else if (!lead.orcamento_id) {
+    } else if (orcamentosDoLead(lead).length === 0) {
       throw new ConflictError("Orçamento obrigatório para iniciar negociação.");
     }
   }
@@ -103,6 +111,16 @@ export async function moverLead(
     throw new ValidationError("Informe o valor fechado para fechar a venda.");
   }
 
+  // Vários orçamentos (migração 053): ao fechar, quais foram os fechados.
+  // Com um só vinculado, ele é o vencedor sem precisar perguntar.
+  const vinculados = orcamentosDoLead(lead).map((v) => v.orcamento_id);
+  let vencedores: number[] = [];
+  if (novaEtapa === "fechado" && !lead.eh_comissao && vinculados.length > 0) {
+    vencedores = (orcamentosVencedores ?? []).filter((id) => vinculados.includes(id));
+    if (vencedores.length === 0 && vinculados.length === 1) vencedores = vinculados;
+    if (vencedores.length === 0) throw new ValidationError("Marque qual orçamento foi fechado.");
+  }
+
   const atualizado = await repos.leadRepo.update(leadId, {
     etapa: novaEtapa,
     etapa_anterior: lead.etapa,
@@ -113,9 +131,17 @@ export async function moverLead(
   // `orcamentoRepo` é opcional só pra não quebrar chamadores/testes antigos
   // que não passavam esse repo — o contexto real (lib/contexts/comercial.ts)
   // sempre passa em produção.
+  // Fechado: vencedores viram "aceito" e os demais "rejeitado"; nas outras
+  // etapas todos os vinculados seguem o mesmo status.
   const novoStatusOrcamento = STATUS_ORCAMENTO_POR_ETAPA[novaEtapa];
-  if (lead.orcamento_id && novoStatusOrcamento && repos.orcamentoRepo) {
-    await repos.orcamentoRepo.update(lead.orcamento_id, { status: novoStatusOrcamento });
+  if (novoStatusOrcamento && repos.orcamentoRepo) {
+    for (const id of vinculados) {
+      const status = novaEtapa === "fechado" && vencedores.length > 0 ? (vencedores.includes(id) ? "aceito" : "rejeitado") : novoStatusOrcamento;
+      await repos.orcamentoRepo.update(id, { status });
+    }
+  }
+  if (repos.leadOrcamentoRepo && vinculados.length > 0 && (novaEtapa === "fechado" || lead.etapa === "fechado")) {
+    await repos.leadOrcamentoRepo.definirVencedores(leadId, novaEtapa === "fechado" ? vencedores : []);
   }
 
   if (novaEtapa === "fechado" && lead.eh_comissao && repos.lancamentoRepo) {
