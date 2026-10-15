@@ -3,7 +3,7 @@
 import { formatarTemperatura } from "@/lib/format";
 import PainelFiltros, { type FiltroAtivo } from "@/components/ui/PainelFiltros";
 import { ORIGENS_LEAD, type TemperaturaLead } from "@/lib/types/domain";
-import { Gift } from "lucide-react";
+import { BadgePercent, Gift } from "lucide-react";
 
 export interface FiltrosKanbanState {
   busca: string;
@@ -63,6 +63,7 @@ export default function FiltrosKanban({
   totalLeadsPerdidos,
 }: Props) {
   const PERIODOS: Record<string, string> = { "7dias": "Últimos 7 dias", "30dias": "Últimos 30 dias", mes: "Este mês" };
+  const totalRepresentacoes = representantes.reduce((s, r) => s + r.total, 0);
   const ativos: FiltroAtivo[] = [
     ...(filtros.temperatura ? [{ label: formatarTemperatura(filtros.temperatura as TemperaturaLead), limpar: () => onChange({ temperatura: "" }) }] : []),
     ...(filtros.origem ? [{ label: filtros.origem, limpar: () => onChange({ origem: "" }) }] : []),
@@ -146,20 +147,29 @@ export default function FiltrosKanban({
           <Gift className="icone" aria-hidden /> Só parcerias
           {totalLeadsComissao > 0 && <span className="badge bg-accent-light text-accent-dark">{totalLeadsComissao}</span>}
         </label>
-        <select
-          aria-label="Representações"
-          className="input-field w-full py-1.5 text-sm sm:w-auto"
-          value={representante}
-          onChange={(e) => onRepresentante(e.target.value)}
-        >
-          <option value="">Representações: todas as vendas</option>
-          <option value="todos">Só representações ({representantes.reduce((s, r) => s + r.total, 0)})</option>
-          {representantes.map((r) => (
-            <option key={r.id} value={r.id}>
-              {r.nome} ({r.total})
-            </option>
-          ))}
-        </select>
+        {/* Mesmo visual dos outros filtros; marcado, abre a lista para escolher um representante. */}
+        <div className="flex items-center gap-2">
+          <label className="flex items-center gap-2 py-1 text-sm text-gray-700">
+            <input type="checkbox" className="h-4 w-4" checked={Boolean(representante)} onChange={(e) => onRepresentante(e.target.checked ? "todos" : "")} />
+            <BadgePercent className="icone" aria-hidden /> Só representações
+            {totalRepresentacoes > 0 && <span className="badge bg-purple-100 text-purple-800">{totalRepresentacoes}</span>}
+          </label>
+          {representante && representantes.length > 0 && (
+            <select
+              aria-label="Representante"
+              className="rounded-input border border-gray-300 bg-white px-2 py-1 text-sm text-gray-700"
+              value={representante}
+              onChange={(e) => onRepresentante(e.target.value)}
+            >
+              <option value="todos">Todos os representantes</option>
+              {representantes.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.nome} ({r.total})
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
         <label className="flex items-center gap-2 py-1 text-sm text-gray-700">
           <input type="checkbox" className="h-4 w-4" checked={mostrarPerdidos} onChange={(e) => onTogglePerdidos(e.target.checked)} />
           Mostrar perdidos
