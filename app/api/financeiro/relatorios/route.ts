@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { projecoesComoLancamentos } from "@/lib/projecoes";
 import { createFinanceiroContext } from "@/lib/contexts/financeiro";
 import { apiError, apiSuccess } from "@/lib/types/common";
 import { parseFiltrosResumo } from "@/lib/types/api";
@@ -22,7 +23,8 @@ import { calcularAlertas, calcularDistribuicaoPorCategoria, calcularKpisFinancei
  * pra `created_at` (timestamp). Demais filtros via query string: `categoria`,
  * `tipo`. */
 export async function GET(request: Request) {
-  const ctx = createFinanceiroContext(createSupabaseServerClient());
+  const supabase = createSupabaseServerClient();
+  const ctx = createFinanceiroContext(supabase);
   const { searchParams } = new URL(request.url);
 
   try {
@@ -39,6 +41,13 @@ export async function GET(request: Request) {
       }),
       ctx.custoFixoRepo.totalMensalAtivo(),
     ]);
+    // Projeções financeiras vigentes (migração 054) entram como previstas.
+    const tipo = searchParams.get("tipo");
+    const categoria = searchParams.get("categoria");
+    const previstos = (await projecoesComoLancamentos(supabase, intervalo.dataInicio, intervalo.dataFim)).filter(
+      (p) => (!tipo || p.tipo === tipo) && (!categoria || p.categoria === categoria)
+    );
+    lancamentos.push(...previstos);
 
     const pendentes = lancamentos.filter((l) => !l.pago);
 

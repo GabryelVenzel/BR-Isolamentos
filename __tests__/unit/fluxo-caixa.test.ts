@@ -89,6 +89,21 @@ describe("calcularFluxoCaixa", () => {
     expect(r.aging[2]).toMatchObject({ aPagar: 20 });
   });
 
+  it("visão por mês vai 4 meses à frente do atual, mesmo além dos 90 dias", () => {
+    const r = calcularFluxoCaixa(
+      base({
+        custosFixos: [{ ativo: true, valor_mensal: 100, dia_mes: 20, descricao: "Aluguel", categoria: "Fixo" }],
+        lancamentos: [lanc({ tipo: "receita", valor: 500, data: "2027-02-10" })],
+      })
+    );
+    expect(r.meses.map((m) => m.mes)).toEqual(["2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02"]);
+    const fev = r.meses.at(-1)!;
+    expect(fev).toMatchObject({ entradasPrevistas: 500, saidasPrevistas: 100 });
+    // a visão diária continua com 90 dias
+    expect(r.diario).toHaveLength(91);
+    expect(r.diario.at(-1)!.data).toBe("2027-01-12");
+  });
+
   it("semanas começam na segunda da semana de hoje", () => {
     const r = calcularFluxoCaixa(base());
     expect(r.semanas[0].inicio).toBe("2026-10-12");

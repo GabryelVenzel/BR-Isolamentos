@@ -56,6 +56,8 @@ export const OPERACIONAL_SUBNAV: ModuleSubNavItem[] = [
 export const FINANCEIRO_SUBNAV: ModuleSubNavItem[] = [
   { href: "/financeiro/lancamentos", label: "Lançamentos" },
   { href: "/financeiro/custos-fixos", label: "Custos Fixos" },
+  // Migração 054 — entradas e saídas previstas, sem lançar.
+  { href: "/financeiro/projecao", label: "Projeção" },
   { href: "/financeiro/categorias", label: "Configurações" },
 ];
 

@@ -15,6 +15,7 @@ import {
 } from "../repositories";
 import type { FiltrosResumo, KpisResumo } from "../types/resumo";
 import { hojeBrasilia } from "../financeiro";
+import { projecoesComoLancamentos } from "../projecoes";
 import {
   calcularKpis,
   funilLeads,
@@ -38,7 +39,7 @@ export function createResumoContext(supabase: SupabaseClient) {
    * 053 rodar, as colunas não existem: cai no padrão (R$ 0 em 28/09/2026). */
   async function fluxoCaixa(): Promise<FluxoCaixa> {
     const [lancamentos, custosFixos, config] = await Promise.all([
-      lancamentoRepo.listar(),
+      lancamentoRepo.listar().then(async (l) => [...l, ...(await projecoesComoLancamentos(supabase))]),
       custoFixoRepo.listarTodos(),
       supabase.from("config_empresa").select("caixa_data_inicial, caixa_saldo_inicial").limit(1).maybeSingle(),
     ]);
@@ -53,8 +54,8 @@ export function createResumoContext(supabase: SupabaseClient) {
   }
 
   return {
-    kpis(filtros: FiltrosResumo): Promise<KpisResumo> {
-      return calcularKpis(filtros, { lancamentoRepo, leadRepo, custoFixoRepo });
+    async kpis(filtros: FiltrosResumo): Promise<KpisResumo> {
+      return calcularKpis(filtros, { lancamentoRepo, leadRepo, custoFixoRepo }, await projecoesComoLancamentos(supabase));
     },
 
     async alertas(): Promise<Awaited<ReturnType<typeof listarAlertas>>> {
@@ -69,8 +70,8 @@ export function createResumoContext(supabase: SupabaseClient) {
       return listarAlertas({ lancamentoRepo, leadRepo, parceiroRepo }, diasNegativos);
     },
 
-    chartReceitaVsDespesa(opts: { tipoTrabalho?: string; responsavel?: string } = {}) {
-      return receitaVsDespesa(lancamentoRepo, opts);
+    async chartReceitaVsDespesa(opts: { tipoTrabalho?: string; responsavel?: string } = {}) {
+      return receitaVsDespesa(lancamentoRepo, opts, 6, await projecoesComoLancamentos(supabase));
     },
 
     chartFunilLeads() {
@@ -86,8 +87,11 @@ export function createResumoContext(supabase: SupabaseClient) {
     // /api/financeiro/relatorios; aqui tira o lançamento do período direto).
     async chartCustosFixosVsVariaveis(filtros: FiltrosResumo) {
       const intervalo = resolverPeriodo(filtros.periodo, filtros.dataInicioCustom, filtros.dataFimCustom);
-      const lancamentos = await lancamentoRepo.listar({ dataInicio: intervalo.dataInicio, dataFim: intervalo.dataFim, porCompetencia: true });
-      return calcularCustosFixosVsVariaveis(lancamentos);
+      const [lancamentos, previstos] = await Promise.all([
+        lancamentoRepo.listar({ dataInicio: intervalo.dataInicio, dataFim: intervalo.dataFim, porCompetencia: true }),
+        projecoesComoLancamentos(supabase, intervalo.dataInicio, intervalo.dataFim),
+      ]);
+      return calcularCustosFixosVsVariaveis([...lancamentos, ...previstos]);
     },
   };
 }

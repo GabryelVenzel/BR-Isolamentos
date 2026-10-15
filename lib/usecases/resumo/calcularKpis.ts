@@ -21,17 +21,29 @@ export interface ReposKpis {
  * original assumia — ex.: não existe meta de receita configurada em
  * `config_empresa`, nem `data_vencimento` em `lancamentos_financeiros`).
  */
-export async function calcularKpis(filtros: FiltrosResumo, repos: ReposKpis): Promise<KpisResumo> {
+/** `previstos`: projeções financeiras vigentes (migração 054), já como
+ * lançamentos — somam em receitas/despesas do período pela data delas. */
+export async function calcularKpis(
+  filtros: FiltrosResumo,
+  repos: ReposKpis,
+  previstos: Array<{ tipo: string; valor: number; data: string }> = []
+): Promise<KpisResumo> {
   const { lancamentoRepo, leadRepo, custoFixoRepo } = repos;
   const intervalo = resolverPeriodo(filtros.periodo, filtros.dataInicioCustom, filtros.dataFimCustom);
   const anterior = periodoAnterior(intervalo);
   const opts = { tipoTrabalho: filtros.tipoTrabalho, responsavel: filtros.responsavel };
 
+  // Projeções não têm obra/responsável: só entram sem esses filtros.
+  const somaPrevista = (tipo: string, inicio: string, fim: string) =>
+    opts.tipoTrabalho || opts.responsavel ? 0 : previstos.filter((p) => p.tipo === tipo && p.data >= inicio && p.data <= fim).reduce((s, p) => s + p.valor, 0);
+
   // --- 1. Receita ---
-  const [receitaAtual, receitaAnterior] = await Promise.all([
-    lancamentoRepo.somarPorTipo("receita", intervalo.dataInicio, intervalo.dataFim, opts),
-    lancamentoRepo.somarPorTipo("receita", anterior.dataInicio, anterior.dataFim, opts),
-  ]);
+  const [receitaAtual, receitaAnterior] = (
+    await Promise.all([
+      lancamentoRepo.somarPorTipo("receita", intervalo.dataInicio, intervalo.dataFim, opts),
+      lancamentoRepo.somarPorTipo("receita", anterior.dataInicio, anterior.dataFim, opts),
+    ])
+  ).map((v, i) => v + (i === 0 ? somaPrevista("receita", intervalo.dataInicio, intervalo.dataFim) : somaPrevista("receita", anterior.dataInicio, anterior.dataFim)));
 
   // --- 2. Leads ativos ---
   // `tipoTrabalho` não filtra leads (um lead ainda não tem tipo de trabalho
@@ -73,11 +85,13 @@ export async function calcularKpis(filtros: FiltrosResumo, repos: ReposKpis): Pr
   const vencidas = aReceberFiltrado.filter((l) => l.data < hojeISO);
 
   // --- 5. Despesas do período ---
-  const [despesaAtual, despesaAnterior, custosFixos] = await Promise.all([
+  const [despesaRealAtual, despesaRealAnterior, custosFixos] = await Promise.all([
     lancamentoRepo.somarPorTipo("despesa", intervalo.dataInicio, intervalo.dataFim, opts),
     lancamentoRepo.somarPorTipo("despesa", anterior.dataInicio, anterior.dataFim, opts),
     custoFixoRepo.totalMensalAtivo(),
   ]);
+  const despesaAtual = despesaRealAtual + somaPrevista("despesa", intervalo.dataInicio, intervalo.dataFim);
+  const despesaAnterior = despesaRealAnterior + somaPrevista("despesa", anterior.dataInicio, anterior.dataFim);
 
   // --- 6. Saldo do período + mini-tendência dos últimos 3 meses ---
   const saldoAtual = receitaAtual - despesaAtual;

@@ -113,7 +113,10 @@ export default function DashboardFinanceira() {
           )}
 
           <section className="space-y-4">
-            <h2 className="font-montserrat text-base font-bold text-brand">Resultado do período (competência)</h2>
+            <div>
+              <h2 className="font-montserrat text-base font-bold text-brand">Resultado do período (competência)</h2>
+              <p className="text-xs text-gray-500">Inclui as projeções vigentes (Financeiro → Projeção); o resultado por obra considera só o realizado.</p>
+            </div>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
               <Indicador titulo="Receitas" valor={formatarMoeda(relatorio.kpis.receitaTotal)} cor="text-accent" />
               <Indicador titulo="Despesas" valor={formatarMoeda(relatorio.kpis.despesaTotal)} cor="text-status-error" />

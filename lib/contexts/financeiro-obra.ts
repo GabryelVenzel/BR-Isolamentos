@@ -8,6 +8,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { CategoriaLancamentoRepository, LancamentoFinanceiroRepository, ServicoRepository } from "../repositories";
 import type { CategoriaLancamento, LancamentoFinanceiro } from "../types/domain";
+import { projecoesComoLancamentos } from "../projecoes";
 import {
   calcularDre,
   calcularResultadoObra,
@@ -60,8 +61,12 @@ export function createFinanceiroObraContext(supabase: SupabaseClient) {
       const inicio = `${dataInicio.slice(0, 7)}-01`;
       const [ano, mes] = dataFim.split("-").map(Number);
       const fim = `${dataFim.slice(0, 7)}-${String(new Date(Date.UTC(ano, mes, 0)).getUTCDate()).padStart(2, "0")}`;
-      const lancamentos = await lancamentoRepo.listar({ dataInicio: inicio, dataFim: fim, porCompetencia: true });
-      return calcularDre(lancamentos, inicio, fim);
+      // Projeções (migração 054) entram como previstas; o resultado por obra não.
+      const [lancamentos, previstos] = await Promise.all([
+        lancamentoRepo.listar({ dataInicio: inicio, dataFim: fim, porCompetencia: true }),
+        projecoesComoLancamentos(supabase, inicio, fim),
+      ]);
+      return calcularDre([...lancamentos, ...previstos], inicio, fim);
     },
   };
 }

@@ -75,6 +75,8 @@ export interface EntradaFluxoCaixa {
   hoje: string;
   diasProjecao?: number;
   mesesHistorico?: number;
+  /** Meses à frente do atual na visão por mês (padrão 4). */
+  mesesFuturos?: number;
   semanas?: number;
 }
 
@@ -106,6 +108,12 @@ export function calcularFluxoCaixa(entrada: EntradaFluxoCaixa): FluxoCaixa {
   const qtdSemanas = entrada.semanas ?? 8;
   const fimProjecao = somarDias(hoje, diasProjecao);
   const mesAtual = hoje.slice(0, 7);
+  // A visão por mês vai até o fim do último mês futuro (pode passar dos 90
+  // dias da visão diária): a série dia a dia é calculada até o mais distante
+  // dos dois e a visão diária usa só os primeiros `diasProjecao` dias.
+  const ultimoMes = somarMesesAoMes(mesAtual, entrada.mesesFuturos ?? 4);
+  const fimMeses = `${ultimoMes}-${String(ultimoDiaDoMes(ultimoMes)).padStart(2, "0")}`;
+  const fimSerie = fimMeses > fimProjecao ? fimMeses : fimProjecao;
 
   // --- Realizado (pagos desde a data inicial do caixa) ---
   const pagos = lancamentos
@@ -121,7 +129,7 @@ export function calcularFluxoCaixa(entrada: EntradaFluxoCaixa): FluxoCaixa {
 
   // Movimentos previstos por dia (de hoje em diante).
   const previstos: Array<{ tipo: string; valor: number; data: string }> = abertos
-    .filter((l) => l.data >= hoje && l.data <= fimProjecao)
+    .filter((l) => l.data >= hoje && l.data <= fimSerie)
     .map((l) => ({ tipo: l.tipo, valor: l.valor, data: l.data }));
 
   // Custos fixos com dia_mes nos meses seguintes (o mês atual já tem lançamento).
@@ -129,11 +137,11 @@ export function calcularFluxoCaixa(entrada: EntradaFluxoCaixa): FluxoCaixa {
   // também entra (comparando descrição e categoria).
   for (const custo of custosFixos) {
     if (!custo.ativo || custo.dia_mes == null) continue;
-    for (let i = 0; i <= Math.ceil(diasProjecao / 28); i++) {
+    for (let i = 0; somarMesesAoMes(mesAtual, i) <= fimSerie.slice(0, 7); i++) {
       const mes = somarMesesAoMes(mesAtual, i);
       const dia = Math.min(custo.dia_mes, ultimoDiaDoMes(mes));
       const data = `${mes}-${String(dia).padStart(2, "0")}`;
-      if (data < hoje || data > fimProjecao) continue;
+      if (data < hoje || data > fimSerie) continue;
       const jaLancado = lancamentos.some(
         (l) => l.tipo === "despesa" && l.data.slice(0, 7) === mes && l.descricao === custo.descricao && l.categoria === custo.categoria
       );
@@ -144,9 +152,10 @@ export function calcularFluxoCaixa(entrada: EntradaFluxoCaixa): FluxoCaixa {
 
   // --- Projeção diária ---
   const valorPagarVencido = vencidosPagar.reduce((s, l) => s + l.valor, 0);
-  const diario: PontoFluxoDiario[] = [];
+  const serie: PontoFluxoDiario[] = [];
   let saldo = saldoHoje;
-  for (let i = 0; i <= diasProjecao; i++) {
+  const totalDias = diferencaDias(hoje, fimSerie);
+  for (let i = 0; i <= totalDias; i++) {
     const data = somarDias(hoje, i);
     const doDia = previstos.filter((p) => p.data === data);
     let entradas = doDia.filter((p) => p.tipo === "receita").reduce((s, p) => s + p.valor, 0);
@@ -155,21 +164,21 @@ export function calcularFluxoCaixa(entrada: EntradaFluxoCaixa): FluxoCaixa {
     entradas = Math.round(entradas * 100) / 100;
     saidas = Math.round(saidas * 100) / 100;
     saldo += entradas - saidas;
-    diario.push({ data, entradas, saidas, saldo: Math.round(saldo * 100) / 100 });
+    serie.push({ data, entradas, saidas, saldo: Math.round(saldo * 100) / 100 });
   }
+  const diario = serie.slice(0, diasProjecao + 1);
   const menor = diario.reduce((m, p) => (p.saldo < m.saldo ? p : m), diario[0]);
   const saldoNoDia = (n: number) => diario[Math.min(n, diario.length - 1)].saldo;
 
   // --- Por mês: histórico realizado + atual (realizado + previsto) + futuros previstos ---
   const primeiroMes = [dataInicial.slice(0, 7), somarMesesAoMes(mesAtual, -(mesesHistorico - 1))].sort().reverse()[0];
-  const ultimoMes = fimProjecao.slice(0, 7);
   const meses: MesFluxo[] = [];
   let acumulado = saldoInicial;
   for (let mes = primeiroMes; mes <= ultimoMes; mes = somarMesesAoMes(mes, 1)) {
     const realizadosMes = pagos.filter((l) => l.data.slice(0, 7) === mes);
     const entradasRealizadas = realizadosMes.filter((l) => l.tipo === "receita").reduce((s, l) => s + l.valor, 0);
     const saidasRealizadas = realizadosMes.filter((l) => l.tipo === "despesa").reduce((s, l) => s + l.valor, 0);
-    const diasMes = diario.filter((p) => p.data.slice(0, 7) === mes);
+    const diasMes = serie.filter((p) => p.data.slice(0, 7) === mes);
     const entradasPrevistas = diasMes.reduce((s, p) => s + p.entradas, 0);
     const saidasPrevistas = diasMes.reduce((s, p) => s + p.saidas, 0);
     acumulado += entradasRealizadas - saidasRealizadas + entradasPrevistas - saidasPrevistas;

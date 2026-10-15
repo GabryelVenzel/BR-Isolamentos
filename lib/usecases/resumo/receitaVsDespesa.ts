@@ -11,7 +11,9 @@ const MESES_ABREV = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "se
 export async function receitaVsDespesa(
   repo: LancamentoFinanceiroRepository,
   opts: { tipoTrabalho?: string; responsavel?: string } = {},
-  meses = 6
+  meses = 6,
+  /** Projeções financeiras vigentes (migração 054), pela data delas. */
+  previstos: Array<{ tipo: string; valor: number; data: string }> = []
 ): Promise<PontoReceitaDespesa[]> {
   const hoje = new Date();
   const inicio = new Date(hoje.getFullYear(), hoje.getMonth() - (meses - 1), 1);
@@ -20,10 +22,13 @@ export async function receitaVsDespesa(
   // um dia que ainda não chegou.
   const dataFim = new Date(hoje.getFullYear(), hoje.getMonth() + 1, 0).toISOString().slice(0, 10);
 
-  const [receitas, despesas] = await Promise.all([
+  const [receitasReais, despesasReais] = await Promise.all([
     repo.listarValoresPorTipo("receita", dataInicio, dataFim, opts),
     repo.listarValoresPorTipo("despesa", dataInicio, dataFim, opts),
   ]);
+  const extras = opts.tipoTrabalho || opts.responsavel ? [] : previstos.filter((p) => p.data >= dataInicio && p.data <= dataFim);
+  const receitas = [...receitasReais, ...extras.filter((p) => p.tipo === "receita")];
+  const despesas = [...despesasReais, ...extras.filter((p) => p.tipo === "despesa")];
 
   const pontos: PontoReceitaDespesa[] = [];
   for (let i = meses - 1; i >= 0; i--) {

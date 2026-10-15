@@ -137,6 +137,22 @@ export interface Lead {
   total_anexos?: number;
 }
 
+/** Lançamento PREVISTO simplificado (migração 054 — Financeiro → Projeção):
+ * entra no fluxo de caixa e nos indicadores financeiros do Resumo até o dia
+ * do vencimento (`data`); depois disso deixa de contar sozinho. Não aparece em
+ * Lançamentos nem no resultado por obra. */
+export interface ProjecaoFinanceira {
+  id: string;
+  tipo: TipoLancamentoFinanceiro;
+  categoria: string;
+  descricao: string;
+  valor: number;
+  data: string;
+  criado_por: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 /** Vínculo lead ↔ orçamento (migração 053). `vencedor`: orçamento fechado
  * quando o lead foi para "Fechado" (os outros viram rejeitados). */
 export interface LeadOrcamento {

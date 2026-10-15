@@ -75,7 +75,8 @@ export function GraficoFluxoCaixa({ fluxo, titulo = "Fluxo de caixa" }: { fluxo:
         <div>
           <h3 className="font-montserrat text-sm font-bold uppercase text-brand">{titulo}</h3>
           <p className="text-xs text-gray-500">
-            Regime de caixa (quando o dinheiro entra e sai). Contas a pagar vencidas saem hoje; a receber vencidas não entram.
+            Regime de caixa (quando o dinheiro entra e sai), com as projeções do Financeiro. Contas a pagar vencidas saem hoje; a receber vencidas
+            não entram.
           </p>
         </div>
         <div className="inline-flex rounded-input border border-gray-200 bg-white p-0.5" role="group" aria-label="Visão do fluxo de caixa">

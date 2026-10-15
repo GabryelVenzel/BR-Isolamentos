@@ -36,3 +36,4 @@ function formatarErrosZod(error: ZodError): string {
     .map((issue) => (issue.path.length ? `${issue.path.join(".")}: ${issue.message}` : issue.message))
     .join("; ");
 }
+export * from "./projecao";

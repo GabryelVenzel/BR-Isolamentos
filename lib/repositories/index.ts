@@ -32,6 +32,7 @@ export { FuncionarioAusenciaRepository, FuncionarioDadosRepository, FuncionarioE
 export { AgendamentoRepository } from "./agendamento.repository";
 export type { FiltrosAgendamento } from "./agendamento.repository";
 export { LancamentoFinanceiroRepository } from "./lancamento-financeiro.repository";
+export { ProjecaoFinanceiraRepository } from "./projecao-financeira.repository";
 export type { FiltrosLancamento, ResumoMesAtual } from "./lancamento-financeiro.repository";
 export { CustoFixoRepository } from "./custo-fixo.repository";
 export { HistoricoCustoFixoRepository } from "./historico-custo-fixo.repository";
