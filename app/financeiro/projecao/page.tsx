@@ -212,17 +212,21 @@ function ModalProjecao({
     <div className="modal-fundo z-50">
       <FecharComEsc onFechar={onFechar} />
       <div role="dialog" aria-modal="true" aria-labelledby="titulo-projecao" className="modal-caixa sm:max-w-md">
-        <h2 id="titulo-projecao" className="mb-4 font-montserrat text-lg font-bold text-brand">
-          {projecao ? "Editar projeção" : "Nova projeção"}
-        </h2>
-        <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
+        {/* Compacta (bug relatado: em tela baixa os últimos campos ficavam sob o
+            rodapé): Entrada/Saída na linha do título. */}
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <h2 id="titulo-projecao" className="font-montserrat text-lg font-bold text-brand">
+            {projecao ? "Editar projeção" : "Nova projeção"}
+          </h2>
+          <div className="inline-flex rounded-input border border-gray-200 p-0.5" role="group" aria-label="Tipo">
             {(["receita", "despesa"] as const).map((t) => (
               <button
                 key={t}
                 type="button"
                 aria-pressed={tipo === t}
-                className={tipo === t ? (t === "receita" ? "btn-accent" : "btn-danger") : "btn-secondary"}
+                className={`rounded-input px-4 py-1.5 text-sm font-semibold ${
+                  tipo === t ? (t === "receita" ? "bg-accent text-white" : "bg-status-error text-white") : "text-gray-600 hover:bg-gray-50"
+                }`}
                 onClick={() => {
                   setTipo(t);
                   setCategoria("");
@@ -232,6 +236,8 @@ function ModalProjecao({
               </button>
             ))}
           </div>
+        </div>
+        <div className="space-y-3">
           <div>
             <label className="label-field" htmlFor="proj-descricao">
               Descrição<span className="text-status-error"> *</span>

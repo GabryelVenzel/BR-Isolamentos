@@ -167,12 +167,15 @@
  * Cancelar/Salvar fica preso no fim da janela enquanto o conteúdo rola. */
 @layer components {
   .modal-fundo {
-    @apply fixed inset-0 flex items-stretch justify-center bg-brand/60 sm:items-center sm:p-4;
+    @apply fixed inset-0 flex items-stretch justify-center bg-brand/60 sm:items-center sm:p-3;
   }
   .modal-caixa {
-    @apply h-full w-full overflow-y-auto bg-white p-5 shadow-card-hover sm:h-auto sm:max-h-[90vh] sm:rounded-card sm:p-6;
+    @apply h-full w-full overflow-y-auto bg-white p-5 shadow-card-hover sm:h-auto sm:max-h-[94vh] sm:rounded-card sm:p-6;
   }
   .rodape-modal {
-    @apply sticky bottom-0 z-10 -mx-5 -mb-5 mt-4 border-t border-gray-100 bg-white px-5 py-3 sm:-mx-6 sm:-mb-6 sm:px-6;
+    /* -bottom igual ao padding da janela: o "grudar" do sticky é medido
+       DENTRO do padding, então bottom-0 deixava o rodapé 20–24px acima do fim
+       da janela, cobrindo os últimos campos (bug relatado). */
+    @apply sticky -bottom-5 z-10 -mx-5 -mb-5 mt-4 border-t border-gray-100 bg-white px-5 py-3 shadow-[0_-8px_12px_-10px_rgba(6,0,53,0.35)] sm:-bottom-6 sm:-mx-6 sm:-mb-6 sm:px-6;
   }
 }
