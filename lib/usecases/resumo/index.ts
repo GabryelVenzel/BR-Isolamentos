@@ -5,5 +5,6 @@ export { listarAlertas } from "./listarAlertas";
 export { calcularTendencia, periodoAnterior, resolverPeriodo } from "./periodo";
 export type { IntervaloData } from "./periodo";
 export { calcularFluxoCaixa } from "./fluxoCaixa";
+export { fimDoPeriodoParaProjecoes } from "./periodo";
 export type { FluxoCaixa, MesFluxo, PontoFluxoDiario, SemanaFluxo } from "./fluxoCaixa";
 export { receitaVsDespesa } from "./receitaVsDespesa";

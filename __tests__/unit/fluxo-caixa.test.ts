@@ -110,3 +110,16 @@ describe("calcularFluxoCaixa", () => {
     expect(r.semanas).toHaveLength(8);
   });
 });
+
+describe("fimDoPeriodoParaProjecoes", () => {
+  const { fimDoPeriodoParaProjecoes } = jest.requireActual("@/lib/usecases/resumo/periodo");
+  const intervalo = { dataInicio: "2026-10-01", dataFim: "2026-10-15", label: "" };
+  it("períodos atuais vão até o fim do período", () => {
+    expect(fimDoPeriodoParaProjecoes("mes_atual", intervalo)).toBe("2026-10-31");
+    expect(fimDoPeriodoParaProjecoes("ano_atual", intervalo)).toBe("2026-12-31");
+    expect(fimDoPeriodoParaProjecoes("semana_atual", intervalo)).toBe("2026-10-18");
+  });
+  it("períodos fechados não mudam", () => {
+    expect(fimDoPeriodoParaProjecoes("mes_anterior", intervalo)).toBe("2026-10-15");
+  });
+});

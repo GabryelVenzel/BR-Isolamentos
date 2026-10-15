@@ -135,3 +135,19 @@ export function calcularTendencia(atual: number, anterior: number): { percentual
   const cor = percentual > 0.5 ? "positiva" : percentual < -0.5 ? "negativa" : "neutra";
   return { percentual, cor };
 }
+
+/** Fim do período INTEIRO (projeções financeiras, migração 054): os períodos
+ * "atuais" terminam hoje, mas uma projeção é sempre futura — para ela contar
+ * no resultado da semana/mês/ano em curso, a janela vai até o último dia
+ * dele. Os demais períodos já são fechados e ficam como estão. */
+export function fimDoPeriodoParaProjecoes(periodo: string, intervalo: IntervaloData): string {
+  const fim = intervalo.dataFim;
+  const d = new Date(`${fim}T00:00:00Z`);
+  if (periodo === "mes_atual") return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).toISOString().slice(0, 10);
+  if (periodo === "ano_atual") return `${fim.slice(0, 4)}-12-31`;
+  if (periodo === "semana_atual") {
+    d.setUTCDate(d.getUTCDate() + (6 - ((d.getUTCDay() + 6) % 7)));
+    return d.toISOString().slice(0, 10);
+  }
+  return fim;
+}

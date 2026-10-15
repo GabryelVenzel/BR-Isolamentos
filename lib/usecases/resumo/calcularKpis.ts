@@ -4,7 +4,7 @@ import type {
   LeadRepository,
 } from "../../repositories";
 import type { FiltrosResumo, KpisResumo } from "../../types/resumo";
-import { calcularTendencia, periodoAnterior, resolverPeriodo } from "./periodo";
+import { calcularTendencia, fimDoPeriodoParaProjecoes, periodoAnterior, resolverPeriodo } from "./periodo";
 
 export interface ReposKpis {
   lancamentoRepo: LancamentoFinanceiroRepository;
@@ -31,6 +31,7 @@ export async function calcularKpis(
   const { lancamentoRepo, leadRepo, custoFixoRepo } = repos;
   const intervalo = resolverPeriodo(filtros.periodo, filtros.dataInicioCustom, filtros.dataFimCustom);
   const anterior = periodoAnterior(intervalo);
+  const fimProjecoes = fimDoPeriodoParaProjecoes(filtros.periodo, intervalo);
   const opts = { tipoTrabalho: filtros.tipoTrabalho, responsavel: filtros.responsavel };
 
   // Projeções não têm obra/responsável: só entram sem esses filtros.
@@ -43,7 +44,7 @@ export async function calcularKpis(
       lancamentoRepo.somarPorTipo("receita", intervalo.dataInicio, intervalo.dataFim, opts),
       lancamentoRepo.somarPorTipo("receita", anterior.dataInicio, anterior.dataFim, opts),
     ])
-  ).map((v, i) => v + (i === 0 ? somaPrevista("receita", intervalo.dataInicio, intervalo.dataFim) : somaPrevista("receita", anterior.dataInicio, anterior.dataFim)));
+  ).map((v, i) => v + (i === 0 ? somaPrevista("receita", intervalo.dataInicio, fimProjecoes) : somaPrevista("receita", anterior.dataInicio, anterior.dataFim)));
 
   // --- 2. Leads ativos ---
   // `tipoTrabalho` não filtra leads (um lead ainda não tem tipo de trabalho
@@ -90,7 +91,7 @@ export async function calcularKpis(
     lancamentoRepo.somarPorTipo("despesa", anterior.dataInicio, anterior.dataFim, opts),
     custoFixoRepo.totalMensalAtivo(),
   ]);
-  const despesaAtual = despesaRealAtual + somaPrevista("despesa", intervalo.dataInicio, intervalo.dataFim);
+  const despesaAtual = despesaRealAtual + somaPrevista("despesa", intervalo.dataInicio, fimProjecoes);
   const despesaAnterior = despesaRealAnterior + somaPrevista("despesa", anterior.dataInicio, anterior.dataFim);
 
   // --- 6. Saldo do período + mini-tendência dos últimos 3 meses ---

@@ -4,7 +4,7 @@ import { projecoesComoLancamentos } from "@/lib/projecoes";
 import { createFinanceiroContext } from "@/lib/contexts/financeiro";
 import { apiError, apiSuccess } from "@/lib/types/common";
 import { parseFiltrosResumo } from "@/lib/types/api";
-import { resolverPeriodo } from "@/lib/usecases/resumo";
+import { fimDoPeriodoParaProjecoes, resolverPeriodo } from "@/lib/usecases/resumo";
 import { toHttpError } from "@/lib/errors";
 import { logger } from "@/lib/logger";
 import { calcularAlertas, calcularDistribuicaoPorCategoria, calcularKpisFinanceiro, calcularReceitaVsDespesaPorMes } from "@/lib/usecases/financeiro";
@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     // Projeções financeiras vigentes (migração 054) entram como previstas.
     const tipo = searchParams.get("tipo");
     const categoria = searchParams.get("categoria");
-    const previstos = (await projecoesComoLancamentos(supabase, intervalo.dataInicio, intervalo.dataFim)).filter(
+    const previstos = (await projecoesComoLancamentos(supabase, intervalo.dataInicio, fimDoPeriodoParaProjecoes(filtros.periodo, intervalo))).filter(
       (p) => (!tipo || p.tipo === tipo) && (!categoria || p.categoria === categoria)
     );
     lancamentos.push(...previstos);

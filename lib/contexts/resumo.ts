@@ -21,6 +21,7 @@ import {
   funilLeads,
   listarAlertas,
   calcularFluxoCaixa,
+  fimDoPeriodoParaProjecoes,
   type FluxoCaixa,
   receitaVsDespesa,
   resolverPeriodo,
@@ -89,7 +90,7 @@ export function createResumoContext(supabase: SupabaseClient) {
       const intervalo = resolverPeriodo(filtros.periodo, filtros.dataInicioCustom, filtros.dataFimCustom);
       const [lancamentos, previstos] = await Promise.all([
         lancamentoRepo.listar({ dataInicio: intervalo.dataInicio, dataFim: intervalo.dataFim, porCompetencia: true }),
-        projecoesComoLancamentos(supabase, intervalo.dataInicio, intervalo.dataFim),
+        projecoesComoLancamentos(supabase, intervalo.dataInicio, fimDoPeriodoParaProjecoes(filtros.periodo, intervalo)),
       ]);
       return calcularCustosFixosVsVariaveis([...lancamentos, ...previstos]);
     },
