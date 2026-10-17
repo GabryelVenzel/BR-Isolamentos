@@ -12,8 +12,10 @@
 //     (tabela mensal, com a redução da Lei 15.270/2025) e, se o município
 //     exigir, o ISS. No Anexo IV do Simples (e fora do Simples) a BR ainda
 //     paga 20% de INSS patronal sobre o bruto; no Anexo III ele já está no DAS.
-//   - INSS e IR são MENSAIS por pessoa: as diárias são divididas em blocos de
-//     até `dias_trabalho_mes` (padrão 22) e cada bloco é um mês.
+//   - INSS e IR são MENSAIS por pessoa. Para nunca cobrar menos do que o
+//     correto, o custo de cada diária é SEMPRE o de um mês cheio
+//     (`dias_trabalho_mes` diárias, padrão 22), qualquer que seja a duração
+//     da obra (decisão do usuário, 17/10/2026).
 //
 // O custo real entra no custo do orçamento; o DAS e a margem continuam sendo
 // aplicados por cima, sobre o valor final (calcularOrcamento não muda).
@@ -206,21 +208,17 @@ export function encargosDaPessoa(forma: FormaContratacao, valorDiaria: number, d
   }
   if (forma !== "pf" || valorPago === 0) return zero;
 
-  // Pessoa física: um bloco por mês de até dias_trabalho_mes diárias.
-  let restante = dias;
-  const total = { bruto: 0, inss: 0, irrf: 0, iss: 0, cpp: 0 };
-  while (restante > 0) {
-    const n = Math.min(restante, p.dias_trabalho_mes);
-    restante -= n;
-    const bruto = brutoParaLiquido(n * valorDiaria, p);
-    const r = retencoesDoBruto(bruto, p);
-    total.bruto += bruto;
-    total.inss += round2(r.inss);
-    total.irrf += round2(r.irrf);
-    total.iss += round2(r.iss);
-    total.cpp += p.cpp_sobre_pf ? round2((bruto * p.cpp_pct) / 100) : 0;
-  }
-  const bruto = round2(total.bruto);
-  const cpp = round2(total.cpp);
-  return { valor_pago: valorPago, bruto, inss: round2(total.inss), irrf: round2(total.irrf), iss: round2(total.iss), cpp, custo_real: round2(bruto + cpp) };
+  // Pessoa física: SEMPRE pelo MÊS CHEIO (decisão do usuário, 17/10/2026).
+  // O custo de uma diária é o de um mês com `dias_trabalho_mes` diárias
+  // (padrão 22) dividido por elas, mesmo que a obra tenha só 5 dias. O IR
+  // sobe com o valor do mês, e a mesma pessoa pode trabalhar em outras obras
+  // no mesmo mês — assim o orçamento nunca cobra menos do que o correto.
+  const mes = p.dias_trabalho_mes;
+  const brutoMes = brutoParaLiquido(mes * valorDiaria, p);
+  const r = retencoesDoBruto(brutoMes, p);
+  const cppMes = p.cpp_sobre_pf ? (brutoMes * p.cpp_pct) / 100 : 0;
+  const proporcao = (v: number) => round2((v / mes) * dias);
+  const bruto = proporcao(brutoMes);
+  const cpp = proporcao(cppMes);
+  return { valor_pago: valorPago, bruto, inss: proporcao(r.inss), irrf: proporcao(r.irrf), iss: proporcao(r.iss), cpp, custo_real: round2(bruto + cpp) };
 }

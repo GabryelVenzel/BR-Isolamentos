@@ -40,7 +40,6 @@ export default function EquipeMaoObra({ config, maoObra }: Props) {
   const semEquipe = maoObra.pessoas === 0;
   const semRendimento = !semEquipe && maoObra.producao_m2_dia <= 0;
   const diasExatos = maoObra.horas_uteis_dia > 0 ? maoObra.horas_obra / maoObra.horas_uteis_dia : 0;
-  const diasNoPrimeiroMes = Math.min(maoObra.dias, encargos.dias_trabalho_mes);
 
   function alterar(id: string, dados: Partial<LinhaEquipeMaoObra>) {
     setEquipeLinhas(equipeLinhas.map((l) => (l.id === id ? { ...l, ...dados } : l)));
@@ -74,8 +73,9 @@ export default function EquipeMaoObra({ config, maoObra }: Props) {
             <strong>Pessoa física (RPA):</strong> o combinado é o líquido. A BR paga um bruto maior, desconta e recolhe o INSS (
             {formatarNumero(encargos.inss_pf_pct, 0)}%, até o teto) e o IR (tabela mensal
             {encargos.reducao_irrf.ativa ? ", com a redução da Lei 15.270/2025" : ""})
-            {encargos.iss_autonomo_pct > 0 ? ` e o ISS (${formatarNumero(encargos.iss_autonomo_pct, 2)}%)` : ""}. O cálculo é por pessoa e por
-            mês (blocos de até {encargos.dias_trabalho_mes} diárias).{" "}
+            {encargos.iss_autonomo_pct > 0 ? ` e o ISS (${formatarNumero(encargos.iss_autonomo_pct, 2)}%)` : ""}. O cálculo é por pessoa e
+            sempre pelo MÊS CHEIO ({encargos.dias_trabalho_mes} diárias): cada diária custa o mesmo que num mês completo, mesmo em obra curta —
+            assim o orçamento nunca cobra menos (o IR sobe com o valor do mês, e a pessoa pode trabalhar em outras obras no mesmo mês).{" "}
             {encargos.cpp_sobre_pf
               ? `Fora do Simples Anexo III, a BR paga ainda ${formatarNumero(encargos.cpp_pct, 0)}% de INSS patronal sobre o bruto.`
               : "No Simples Anexo III o INSS patronal já está no DAS."}
@@ -208,9 +208,9 @@ export default function EquipeMaoObra({ config, maoObra }: Props) {
       </button>
 
       {/* Avisos de encargos */}
-      {maoObra.funcoes.some((f) => f.forma === "pf") && diasNoPrimeiroMes > 10 && (
+      {maoObra.funcoes.some((f) => f.forma === "pf" && (f.valor_pago ?? 0) > 0) && (
         <p className="rounded-lg bg-amber-50 px-4 py-2 text-sm text-amber-800">
-          Pessoa física com {diasNoPrimeiroMes} diárias no mês: o IR retido sobe com o valor do mês — cada pessoa física custa{" "}
+          Pessoa física calculada pelo mês cheio ({encargos.dias_trabalho_mes} diárias) — cada pessoa física custa{" "}
           {maoObra.funcoes
             .filter((f) => f.forma === "pf" && (f.valor_pago ?? 0) > 0)
             .map((f) => `${LABEL_FUNCAO_MAO_OBRA[f.funcao].toLowerCase()} +${formatarNumero(((f.encargos ?? 0) / (f.valor_pago ?? 1)) * 100, 0)}%`)

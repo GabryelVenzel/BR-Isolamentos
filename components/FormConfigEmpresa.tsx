@@ -73,7 +73,7 @@ const CAMPOS_ENCARGOS: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo:
   { nome: "encargos_cpp_pct", label: "INSS patronal (CPP)", sufixo: "%" },
   { nome: "encargos_irrf_desconto_simplificado", label: "IR: desconto simplificado mensal", sufixo: "R$" },
   { nome: "encargos_iss_autonomo_pct", label: "ISS sobre autônomo (se o município exigir)", sufixo: "%" },
-  { nome: "encargos_dias_trabalho_mes", label: "Diárias por mês (bloco do cálculo)", sufixo: "dias" },
+  { nome: "encargos_dias_trabalho_mes", label: "Diárias de um mês cheio (base da pessoa física)", sufixo: "dias" },
 ];
 
 const CAMPOS_MAO_OBRA: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo: string }> = [
@@ -403,8 +403,8 @@ export default function FormConfigEmpresa({ config }: Props) {
             <p className="mb-3 text-xs text-gray-500">
               A diária de cada cargo é o valor <strong>combinado</strong> (o que a pessoa recebe). MEI e PJ: custo igual ao combinado. Pessoa
               física (RPA): a BR paga um bruto maior e desconta/recolhe INSS e IR; fora do Simples Anexo III paga ainda o INSS patronal sobre
-              o bruto. MEI com INSS patronal (hidráulica, eletricidade, pintura, alvenaria, carpintaria — LC 123/2006, art. 18-B): +CPP. O
-              cálculo é por pessoa e por mês. Valores de 2026 — revise a cada ano e confirme com o contador.
+              o bruto. MEI com INSS patronal (hidráulica, eletricidade, pintura, alvenaria, carpintaria — LC 123/2006, art. 18-B): +CPP. A
+              pessoa física é calculada sempre pelo mês cheio: cada diária custa o mesmo que num mês completo, mesmo em obra curta. Valores de 2026 — revise a cada ano e confirme com o contador.
             </p>
             {camposGrid(CAMPOS_ENCARGOS, "sm:grid-cols-2 lg:grid-cols-3")}
 

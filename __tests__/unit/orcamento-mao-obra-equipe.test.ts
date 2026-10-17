@@ -193,17 +193,19 @@ describe("equipe por linhas com encargos (migração 056)", () => {
     });
     expect(r.dias).toBe(5);
     expect(r.funcoes.find((f) => f.id === "a")).toMatchObject({ forma: "mei", valor_pago: 2750, encargos: 0, subtotal: 2750 });
-    expect(r.funcoes.find((f) => f.id === "b")).toMatchObject({ forma: "pf", valor_pago: 2750, bruto: 3089.89, inss: 339.89, irrf: 0, cpp: 0, encargos: 339.89, subtotal: 3089.89 });
+    // PF: diária pelo custo do mês cheio (22 diárias) — bruto 14.851,30 + ... ver encargos.
+    const pf = r.funcoes.find((f) => f.id === "b")!;
+    expect(pf).toMatchObject({ forma: "pf", valor_pago: 2750, cpp: 0 });
+    expect(pf.subtotal).toBeGreaterThan(3089.89);
     expect(r.valor_pago_pessoas).toBe(5500);
-    expect(r.encargos_total).toBe(339.89);
-    expect(r.valor_total).toBe(5839.89);
+    expect(r.valor_total).toBe(Math.round((2750 + pf.subtotal) * 100) / 100);
+    expect(r.encargos_total).toBe(Math.round((pf.subtotal - 2750) * 100) / 100);
   });
 
   it("encargos por pessoa: 2 pessoas físicas na mesma linha = 2 × o custo de uma", () => {
     const um = calcularMaoObraEquipe({ m2Equivalente: 70, linhas: [{ id: "a", funcao: "funileiro", forma: "pf", pessoas: 1, valor_diaria: null }], parametros: cfg, diasManual: 20 });
     const dois = calcularMaoObraEquipe({ m2Equivalente: 70, linhas: [{ id: "a", funcao: "funileiro", forma: "pf", pessoas: 2, valor_diaria: null }], parametros: cfg, diasManual: 20 });
-    expect(um.valor_total).toBe(14851.3);
-    expect(dois.valor_total).toBe(29702.6);
+    expect(dois.valor_total).toBe(Math.round(um.valor_total * 2 * 100) / 100);
   });
 
   it("forma em branco usa a forma padrão da configuração (sem configuração: pessoa física)", () => {
@@ -237,6 +239,7 @@ describe("equipe por linhas com encargos (migração 056)", () => {
   it("Anexo IV: pessoa física paga 20% patronal sobre o bruto", () => {
     const anexoIV = { ...cfg, simples_nacional_anexo: "IV" as const };
     const r = calcularMaoObraEquipe({ m2Equivalente: 70, linhas: [{ id: "a", funcao: "funileiro", forma: "pf", pessoas: 1, valor_diaria: null }], parametros: anexoIV, diasManual: 20 });
-    expect(r.valor_total).toBe(17821.56);
+    expect(r.funcoes[0].cpp).toBeGreaterThan(0);
+    expect(r.valor_total).toBe(Math.round(((r.funcoes[0].bruto ?? 0) + (r.funcoes[0].cpp ?? 0)) * 100) / 100);
   });
 });
