@@ -1,8 +1,11 @@
 "use client";
 
 import { useState, type FormEvent } from "react";
-import type { AnexoSimplesNacional, ConfigEmpresa, ItemExecucaoPadrao, RegimeTributario } from "@/lib/types";
+import type { AnexoSimplesNacional, ConfigEmpresa, FormaContratacao, FuncaoMaoObra, ItemExecucaoPadrao, RegimeTributario } from "@/lib/types";
 import { ITENS_EXECUCAO_SUGERIDOS } from "@/lib/usecases/orcamento/itensExecucao";
+import { FORMAS_CONTRATACAO, LABEL_FORMA_CONTRATACAO, PARAMETROS_ENCARGOS_2026, type FaixaIrrf, type ReducaoIrrf } from "@/lib/usecases/orcamento/encargosMaoObra";
+import { hojeBrasilia } from "@/lib/financeiro";
+import { formatarData } from "@/lib/format";
 import { AlertTriangle } from "lucide-react";
 
 interface Props {
@@ -53,11 +56,24 @@ const CAMPOS_QUANTIFICACAO: Array<{ nome: keyof ConfigEmpresa; label: string; su
 // quando executa o isolamento, o seu rendimento. O TST só tem diária: é
 // cobrado pelos mesmos dias da equipe, mas não produz. Um cargo cuja coluna
 // ainda não existe no banco (migração não rodada) não aparece.
-const CARGOS: Array<{ label: string; diaria: keyof ConfigEmpresa; rendimento: keyof ConfigEmpresa | null }> = [
-  { label: "Funileiro", diaria: "valor_diaria_funileiro", rendimento: "m2_dia_funileiro" },
-  { label: "Isolador", diaria: "valor_diaria_isolador", rendimento: "m2_dia_isolador" },
-  { label: "Ajudante", diaria: "valor_diaria_ajudante", rendimento: "m2_dia_ajudante" },
-  { label: "Técnico de Segurança do Trabalho (TST)", diaria: "valor_diaria_tst", rendimento: null },
+const CARGOS: Array<{ funcao: FuncaoMaoObra; label: string; diaria: keyof ConfigEmpresa; rendimento: keyof ConfigEmpresa | null }> = [
+  { funcao: "funileiro", label: "Funileiro", diaria: "valor_diaria_funileiro", rendimento: "m2_dia_funileiro" },
+  { funcao: "isolador", label: "Isolador", diaria: "valor_diaria_isolador", rendimento: "m2_dia_isolador" },
+  { funcao: "ajudante", label: "Ajudante", diaria: "valor_diaria_ajudante", rendimento: "m2_dia_ajudante" },
+  // Migração 056 — o Supervisor produz (decisão do usuário).
+  { funcao: "supervisor", label: "Supervisor", diaria: "valor_diaria_supervisor", rendimento: "m2_dia_supervisor" },
+  { funcao: "tst", label: "Técnico de Segurança do Trabalho (TST)", diaria: "valor_diaria_tst", rendimento: null },
+];
+
+// Encargos sobre a mão de obra (migração 056) — valores de 2026; mudam todo
+// ano (teto do INSS, tabela do IR) e por isso ficam editáveis.
+const CAMPOS_ENCARGOS: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo: string }> = [
+  { nome: "encargos_inss_pf_pct", label: "INSS descontado da pessoa física", sufixo: "%" },
+  { nome: "encargos_teto_inss", label: "Teto do INSS (base mensal)", sufixo: "R$" },
+  { nome: "encargos_cpp_pct", label: "INSS patronal (CPP)", sufixo: "%" },
+  { nome: "encargos_irrf_desconto_simplificado", label: "IR: desconto simplificado mensal", sufixo: "R$" },
+  { nome: "encargos_iss_autonomo_pct", label: "ISS sobre autônomo (se o município exigir)", sufixo: "%" },
+  { nome: "encargos_dias_trabalho_mes", label: "Diárias por mês (bloco do cálculo)", sufixo: "dias" },
 ];
 
 const CAMPOS_MAO_OBRA: Array<{ nome: keyof ConfigEmpresa; label: string; sufixo: string }> = [
@@ -96,6 +112,18 @@ const CAMPOS_CONTATO_TECNICO: Array<{ nome: keyof ConfigEmpresa; label: string; 
 
 export default function FormConfigEmpresa({ config }: Props) {
   const [valores, setValores] = useState<ConfigEmpresa>(config);
+
+  // Encargos (migração 056): forma padrão por função, tabela e redução do IR.
+  const formasPadrao = (valores.forma_contratacao_padrao ?? {}) as Partial<Record<FuncaoMaoObra, FormaContratacao>>;
+  const tabelaIrrf: FaixaIrrf[] = Array.isArray(valores.encargos_tabela_irrf) ? (valores.encargos_tabela_irrf as FaixaIrrf[]) : PARAMETROS_ENCARGOS_2026.tabela_irrf;
+  const reducaoIrrf: ReducaoIrrf = { ...PARAMETROS_ENCARGOS_2026.reducao_irrf, ...((valores.encargos_reducao_irrf ?? {}) as Partial<ReducaoIrrf>) };
+  const alterarFaixa = (i: number, dados: Partial<FaixaIrrf>) =>
+    setValores((prev) => ({ ...prev, encargos_tabela_irrf: tabelaIrrf.map((f, j) => (j === i ? { ...f, ...dados } : f)) }));
+  const alterarReducao = (dados: Partial<ReducaoIrrf>) => setValores((prev) => ({ ...prev, encargos_reducao_irrf: { ...reducaoIrrf, ...dados } }));
+  const temEncargos = config.encargos_inss_pf_pct !== undefined;
+  const diasDesdeRbt12 = valores.simples_nacional_rbt12_atualizado_em
+    ? Math.floor((new Date(`${hojeBrasilia()}T00:00:00Z`).getTime() - new Date(`${String(valores.simples_nacional_rbt12_atualizado_em).slice(0, 10)}T00:00:00Z`).getTime()) / 86400000)
+    : null;
   const [salvando, setSalvando] = useState(false);
   const [mensagem, setMensagem] = useState<string | null>(null);
 
@@ -242,9 +270,20 @@ export default function FormConfigEmpresa({ config }: Props) {
                     className="input-field"
                     value={valores.simples_nacional_rbt12}
                     onChange={(e) =>
-                      setValores((prev) => ({ ...prev, simples_nacional_rbt12: Number(e.target.value) }))
+                      setValores((prev) => ({
+                        ...prev,
+                        simples_nacional_rbt12: Number(e.target.value),
+                        // Migração 056 — data da última atualização (aviso após 30 dias).
+                        ...(prev.simples_nacional_rbt12_atualizado_em !== undefined && { simples_nacional_rbt12_atualizado_em: hojeBrasilia() }),
+                      }))
                     }
                   />
+                  {valores.simples_nacional_rbt12_atualizado_em && (
+                    <p className={`mt-1 text-xs ${diasDesdeRbt12 != null && diasDesdeRbt12 > 30 ? "font-semibold text-amber-700" : "text-gray-500"}`}>
+                      Atualizado em {formatarData(String(valores.simples_nacional_rbt12_atualizado_em).slice(0, 10))}
+                      {diasDesdeRbt12 != null && diasDesdeRbt12 > 30 && " — mais de 30 dias: revise (deve ser o esperado para o mês da nota)"}
+                    </p>
+                  )}
                 </div>
               </>
             )}
@@ -305,17 +344,20 @@ export default function FormConfigEmpresa({ config }: Props) {
         <div>
           <h3 className="mb-2 text-sm font-semibold text-gray-600">Cargos</h3>
           <p className="mb-3 text-xs text-gray-500">
-            "Diária" é o valor de UMA pessoa do cargo por dia. "Rendimento" é quanto UMA pessoa produz em um dia de trabalho, a 100% de
-            eficiência — a produção da equipe é a soma das pessoas escolhidas. O Técnico de Segurança do Trabalho acompanha a obra e
-            entra no custo, mas não produz: não tem rendimento e não reduz os dias.
+            "Diária" é o valor combinado (LÍQUIDO, o que a pessoa recebe) de UMA pessoa do cargo por dia — os encargos de cada forma de
+            contratação são calculados no orçamento, que mostra o custo real. "Rendimento" é quanto UMA pessoa produz em um dia de
+            trabalho, a 100% de eficiência — a produção da equipe é a soma das pessoas escolhidas. O Técnico de Segurança do Trabalho
+            acompanha a obra e entra no custo, mas não produz. "Contratação padrão" vem preenchida em cada linha da equipe (dá para
+            trocar no orçamento).
           </p>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200 text-sm">
               <thead className="table-header">
                 <tr>
                   <th className="py-2 pr-4 text-left">Cargo</th>
-                  <th className="py-2 pr-4 text-left">Diária (R$ por pessoa por dia)</th>
-                  <th className="py-2 text-left">Rendimento (m² por pessoa por dia)</th>
+                  <th className="py-2 pr-4 text-left">Diária combinada (R$ líquido por pessoa por dia)</th>
+                  <th className="py-2 pr-4 text-left">Rendimento (m² por pessoa por dia)</th>
+                  {valores.forma_contratacao_padrao !== undefined && <th className="py-2 text-left">Contratação padrão</th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -325,15 +367,114 @@ export default function FormConfigEmpresa({ config }: Props) {
                     <td className="py-2 pr-4">
                       <div className="max-w-[12rem]">{numero(cargo.diaria)}</div>
                     </td>
-                    <td className="py-2">
-                      {cargo.rendimento ? <div className="max-w-[12rem]">{numero(cargo.rendimento)}</div> : <span className="text-gray-400">Não produz</span>}
+                    <td className="py-2 pr-4">
+                      {cargo.rendimento && config[cargo.rendimento] !== undefined ? (
+                        <div className="max-w-[12rem]">{numero(cargo.rendimento)}</div>
+                      ) : (
+                        <span className="text-gray-400">Não produz</span>
+                      )}
                     </td>
+                    {valores.forma_contratacao_padrao !== undefined && (
+                      <td className="py-2">
+                        <select
+                          aria-label={`Contratação padrão de ${cargo.label}`}
+                          className="input-field max-w-[13rem]"
+                          value={formasPadrao[cargo.funcao] ?? "pf"}
+                          onChange={(e) => setValores((prev) => ({ ...prev, forma_contratacao_padrao: { ...formasPadrao, [cargo.funcao]: e.target.value } }))}
+                        >
+                          {FORMAS_CONTRATACAO.map((f) => (
+                            <option key={f} value={f}>
+                              {LABEL_FORMA_CONTRATACAO[f]}
+                            </option>
+                          ))}
+                        </select>
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         </div>
+
+        {temEncargos && (
+          <div>
+            <h3 className="mb-2 text-sm font-semibold text-gray-600">Encargos sobre a mão de obra</h3>
+            <p className="mb-3 text-xs text-gray-500">
+              A diária de cada cargo é o valor <strong>combinado</strong> (o que a pessoa recebe). MEI e PJ: custo igual ao combinado. Pessoa
+              física (RPA): a BR paga um bruto maior e desconta/recolhe INSS e IR; fora do Simples Anexo III paga ainda o INSS patronal sobre
+              o bruto. MEI com INSS patronal (hidráulica, eletricidade, pintura, alvenaria, carpintaria — LC 123/2006, art. 18-B): +CPP. O
+              cálculo é por pessoa e por mês. Valores de 2026 — revise a cada ano e confirme com o contador.
+            </p>
+            {camposGrid(CAMPOS_ENCARGOS, "sm:grid-cols-2 lg:grid-cols-3")}
+
+            <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+              <div>
+                <p className="label-field">Tabela mensal do IR (sem dependentes)</p>
+                <table className="min-w-full text-sm">
+                  <thead className="table-header">
+                    <tr>
+                      <th className="py-1.5 pr-2 text-left">Base até (R$)</th>
+                      <th className="py-1.5 pr-2 text-left">Alíquota (%)</th>
+                      <th className="py-1.5 text-left">Parcela a deduzir (R$)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {tabelaIrrf.map((f, i) => (
+                      <tr key={i}>
+                        <td className="py-1 pr-2">
+                          {f.ate === null ? (
+                            <span className="text-gray-500">acima</span>
+                          ) : (
+                            <input type="number" step="0.01" aria-label="Base até" className="input-field" value={f.ate} onChange={(e) => alterarFaixa(i, { ate: Number(e.target.value) })} />
+                          )}
+                        </td>
+                        <td className="py-1 pr-2">
+                          <input type="number" step="0.01" aria-label="Alíquota" className="input-field" value={f.aliquota} onChange={(e) => alterarFaixa(i, { aliquota: Number(e.target.value) })} />
+                        </td>
+                        <td className="py-1">
+                          <input type="number" step="0.01" aria-label="Parcela a deduzir" className="input-field" value={f.deducao} onChange={(e) => alterarFaixa(i, { deducao: Number(e.target.value) })} />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-700">
+                  <input type="checkbox" checked={reducaoIrrf.ativa} onChange={(e) => alterarReducao({ ativa: e.target.checked })} />
+                  Aplicar a redução do IR da Lei 15.270/2025
+                </label>
+                <p className="text-xs text-gray-500">
+                  Rendimento do mês até o limite de isenção: IR zerado. Até o limite de redução: redução = constante − coeficiente × rendimento.
+                  O rendimento usado é o bruto do mês (confirmar com o contador).
+                </p>
+                <div className="grid grid-cols-2 gap-3">
+                  {(
+                    [
+                      ["isencao_ate", "Isenção até (R$)"],
+                      ["reducao_ate", "Redução até (R$)"],
+                      ["constante", "Constante (R$)"],
+                      ["coeficiente", "Coeficiente"],
+                    ] as const
+                  ).map(([chave, label]) => (
+                    <div key={chave}>
+                      <label className="label-field">{label}</label>
+                      <input
+                        type="number"
+                        step="any"
+                        className="input-field"
+                        disabled={!reducaoIrrf.ativa}
+                        value={reducaoIrrf[chave]}
+                        onChange={(e) => alterarReducao({ [chave]: Number(e.target.value) })}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         <div>
           <h3 className="mb-2 text-sm font-semibold text-gray-600">Eficiência e jornada</h3>

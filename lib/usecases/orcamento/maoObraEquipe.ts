@@ -27,14 +27,16 @@
 // mais por trecho. `distribuirMaoObraPorTrecho` só reparte o resultado entre
 // os trechos, para exibição e para o rateio do valor final.
 
-import type { ConfigEmpresa, FuncaoMaoObra, MaoObraEquipe } from "../../types";
+import type { ConfigEmpresa, FormaContratacao, FuncaoMaoObra, LinhaEquipeMaoObra, MaoObraEquipe } from "../../types";
+import { encargosDaPessoa, parametrosEncargosDaConfig } from "./encargosMaoObra";
 
-export const FUNCOES_MAO_OBRA: readonly FuncaoMaoObra[] = ["funileiro", "isolador", "ajudante", "tst"];
+export const FUNCOES_MAO_OBRA: readonly FuncaoMaoObra[] = ["funileiro", "isolador", "ajudante", "supervisor", "tst"];
 
 export const LABEL_FUNCAO_MAO_OBRA: Record<FuncaoMaoObra, string> = {
   funileiro: "Funileiro",
   isolador: "Isolador",
   ajudante: "Ajudante",
+  supervisor: "Supervisor",
   tst: "Técnico de Segurança do Trabalho",
 };
 
@@ -42,16 +44,46 @@ export const LABEL_FUNCAO_MAO_OBRA: Record<FuncaoMaoObra, string> = {
  * pelos mesmos dias e são cobrados por diária, mas não têm rendimento — não
  * somam na produção da equipe nem reduzem os dias. */
 export const FUNCOES_SEM_RENDIMENTO: readonly FuncaoMaoObra[] = ["tst"];
+// O Supervisor (migração 056) produz: tem rendimento próprio em m²/dia.
 
 export function funcaoProduz(funcao: FuncaoMaoObra): boolean {
   return !FUNCOES_SEM_RENDIMENTO.includes(funcao);
 }
 
-/** Quantas pessoas de cada função. */
-export type EquipeMaoObra = Record<FuncaoMaoObra, number>;
+/** Quantas pessoas de cada função — formato ANTERIOR à migração 056 (só
+ * para ler estados antigos; ver `linhasDaEquipeAntiga`). */
+export type EquipeMaoObra = Partial<Record<FuncaoMaoObra, number>>;
 
-export const EQUIPE_PADRAO: EquipeMaoObra = { funileiro: 1, isolador: 1, ajudante: 0, tst: 0 };
-export const EQUIPE_VAZIA: EquipeMaoObra = { funileiro: 0, isolador: 0, ajudante: 0, tst: 0 };
+/** Equipe inicial de um orçamento novo: 1 funileiro + 1 isolador, na forma e
+ * na diária padrão da configuração. */
+export const EQUIPE_LINHAS_PADRAO: LinhaEquipeMaoObra[] = [
+  { id: "funileiro-1", funcao: "funileiro", forma: null, pessoas: 1, valor_diaria: null },
+  { id: "isolador-1", funcao: "isolador", forma: null, pessoas: 1, valor_diaria: null },
+];
+
+/** Converte a equipe antiga (pessoas por função + diária ajustada) em linhas.
+ * A forma fica "não informada" (sem encargos) para o valor de um orçamento
+ * antigo não mudar só por ser reaberto. */
+export function linhasDaEquipeAntiga(
+  equipe: EquipeMaoObra | undefined | null,
+  valoresDiaria: Partial<Record<FuncaoMaoObra, number | null>> | undefined | null,
+  forma: FormaContratacao | null = "nao_informada"
+): LinhaEquipeMaoObra[] {
+  return FUNCOES_MAO_OBRA.filter((f) => Math.floor(Number(equipe?.[f]) || 0) > 0).map((funcao) => ({
+    id: `${funcao}-1`,
+    funcao,
+    forma,
+    pessoas: Math.floor(Number(equipe?.[funcao]) || 0),
+    valor_diaria: valoresDiaria?.[funcao] ?? null,
+  }));
+}
+
+/** Forma de contratação padrão de cada função (Configurações do orçamento);
+ * sem configuração: pessoa física (o cenário mais caro). */
+export function formaPadrao(funcao: FuncaoMaoObra, config: Pick<ConfigEmpresa, "forma_contratacao_padrao"> | Partial<ConfigEmpresa>): FormaContratacao {
+  const mapa = (config as Partial<ConfigEmpresa>).forma_contratacao_padrao as Partial<Record<FuncaoMaoObra, FormaContratacao>> | null | undefined;
+  return mapa?.[funcao] ?? "pf";
+}
 
 export type ParametrosEquipe = Pick<
   ConfigEmpresa,
@@ -63,15 +95,16 @@ export type ParametrosEquipe = Pick<
   | "m2_dia_isolador"
   | "m2_dia_ajudante"
   | "horas_uteis_dia"
->;
+> &
+  Partial<ConfigEmpresa>;
 
 export function valorDiariaPadrao(funcao: FuncaoMaoObra, parametros: ParametrosEquipe): number {
-  return Number(parametros[`valor_diaria_${funcao}`]) || 0;
+  return Number(parametros[`valor_diaria_${funcao}` as keyof ParametrosEquipe]) || 0;
 }
 
 export function rendimentoM2Dia(funcao: FuncaoMaoObra, parametros: ParametrosEquipe): number {
-  if (funcao === "tst") return 0;
-  return Number(parametros[`m2_dia_${funcao}`]) || 0;
+  if (!funcaoProduz(funcao)) return 0;
+  return Number(parametros[`m2_dia_${funcao}` as keyof ParametrosEquipe]) || 0;
 }
 
 const round2 = (n: number) => Number(n.toFixed(2));
@@ -88,11 +121,11 @@ export function diasFechados(horasObra: number, horasUteisDia: number): number {
 export function calcularMaoObraEquipe(input: {
   /** Soma dos m² equivalentes (metragem ÷ eficiência) de todos os trechos. */
   m2Equivalente: number;
-  equipe: Partial<EquipeMaoObra>;
+  /** Linhas da equipe (migração 056). */
+  linhas: LinhaEquipeMaoObra[];
+  /** Configuração: diárias, rendimentos, forma padrão, horas do dia e os
+   * parâmetros de encargos (regime/anexo, INSS, IR...). */
   parametros: ParametrosEquipe;
-  /** Valor de diária ajustado só para esta proposta, por função; ausente ou
-   * `null` = o valor de Configurar Preços. */
-  valoresDiaria?: Partial<Record<FuncaoMaoObra, number | null>>;
   /** Horas úteis por dia desta proposta; `null` = o padrão da configuração.
    * Menos horas produtivas no local = mais dias (e mais diárias). */
   horasUteisDia?: number | null;
@@ -102,13 +135,18 @@ export function calcularMaoObraEquipe(input: {
   const horasDiaPadrao = Number(input.parametros.horas_uteis_dia) || 0;
   const horasUteisDia = input.horasUteisDia && input.horasUteisDia > 0 ? input.horasUteisDia : horasDiaPadrao;
   const m2Equivalente = Math.max(0, Number(input.m2Equivalente) || 0);
+  const encargos = parametrosEncargosDaConfig(input.parametros);
 
-  const composicao = FUNCOES_MAO_OBRA.map((funcao) => ({
-    funcao,
-    pessoas: inteiroNaoNegativo(input.equipe[funcao]),
-    m2_dia: rendimentoM2Dia(funcao, input.parametros),
-    valor_diaria: Math.max(0, input.valoresDiaria?.[funcao] ?? valorDiariaPadrao(funcao, input.parametros)),
-  }));
+  const composicao = input.linhas
+    .filter((l) => FUNCOES_MAO_OBRA.includes(l.funcao))
+    .map((l) => ({
+      id: l.id,
+      funcao: l.funcao,
+      forma: l.forma ?? formaPadrao(l.funcao, input.parametros),
+      pessoas: inteiroNaoNegativo(l.pessoas),
+      m2_dia: rendimentoM2Dia(l.funcao, input.parametros),
+      valor_diaria: Math.max(0, l.valor_diaria ?? valorDiariaPadrao(l.funcao, input.parametros)),
+    }));
 
   const producaoM2Dia = composicao.reduce((acc, f) => acc + f.pessoas * f.m2_dia, 0);
   // O rendimento é "por dia padrão" — por hora, a equipe produz produção ÷
@@ -118,10 +156,30 @@ export function calcularMaoObraEquipe(input: {
   const manual = input.diasManual != null && input.diasManual >= 0;
   const dias = manual ? inteiroNaoNegativo(input.diasManual) : diasFechados(horasObra, horasUteisDia);
 
+  // Encargos por PESSOA (INSS e IR são mensais e individuais) × pessoas da linha.
   const funcoes = composicao
     .filter((f) => f.pessoas > 0)
-    .map((f) => ({ ...f, diarias: dias, subtotal: round2(f.pessoas * dias * f.valor_diaria) }));
+    .map((f) => {
+      const e = encargosDaPessoa(f.forma, f.valor_diaria, dias, encargos);
+      const vezes = (n: number) => round2(n * f.pessoas);
+      const valorPago = vezes(e.valor_pago);
+      const subtotal = vezes(e.custo_real);
+      return {
+        ...f,
+        diarias: dias,
+        valor_pago: valorPago,
+        bruto: vezes(e.bruto),
+        inss: vezes(e.inss),
+        irrf: vezes(e.irrf),
+        iss: vezes(e.iss),
+        cpp: vezes(e.cpp),
+        encargos: round2(subtotal - valorPago),
+        subtotal,
+      };
+    });
 
+  const valorTotal = round2(funcoes.reduce((acc, f) => acc + f.subtotal, 0));
+  const valorPago = round2(funcoes.reduce((acc, f) => acc + f.valor_pago, 0));
   return {
     m2_equivalente: round2(m2Equivalente),
     producao_m2_dia: round2(producaoM2Dia),
@@ -131,7 +189,9 @@ export function calcularMaoObraEquipe(input: {
     dias_manual: manual,
     pessoas: funcoes.reduce((acc, f) => acc + f.pessoas, 0),
     funcoes,
-    valor_total: round2(funcoes.reduce((acc, f) => acc + f.subtotal, 0)),
+    valor_total: valorTotal,
+    valor_pago_pessoas: valorPago,
+    encargos_total: round2(valorTotal - valorPago),
   };
 }
 

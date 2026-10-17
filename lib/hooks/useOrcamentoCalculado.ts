@@ -49,7 +49,7 @@ export interface OrcamentoCalculado {
  * total usa este mesmo cálculo, então os números nunca divergem entre as
  * etapas nem ficam desatualizados quando algo muda. */
 export function useOrcamentoCalculado(rascunho?: PrecificacaoTrecho | null): OrcamentoCalculado {
-  const { itens, equipe, valoresDiariaOverride, horasUteisDiaOverride, diasMaoObraManual, custosOperacionais, margemPercentual, descontoValor, execucaoPadrao } =
+  const { itens, equipeLinhas, horasUteisDiaOverride, diasMaoObraManual, custosOperacionais, margemPercentual, descontoValor, execucaoPadrao } =
     useWizardStore();
   const [dados, setDados] = useState<{ config: ConfigEmpresa; impostosExtras: ImpostoConfig[] } | null>(null);
   const [erroConfig, setErroConfig] = useState<string | null>(null);
@@ -68,7 +68,7 @@ export function useOrcamentoCalculado(rascunho?: PrecificacaoTrecho | null): Orc
     if (!dados) return { config: null, trechos: [], maoObra: null, itensExecucao: [], resultado: null, erro: erroConfig };
 
     const todos: Array<{ precificacao: PrecificacaoTrecho }> = rascunho ? [...itens, { precificacao: rascunho }] : itens;
-    const maoObra = calcularMaoObraDoWizard(todos, { equipe, valoresDiariaOverride, horasUteisDiaOverride, diasMaoObraManual }, dados.config);
+    const maoObra = calcularMaoObraDoWizard(todos, { equipeLinhas, horasUteisDiaOverride, diasMaoObraManual }, dados.config);
     const trechos = aplicarMaoObraNosTrechos(todos, maoObra);
     const itensExecucao = resolverItensExecucao(catalogoItensExecucao(dados.config.itens_execucao_padrao), execucaoPadrao);
     if (trechos.length === 0) return { config: dados.config, trechos, maoObra, itensExecucao, resultado: null, erro: null };
@@ -105,5 +105,5 @@ export function useOrcamentoCalculado(rascunho?: PrecificacaoTrecho | null): Orc
     } catch (error) {
       return { config: dados.config, trechos, maoObra, itensExecucao, resultado: null, erro: error instanceof Error ? error.message : "Erro ao calcular o orçamento." };
     }
-  }, [dados, erroConfig, itens, rascunho, equipe, valoresDiariaOverride, horasUteisDiaOverride, diasMaoObraManual, custosOperacionais, margemPercentual, descontoValor, execucaoPadrao]);
+  }, [dados, erroConfig, itens, rascunho, equipeLinhas, horasUteisDiaOverride, diasMaoObraManual, custosOperacionais, margemPercentual, descontoValor, execucaoPadrao]);
 }

@@ -23,6 +23,7 @@ import type {
   CombustivelTipo,
   FuncaoMaoObra,
   ItemEscopo,
+  LinhaEquipeMaoObra,
   MaoObraEquipe,
   StatusOrcamento,
   TipoTrabalho,
@@ -31,9 +32,10 @@ import type { PrecificacaoTrecho } from "./usecases/orcamento";
 import type { EstadoWizardSalvo } from "./usecases/orcamento/reabrirOrcamento";
 import type { EscolhaItemExecucao, EscolhasExecucao } from "./usecases/orcamento/itensExecucao";
 import {
-  EQUIPE_PADRAO,
+  EQUIPE_LINHAS_PADRAO,
   calcularMaoObraEquipe,
   distribuirMaoObraPorTrecho,
+  linhasDaEquipeAntiga,
   type EquipeMaoObra,
   type ParametrosEquipe,
 } from "./usecases/orcamento/maoObraEquipe";
@@ -201,11 +203,9 @@ export interface WizardState {
 
   // --- Mão de obra por equipe e diárias (migração 048) — vale pro orçamento
   // inteiro, ver lib/usecases/orcamento/maoObraEquipe.ts ---
-  /** Quantas pessoas de cada função. */
-  equipe: EquipeMaoObra;
-  /** Valor da diária ajustado só para este orçamento, por função; ausente ou
-   * `null` = o valor de Configurar Preços. */
-  valoresDiariaOverride: Partial<Record<FuncaoMaoObra, number | null>>;
+  /** Linhas da equipe (migração 056): função, forma de contratação, pessoas
+   * e diária combinada (`null` = a de Configurações do orçamento). */
+  equipeLinhas: LinhaEquipeMaoObra[];
   /** Dias de obra digitados à mão; `null` = calculados (sempre dias
    * fechados, arredondados para cima). */
   diasMaoObraManual: number | null;
@@ -246,8 +246,7 @@ export interface WizardState {
   removerItem: (index: number) => void;
   setCustosOperacionais: (dados: Partial<WizardCustosOperacionais>) => void;
   setHorasUteisDiaOverride: (horas: number | null) => void;
-  setEquipe: (dados: Partial<EquipeMaoObra>) => void;
-  setValorDiariaOverride: (funcao: FuncaoMaoObra, valor: number | null) => void;
+  setEquipeLinhas: (linhas: LinhaEquipeMaoObra[]) => void;
   setDiasMaoObraManual: (dias: number | null) => void;
   setAjustesAtual: (dados: Partial<AjustesTrecho>) => void;
   setItemExecucao: (id: string, dados: Partial<EscolhaItemExecucao>) => void;
@@ -317,8 +316,7 @@ export const useWizardStore = create<WizardState>()(
 
       custosOperacionais: custosOperacionaisIniciais,
       horasUteisDiaOverride: null,
-      equipe: EQUIPE_PADRAO,
-      valoresDiariaOverride: {},
+      equipeLinhas: EQUIPE_LINHAS_PADRAO,
       diasMaoObraManual: null,
       resultadoOrcamento: null,
       execucaoPadrao: {},
@@ -377,9 +375,7 @@ export const useWizardStore = create<WizardState>()(
       setCustosOperacionais: (dados) =>
         set((state) => ({ custosOperacionais: { ...state.custosOperacionais, ...dados } })),
       setHorasUteisDiaOverride: (horas) => set({ horasUteisDiaOverride: horas }),
-      setEquipe: (dados) => set((state) => ({ equipe: { ...state.equipe, ...dados } })),
-      setValorDiariaOverride: (funcao, valor) =>
-        set((state) => ({ valoresDiariaOverride: { ...state.valoresDiariaOverride, [funcao]: valor } })),
+      setEquipeLinhas: (linhas) => set({ equipeLinhas: linhas }),
       setDiasMaoObraManual: (dias) => set({ diasMaoObraManual: dias }),
       setAjustesAtual: (dados) => set((state) => ({ ajustesAtual: { ...state.ajustesAtual, ...dados } })),
       setItemExecucao: (id, dados) =>
@@ -403,8 +399,7 @@ export const useWizardStore = create<WizardState>()(
           ajustesAtual: ajustesVazios,
           custosOperacionais: { ...custosOperacionaisIniciais, ...estado.custosOperacionais },
           horasUteisDiaOverride: estado.horasUteisDiaOverride ?? null,
-          equipe: { ...EQUIPE_PADRAO, ...estado.equipe },
-          valoresDiariaOverride: { ...estado.valoresDiariaOverride },
+          equipeLinhas: estado.equipeLinhas ?? linhasDaEquipeAntiga(estado.equipe, estado.valoresDiariaOverride),
           diasMaoObraManual: estado.diasMaoObraManual ?? null,
           resultadoOrcamento: null,
           execucaoPadrao: { ...estado.execucaoPadrao },
@@ -427,8 +422,7 @@ export const useWizardStore = create<WizardState>()(
           ajustesAtual: ajustesVazios,
           custosOperacionais: custosOperacionaisIniciais,
           horasUteisDiaOverride: null,
-          equipe: EQUIPE_PADRAO,
-          valoresDiariaOverride: {},
+          equipeLinhas: EQUIPE_LINHAS_PADRAO,
           diasMaoObraManual: null,
           resultadoOrcamento: null,
           execucaoPadrao: {},
@@ -452,14 +446,20 @@ export const useWizardStore = create<WizardState>()(
       // ficar ausente, então esse bug não pode se repetir na próxima vez que
       // um campo for adicionado a esses objetos aninhados.
       merge: (persistedState, currentState) => {
-        const persisted = persistedState as Partial<WizardState> | undefined;
+        const persisted = persistedState as (Partial<WizardState> & { equipe?: EquipeMaoObra; valoresDiariaOverride?: Partial<Record<FuncaoMaoObra, number | null>> }) | undefined;
+        // Rascunho salvo antes da migração 056 (pessoas por função): vira
+        // linhas com forma "não informada" — o valor não muda sozinho.
+        const equipeLinhas = Array.isArray(persisted?.equipeLinhas)
+          ? persisted.equipeLinhas
+          : persisted?.equipe
+            ? linhasDaEquipeAntiga(persisted.equipe, persisted.valoresDiariaOverride)
+            : currentState.equipeLinhas;
         return {
           ...currentState,
           ...persisted,
           custosOperacionais: { ...currentState.custosOperacionais, ...persisted?.custosOperacionais },
           itemAtual: { ...currentState.itemAtual, ...persisted?.itemAtual },
-          equipe: { ...currentState.equipe, ...persisted?.equipe },
-          valoresDiariaOverride: { ...persisted?.valoresDiariaOverride },
+          equipeLinhas,
           ajustesAtual: { ...currentState.ajustesAtual, ...persisted?.ajustesAtual },
           execucaoPadrao: { ...persisted?.execucaoPadrao },
         };
@@ -477,8 +477,7 @@ export function estadoParaSalvar(state: WizardState): EstadoWizardSalvo {
     itens: state.itens,
     custosOperacionais: state.custosOperacionais,
     horasUteisDiaOverride: state.horasUteisDiaOverride,
-    equipe: state.equipe,
-    valoresDiariaOverride: state.valoresDiariaOverride,
+    equipeLinhas: state.equipeLinhas,
     diasMaoObraManual: state.diasMaoObraManual,
     execucaoPadrao: state.execucaoPadrao,
     margemPercentual: state.margemPercentual,
@@ -509,14 +508,13 @@ export function m2EquivalenteDoTrecho(precificacao: PrecificacaoTrecho): number 
  * diárias e as horas úteis escolhidas no wizard. */
 export function calcularMaoObraDoWizard(
   itens: Array<Pick<WizardItem, "precificacao">>,
-  escolhas: Pick<WizardState, "equipe" | "valoresDiariaOverride" | "horasUteisDiaOverride" | "diasMaoObraManual">,
+  escolhas: Pick<WizardState, "equipeLinhas" | "horasUteisDiaOverride" | "diasMaoObraManual">,
   parametros: ParametrosEquipe
 ): MaoObraEquipe {
   return calcularMaoObraEquipe({
     m2Equivalente: itens.reduce((acc, i) => acc + m2EquivalenteDoTrecho(i.precificacao), 0),
-    equipe: escolhas.equipe,
+    linhas: escolhas.equipeLinhas,
     parametros,
-    valoresDiaria: escolhas.valoresDiariaOverride,
     horasUteisDia: escolhas.horasUteisDiaOverride,
     diasManual: escolhas.diasMaoObraManual,
   });

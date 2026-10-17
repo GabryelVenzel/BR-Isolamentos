@@ -405,6 +405,8 @@ export interface Parceiro {
   /** Migração 055 — % de comissão que o representante costuma receber
    * (preenche o lead novo dele). Só para representante. */
   percentual_comissao_padrao?: number | null;
+  /** Migração 056 — como o prestador é contratado (mei, pf, pj, mei_cpp). */
+  forma_contratacao?: "mei" | "pf" | "pj" | "mei_cpp" | null;
   ativo: boolean;
   created_at: string;
   updated_at: string;

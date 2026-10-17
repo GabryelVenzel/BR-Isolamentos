@@ -72,6 +72,8 @@ const ParceiroBaseSchema = z.object({
   total_pessoas: z.number().int().positive("Total de pessoas deve ser maior que zero.").nullable().optional(),
   // Migração 055 — % padrão do representante.
   percentual_comissao_padrao: z.number().min(0).max(100).nullable().optional(),
+  // Migração 056 — forma de contratação do prestador.
+  forma_contratacao: z.enum(["mei", "pf", "pj", "mei_cpp"]).nullable().optional(),
   ativo: z.boolean().optional(),
 });
 

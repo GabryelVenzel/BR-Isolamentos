@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { estadoParaSalvar, tipoTrabalhoAgregado, useWizardStore } from "@/lib/store";
+import ResumoEquipe from "@/components/orcamento/ResumoEquipe";
 import { LABEL_FUNCAO_MAO_OBRA, alocarValorFinalPorTrecho, descreverItemEscopo, geometriaRepresentativa } from "@/lib/usecases/orcamento";
 import { useOrcamentoCalculado } from "@/lib/hooks/useOrcamentoCalculado";
 import { formatarMoeda, formatarNumero } from "@/lib/format";
@@ -268,21 +269,8 @@ export default function Step6RevisaoPage() {
             <p className="rounded-lg bg-amber-50 px-4 py-2 text-amber-700">Nenhuma pessoa na equipe — o orçamento está sem mão de obra.</p>
           ) : (
             <>
-              {maoObraEquipe.funcoes.map((f) => (
-                <div key={f.funcao} className="flex justify-between gap-4">
-                  <span>
-                    {LABEL_FUNCAO_MAO_OBRA[f.funcao]}: {f.pessoas} × {f.diarias} {f.diarias === 1 ? "diária" : "diárias"} × {formatarMoeda(f.valor_diaria)}
-                  </span>
-                  <span>{formatarMoeda(f.subtotal)}</span>
-                </div>
-              ))}
-              <p className="border-t border-gray-100 pt-2 text-gray-500">
-                {formatarNumero(maoObraEquipe.horas_obra, 1)} h de obra ÷ {formatarNumero(maoObraEquipe.horas_uteis_dia, 1)} h úteis por dia ={" "}
-                <strong className="text-gray-800">
-                  {maoObraEquipe.dias} {maoObraEquipe.dias === 1 ? "dia" : "dias"} de obra
-                </strong>
-                {maoObraEquipe.dias_manual ? " (ajuste manual)" : ""} — é o prazo de execução que vai na proposta.
-              </p>
+              <ResumoEquipe equipe={maoObraEquipe} />
+              <p className="text-xs text-gray-500">Os dias de obra são o prazo de execução que vai na proposta.</p>
             </>
           )}
         </div>
@@ -341,6 +329,26 @@ export default function Step6RevisaoPage() {
               não só horas trabalhadas, então o nome precisa refletir isso.
               O campo interno continua `valor_mao_obra` (só o rótulo mudou). */}
           <Linha label="Execução" valor={resultadoOrcamento.valor_mao_obra} />
+          {/* Migração 056 — a parte da equipe dentro de "Execução": o que as
+              pessoas recebem e os encargos (INSS, IR, INSS patronal). */}
+          {maoObraEquipe && maoObraEquipe.encargos_total != null && maoObraEquipe.valor_total > 0 && (
+            <div className="space-y-0.5 pl-4 text-xs text-gray-500">
+              <div className="flex justify-between">
+                <span>Mão de obra (valor pago às pessoas)</span>
+                <span>{formatarMoeda(maoObraEquipe.valor_pago_pessoas ?? 0)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Encargos sobre mão de obra</span>
+                <span>{formatarMoeda(maoObraEquipe.encargos_total)}</span>
+              </div>
+              {resultadoOrcamento.valor_mao_obra - maoObraEquipe.valor_total > 0.004 && (
+                <div className="flex justify-between">
+                  <span>Itens de execução</span>
+                  <span>{formatarMoeda(resultadoOrcamento.valor_mao_obra - maoObraEquipe.valor_total)}</span>
+                </div>
+              )}
+            </div>
+          )}
           {/* Ordem pedida explicitamente — mesma ordem da Tela 4 (Custos
               Operacionais Adicionais). */}
           <Linha label="Alimentação" valor={resultadoOrcamento.valor_alimentacao} />

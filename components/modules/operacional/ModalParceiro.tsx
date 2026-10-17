@@ -6,6 +6,7 @@ import { toast } from "./toast";
 import ParceiroAnexos from "./ParceiroAnexos";
 import { TIPOS_TRABALHO_OPCOES } from "./MultiSelectTiposTrabalho";
 import { ESTADOS_BRASIL } from "@/lib/estados-brasil";
+import { FORMAS_CONTRATACAO, LABEL_FORMA_CONTRATACAO } from "@/lib/usecases/orcamento/encargosMaoObra";
 import type { CategoriaParceiro, Parceiro, TipoTrabalhoOperacional } from "@/lib/types/domain";
 import FecharComEsc from "@/components/ui/FecharComEsc";
 
@@ -61,6 +62,7 @@ interface Form {
   notas: Record<TipoTrabalhoOperacional, string>;
   totalPessoas: string;
   percentualPadrao: string;
+  formaContratacao: string;
 }
 
 function paraForm(p: Parceiro | null, categoria: CategoriaParceiro): Form {
@@ -81,6 +83,7 @@ function paraForm(p: Parceiro | null, categoria: CategoriaParceiro): Form {
     ) as Record<TipoTrabalhoOperacional, string>,
     totalPessoas: p?.total_pessoas != null ? String(p.total_pessoas) : "",
     percentualPadrao: p?.percentual_comissao_padrao != null ? String(p.percentual_comissao_padrao) : "",
+    formaContratacao: p?.forma_contratacao ?? "",
   };
 }
 
@@ -138,6 +141,7 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo, modo = "jan
       tipos_trabalho: form.tiposTrabalho,
       ...notasPayload,
       total_pessoas: form.totalPessoas ? Number(form.totalPessoas) : null,
+      ...(prestador && form.formaContratacao && { forma_contratacao: form.formaContratacao }),
       ...(form.categoriaParceiro === "representante" && { percentual_comissao_padrao: form.percentualPadrao === "" ? null : Number(form.percentualPadrao) }),
     };
 
@@ -284,6 +288,29 @@ export default function ModalParceiro({ parceiro, onFechar, onSalvo, modo = "jan
               ))}
             </div>
           </div>
+          )}
+
+          {/* Migração 056 — como o prestador é contratado (encargos, RPA). */}
+          {prestador && (
+            <div className="border-t border-gray-100 pt-4">
+              <label className="label-field" htmlFor="parc-forma">
+                Forma de contratação
+              </label>
+              <select
+                id="parc-forma"
+                className="input-field max-w-xs"
+                value={form.formaContratacao}
+                onChange={(e) => setForm((f) => ({ ...f, formaContratacao: e.target.value }))}
+              >
+                <option value="">Não informada</option>
+                {FORMAS_CONTRATACAO.map((f) => (
+                  <option key={f} value={f}>
+                    {LABEL_FORMA_CONTRATACAO[f]}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-xs text-gray-400">MEI e PJ emitem nota; pessoa física recebe por RPA, com INSS e IR descontados e recolhidos pela BR.</p>
+            </div>
           )}
 
           {form.categoriaParceiro === "representante" && (

@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { classesStatus, formatarData, formatarMoeda, formatarNumero, formatarStatus } from "@/lib/format";
 import TableMateriais from "@/components/TableMateriais";
 import CabecalhoPagina from "@/components/ui/CabecalhoPagina";
+import ResumoEquipe from "@/components/orcamento/ResumoEquipe";
 import type { Orcamento } from "@/lib/types";
 import { LABEL_FUNCAO_MAO_OBRA } from "@/lib/usecases/orcamento/maoObraEquipe";
 
@@ -106,17 +107,7 @@ export default async function OrcamentoDetalhePage({ params }: { params: { id: s
       {orcamento.mao_obra_equipe && (
         <div className="card space-y-1 text-sm">
           <h2 className="mb-2 text-lg font-semibold">Mão de obra — equipe e diárias</h2>
-          {orcamento.mao_obra_equipe.funcoes.map((f) => (
-            <p key={f.funcao}>
-              {LABEL_FUNCAO_MAO_OBRA[f.funcao]}: {f.pessoas} × {f.diarias} {f.diarias === 1 ? "diária" : "diárias"} × {formatarMoeda(f.valor_diaria)} ={" "}
-              {formatarMoeda(f.subtotal)}
-            </p>
-          ))}
-          <p className="border-t border-gray-100 pt-1 text-gray-500">
-            {formatarNumero(orcamento.mao_obra_equipe.horas_obra, 1)} h de obra ÷ {formatarNumero(orcamento.mao_obra_equipe.horas_uteis_dia, 1)} h úteis por dia ={" "}
-            {orcamento.mao_obra_equipe.dias} {orcamento.mao_obra_equipe.dias === 1 ? "dia" : "dias"} de obra
-            {orcamento.mao_obra_equipe.dias_manual ? " (ajuste manual)" : ""} · equipe: {formatarMoeda(orcamento.mao_obra_equipe.valor_total)}
-          </p>
+          <ResumoEquipe equipe={orcamento.mao_obra_equipe} />
         </div>
       )}
 

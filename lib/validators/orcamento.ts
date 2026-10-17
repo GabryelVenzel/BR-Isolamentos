@@ -136,15 +136,27 @@ export const CreateOrcamentoSchema = z.object({
       pessoas: z.number().int().nonnegative(),
       funcoes: z.array(
         z.object({
-          funcao: z.enum(["funileiro", "isolador", "ajudante", "tst"]),
+          // Migração 056 — linha da equipe com forma de contratação e encargos.
+          id: z.string().optional(),
+          funcao: z.enum(["funileiro", "isolador", "ajudante", "supervisor", "tst"]),
+          forma: z.enum(["mei", "pf", "pj", "mei_cpp", "nao_informada"]).optional(),
           pessoas: z.number().int().positive(),
           m2_dia: z.number().nonnegative(),
           valor_diaria: z.number().nonnegative(),
           diarias: z.number().int().nonnegative(),
+          valor_pago: z.number().nonnegative().optional(),
+          bruto: z.number().nonnegative().optional(),
+          inss: z.number().nonnegative().optional(),
+          irrf: z.number().nonnegative().optional(),
+          iss: z.number().nonnegative().optional(),
+          cpp: z.number().nonnegative().optional(),
+          encargos: z.number().nonnegative().optional(),
           subtotal: z.number().nonnegative(),
         })
       ),
       valor_total: z.number().nonnegative(),
+      valor_pago_pessoas: z.number().nonnegative().optional(),
+      encargos_total: z.number().nonnegative().optional(),
     })
     .nullable()
     .optional(),

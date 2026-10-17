@@ -101,9 +101,14 @@ describe("reconstruirEstadoWizard — reabrir um orçamento salvo no wizard", ()
   it("recupera equipe, diária ajustada, custos (valor → quantidade), margem usada, desconto e observações", () => {
     const { estado } = reconstruirEstadoWizard(orcamento(), config, []);
 
-    expect(estado.equipe).toEqual({ funileiro: 2, isolador: 1, ajudante: 0, tst: 0 });
+    // Migração 056: linhas; forma "não informada" (orçamento salvo antes dela).
+    expect(estado.equipeLinhas?.map((l) => [l.funcao, l.pessoas, l.forma])).toEqual([
+      ["funileiro", 2, "nao_informada"],
+      ["isolador", 1, "nao_informada"],
+    ]);
     // só a diária que difere da configuração vira ajuste do orçamento
-    expect(estado.valoresDiariaOverride).toEqual({ isolador: 600 });
+    expect(estado.equipeLinhas?.find((l) => l.funcao === "isolador")?.valor_diaria).toBe(600);
+    expect(estado.equipeLinhas?.find((l) => l.funcao === "funileiro")?.valor_diaria).toBeNull();
     expect(estado.diasMaoObraManual).toBeNull();
     expect(estado.custosOperacionais).toMatchObject({ km_deslocamento: 100, quantidade_alimentacao: 22, noites_hospedagem: 0, diarias_aluguel_carro: 0, valor_frete: 300 });
     expect(estado.margemPercentual).toBe(30);
@@ -146,9 +151,12 @@ describe("reconstruirEstadoWizard — reabrir um orçamento salvo no wizard", ()
   it("orçamento anterior à equipe e diárias: vira a dupla equivalente, mantendo o valor de mão de obra salvo", () => {
     // 14.400 salvos, dos quais 1.200 são andaime → 13.200 de mão de obra; 50 h em dias de 10 h = 5 dias
     const { estado, avisos } = reconstruirEstadoWizard(orcamento({ mao_obra_equipe: null, horas_uteis_dia: 10 }), config, []);
-    expect(estado.equipe).toEqual({ funileiro: 1, isolador: 1, ajudante: 0, tst: 0 });
+    expect(estado.equipeLinhas?.map((l) => [l.funcao, l.pessoas, l.forma])).toEqual([
+      ["funileiro", 1, "nao_informada"],
+      ["isolador", 1, "nao_informada"],
+    ]);
     expect(estado.diasMaoObraManual).toBe(5);
-    expect(estado.valoresDiariaOverride).toEqual({ funileiro: 1320, isolador: 1320 });
+    expect(estado.equipeLinhas?.map((l) => l.valor_diaria)).toEqual([1320, 1320]);
     // 2 pessoas × 5 dias × 1.320 = 13.200 — o mesmo valor salvo
     expect(2 * 5 * 1320).toBe(13200);
     // as horas úteis antigas eram do modelo de horas da dupla — não viram ajuste do orçamento
@@ -159,7 +167,7 @@ describe("reconstruirEstadoWizard — reabrir um orçamento salvo no wizard", ()
   it("orçamento antigo sem mão de obra volta com a equipe zerada", () => {
     const semMaoObra = orcamento({ mao_obra_equipe: null, valor_mao_obra: 1200, itens: [item({ horas_mao_obra: 0, subtotal_mao_obra: 1200 })] });
     const { estado } = reconstruirEstadoWizard(semMaoObra, config, []);
-    expect(estado.equipe).toEqual({ funileiro: 0, isolador: 0, ajudante: 0, tst: 0 });
+    expect(estado.equipeLinhas).toEqual([]);
     expect(estado.diasMaoObraManual).toBeNull();
   });
 

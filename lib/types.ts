@@ -211,7 +211,24 @@ export interface ItemExecucaoOrcamento {
 /** Cargos de mão de obra orçados por diária (migração 048). "tst" —
  * Técnico de Segurança do Trabalho (migração 050) — entra na equipe e no
  * custo, mas não produz: não tem rendimento e não reduz os dias de obra. */
-export type FuncaoMaoObra = "funileiro" | "isolador" | "ajudante" | "tst";
+export type FuncaoMaoObra = "funileiro" | "isolador" | "ajudante" | "supervisor" | "tst";
+
+/** Forma de contratação de uma linha da equipe (migração 056) — ver
+ * lib/usecases/orcamento/encargosMaoObra.ts. "nao_informada" só aparece em
+ * orçamentos anteriores ao ajuste (sem encargos, mesmo valor de antes). */
+export type FormaContratacao = "mei" | "pf" | "pj" | "mei_cpp" | "nao_informada";
+
+/** Uma linha da equipe da proposta (migração 056): permite, por exemplo,
+ * 1 funileiro MEI e 1 funileiro PF na mesma obra. `forma` e `valor_diaria`
+ * em `null` = o padrão de Configurações do orçamento. */
+export interface LinhaEquipeMaoObra {
+  id: string;
+  funcao: FuncaoMaoObra;
+  forma: FormaContratacao | null;
+  pessoas: number;
+  /** Valor combinado (líquido) por diária; `null` = o da configuração. */
+  valor_diaria: number | null;
+}
 
 /** Mão de obra de uma proposta por EQUIPE e DIÁRIAS (migração 048) — o
  * resultado de lib/usecases/orcamento/maoObraEquipe.ts, guardado junto do
@@ -231,17 +248,37 @@ export interface MaoObraEquipe {
   dias_manual: boolean;
   pessoas: number;
   funcoes: Array<{
+    /** Migração 056 — id da linha da equipe (ausente em orçamentos antigos). */
+    id?: string;
     funcao: FuncaoMaoObra;
+    /** Migração 056 — ausente = orçamento antigo, sem encargos. */
+    forma?: FormaContratacao;
     pessoas: number;
     /** Rendimento da função, m² por pessoa por dia. */
     m2_dia: number;
+    /** Valor COMBINADO (líquido) da diária. */
     valor_diaria: number;
     /** Diárias por pessoa (= `dias`). */
     diarias: number;
-    /** pessoas × diárias × valor da diária. */
+    /** Migração 056 — pessoas × diárias × valor combinado (o que as pessoas recebem). */
+    valor_pago?: number;
+    /** Migração 056 — totais da linha (todas as pessoas): bruto, retenções da
+     * pessoa física, INSS patronal e encargos (custo real − valor pago). */
+    bruto?: number;
+    inss?: number;
+    irrf?: number;
+    iss?: number;
+    cpp?: number;
+    encargos?: number;
+    /** CUSTO REAL da linha (valor pago + encargos) — é o que entra no custo. */
     subtotal: number;
   }>;
+  /** Soma dos custos reais — o que entra no custo do orçamento. */
   valor_total: number;
+  /** Migração 056 — o que as pessoas recebem (soma dos valores combinados). */
+  valor_pago_pessoas?: number;
+  /** Migração 056 — encargos sobre a mão de obra (valor_total − valor_pago_pessoas). */
+  encargos_total?: number;
 }
 
 export interface Orcamento {
@@ -410,6 +447,21 @@ export interface ConfigEmpresa {
   // Regime tributário — define como o percentual de impostos "base" é calculado.
   // Impostos extras (opcionais, variam por contrato) ficam em `impostos_config`.
   regime_tributario: RegimeTributario;
+  // Encargos sobre a mão de obra (migração 056) — ver
+  // lib/usecases/orcamento/encargosMaoObra.ts. Ausentes enquanto a migração
+  // não foi rodada (valem os valores de 2026).
+  encargos_inss_pf_pct?: number;
+  encargos_teto_inss?: number;
+  encargos_cpp_pct?: number;
+  encargos_tabela_irrf?: unknown;
+  encargos_irrf_desconto_simplificado?: number;
+  encargos_reducao_irrf?: unknown;
+  encargos_iss_autonomo_pct?: number;
+  encargos_dias_trabalho_mes?: number;
+  /** Forma de contratação que vem preenchida em cada função ao montar uma equipe. */
+  forma_contratacao_padrao?: unknown;
+  /** Quando o RBT12 foi atualizado pela última vez (aviso após 30 dias). */
+  simples_nacional_rbt12_atualizado_em?: string | null;
   // Usado só quando regime_tributario === "simples_nacional". Anexo IV é o padrão do
   // sistema (mais próximo de serviço de instalação/engenharia) — CONFIRMAR COM O
   // CONTADOR, pode variar conforme a atividade exata contratada.
@@ -437,6 +489,9 @@ export interface ConfigEmpresa {
   /** Migração 050 — diária do Técnico de Segurança do Trabalho. Ausente
    * enquanto a migração não foi rodada. */
   valor_diaria_tst?: number;
+  /** Migração 056 — Supervisor: diária e rendimento (ele produz). */
+  valor_diaria_supervisor?: number;
+  m2_dia_supervisor?: number;
   valor_km_deslocamento: number;
   valor_noite_hospedagem: number;
   /** @deprecated Sem uso — o frete não tem mais preço configurável por

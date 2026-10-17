@@ -37,9 +37,10 @@ export {
 } from "./itensExecucao";
 export type { EscolhaItemExecucao, EscolhasExecucao } from "./itensExecucao";
 export {
-  EQUIPE_PADRAO,
-  EQUIPE_VAZIA,
+  EQUIPE_LINHAS_PADRAO,
   FUNCOES_MAO_OBRA,
+  formaPadrao,
+  linhasDaEquipeAntiga,
   funcaoProduz,
   LABEL_FUNCAO_MAO_OBRA,
   calcularMaoObraEquipe,
@@ -49,6 +50,18 @@ export {
   valorDiariaPadrao,
 } from "./maoObraEquipe";
 export type { EquipeMaoObra, ParametrosEquipe } from "./maoObraEquipe";
+export {
+  FORMAS_CONTRATACAO,
+  LABEL_FORMA_CONTRATACAO,
+  PARAMETROS_ENCARGOS_2026,
+  REDUCAO_IRRF_2026,
+  TABELA_IRRF_2026,
+  brutoParaLiquido,
+  encargosDaPessoa,
+  parametrosEncargosDaConfig,
+  retencoesDoBruto,
+} from "./encargosMaoObra";
+export type { EncargosPessoa, FaixaIrrf, ParametrosEncargos, ReducaoIrrf } from "./encargosMaoObra";
 export type { FatoresMaoObra, ItemMaoObra, MaoObraAutomatica, ParametrosMaoObra } from "./calcularMaoObraAutomatica";
 export {
   arvoresEquivalentes,

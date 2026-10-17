@@ -440,7 +440,11 @@ export function quadrosQuantificacao(
     quadros.push({
       titulo: "Mão de Obra",
       cabecalho: ["Função", "Quantidade"],
-      linhas: equipe.funcoes.map((f) => [LABEL_FUNCAO_MAO_OBRA[f.funcao], `${f.pessoas} ${f.pessoas === 1 ? "profissional" : "profissionais"}`]),
+      // Linhas da mesma função (ex.: 1 funileiro MEI + 1 PF) somadas: a
+      // proposta não mostra forma de contratação nem encargos (migração 056).
+      linhas: Object.entries(
+        equipe.funcoes.reduce<Record<string, number>>((acc, f) => ({ ...acc, [f.funcao]: (acc[f.funcao] ?? 0) + f.pessoas }), {})
+      ).map(([funcao, pessoas]) => [LABEL_FUNCAO_MAO_OBRA[funcao as keyof typeof LABEL_FUNCAO_MAO_OBRA], `${pessoas} ${pessoas === 1 ? "profissional" : "profissionais"}`]),
     });
   } else {
     const horas = linhasMaoDeObra(itens);
