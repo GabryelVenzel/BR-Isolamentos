@@ -180,7 +180,7 @@ describe("distribuirMaoObraPorTrecho", () => {
 });
 
 describe("equipe por linhas com encargos (migração 056)", () => {
-  const cfg = { ...parametros, valor_diaria_funileiro: 550, valor_diaria_isolador: 550, regime_tributario: "simples_nacional" as const, simples_nacional_anexo: "III" as const };
+  const cfg = { ...parametros, valor_diaria_funileiro: 550, valor_diaria_isolador: 550, regime_tributario: "simples_nacional" as const, simples_nacional_anexo: "III" as const, encargos_iss_autonomo_pct: 0 };
 
   it("mesma função com formas diferentes: 1 funileiro MEI + 1 funileiro PF, 5 dias", () => {
     const r = calcularMaoObraEquipe({

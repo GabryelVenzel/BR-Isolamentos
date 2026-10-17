@@ -1,8 +1,9 @@
 import { brutoParaLiquido, encargosDaPessoa, parametrosEncargosDaConfig, retencoesDoBruto } from "@/lib/usecases/orcamento/encargosMaoObra";
 
 // Critérios de aceite do documento "Direcionamento_Encargos_Mao_de_Obra_Orcamento.docx" (item 7).
-const anexoIII = parametrosEncargosDaConfig({ regime_tributario: "simples_nacional", simples_nacional_anexo: "III" });
-const anexoIV = parametrosEncargosDaConfig({ regime_tributario: "simples_nacional", simples_nacional_anexo: "IV" });
+// Os números do documento foram calculados com ISS 0%.
+const anexoIII = parametrosEncargosDaConfig({ regime_tributario: "simples_nacional", simples_nacional_anexo: "III", encargos_iss_autonomo_pct: 0 });
+const anexoIV = parametrosEncargosDaConfig({ regime_tributario: "simples_nacional", simples_nacional_anexo: "IV", encargos_iss_autonomo_pct: 0 });
 
 describe("encargos da mão de obra (migração 056)", () => {
   it("MEI, R$ 550, 5 dias: custo = valor combinado, sem encargos", () => {
@@ -59,6 +60,17 @@ describe("encargos da mão de obra (migração 056)", () => {
     const semReducao = parametrosEncargosDaConfig({ simples_nacional_anexo: "III", encargos_reducao_irrf: { ativa: false } as never });
     const r = encargosDaPessoa("pf", 550, 5, semReducao);
     expect(r.irrf).toBeGreaterThan(0);
+  });
+
+  it("ISS de 5% (teto, padrão): retido da PF — o bruto sobe para o líquido continuar o combinado", () => {
+    const comIss = parametrosEncargosDaConfig({ simples_nacional_anexo: "III" });
+    expect(comIss.iss_autonomo_pct).toBe(5);
+    const r = encargosDaPessoa("pf", 550, 5, comIss);
+    expect(r.iss).toBe(Math.round(r.bruto * 5) / 100);
+    expect(Math.round((r.bruto - r.inss - r.irrf - r.iss) * 100) / 100).toBe(2750);
+    expect(r.bruto).toBeGreaterThan(3089.89);
+    // MEI e PJ não sofrem retenção de ISS pela BR.
+    expect(encargosDaPessoa("mei", 550, 5, comIss).iss).toBe(0);
   });
 
   it("fora do Simples a PF também gera INSS patronal", () => {

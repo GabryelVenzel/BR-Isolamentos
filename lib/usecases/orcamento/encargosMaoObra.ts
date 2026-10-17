@@ -81,7 +81,9 @@ export const PARAMETROS_ENCARGOS_2026: Omit<ParametrosEncargos, "cpp_sobre_pf"> 
   tabela_irrf: TABELA_IRRF_2026,
   irrf_desconto_simplificado: 607.2,
   reducao_irrf: REDUCAO_IRRF_2026,
-  iss_autonomo_pct: 0,
+  // Teto do ISS (LC 116/2003, art. 8º, II): 5%. Padrão conservador até o
+  // contador confirmar a alíquota de Mogi das Cruzes para autônomo.
+  iss_autonomo_pct: 5,
   dias_trabalho_mes: 22,
 };
 
